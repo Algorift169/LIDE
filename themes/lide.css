@@ -1,0 +1,26 @@
+/* Dark theme base */
+window {
+    background-color: #0b0f14;
+    color: #ffffff;
+}
+
+button {
+    background-color: #1e2429;
+    color: #00ff88;
+    border: none;
+    padding: 5px;
+}
+
+button:hover {
+    background-color: #2a323a;
+}
+
+label {
+    color: #ffffff;
+}
+
+entry {
+    background-color: #1e2429;
+    color: #ffffff;
+    border: 1px solid #00ff88;
+}

@@ -1,0 +1,8 @@
+! BlackLine xterm configuration
+xterm*background: #0b0f14
+xterm*foreground: #ffffff
+xterm*cursorColor: #00ff88
+xterm*font: fixed
+xterm*geometry: 80x24
+xterm*scrollBar: false
+xterm*rightScrollBar: false
