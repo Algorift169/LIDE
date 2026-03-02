@@ -1,18 +1,25 @@
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
+#include <X11/cursorfont.h>  
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
-int main(void) {
+int main(void) 
+{
     Display *d = XOpenDisplay(NULL);
-    if (!d) {
+    if (!d) 
+    {
         fprintf(stderr, "Cannot open display\n");
         return 1;
     }
     
     int screen = DefaultScreen(d);
     Window root = RootWindow(d, screen);
+    
+    // Create and set a visible cursor
+    Cursor cursor = XCreateFontCursor(d, XC_left_ptr);  
+    XDefineCursor(d, root, cursor);
     
     // Select events but DON'T override redirect for the root window
     XSelectInput(d, root, SubstructureNotifyMask | ButtonPressMask | KeyPressMask);
@@ -23,7 +30,8 @@ int main(void) {
     XSelectInput(d, root, attr.your_event_mask | SubstructureRedirectMask);
     
     XEvent ev;
-    while (1) {
+    while (1)
+     {
         XNextEvent(d, &ev);
         
         switch(ev.type) {
