@@ -2,6 +2,7 @@
 #include <time.h>
 
 static gchar *format_size(goffset size) 
+
 {
     if (size < 1024) return g_strdup_printf("%ld B", (long)size);
     if (size < 1024 * 1024) return g_strdup_printf("%.1f KB", size / 1024.0);
@@ -10,12 +11,14 @@ static gchar *format_size(goffset size)
 }
 
 static gchar *format_time(GDateTime *dt) 
+
 {
     return g_date_time_format(dt, "%Y-%m-%d %H:%M");
 }
 
-// Helper function to actually load directory without history
+// Helper function to load directory without history
 static void load_directory(FileManager *fm, GFile *file)
+
 {
     // Clear main store
     gtk_tree_store_clear(fm->main_store);
@@ -71,6 +74,7 @@ static void load_directory(FileManager *fm, GFile *file)
 }
 
 static void add_to_history(FileManager *fm, GFile *file, int add_to_history_flag)
+
 {
     gchar *path = g_file_get_path(file);
     
@@ -107,6 +111,7 @@ static void add_to_history(FileManager *fm, GFile *file, int add_to_history_flag
 }
 
 void fm_open_location(FileManager *fm, const gchar *path) 
+
 {
     GFile *file = g_file_new_for_path(path);
     
@@ -123,6 +128,7 @@ void fm_open_location(FileManager *fm, const gchar *path)
 }
 
 void fm_go_up(FileManager *fm) 
+
 {
     if (!fm->current_dir) return;
     GFile *parent = g_file_get_parent(fm->current_dir);
@@ -135,21 +141,23 @@ void fm_go_up(FileManager *fm)
 }
 
 void fm_go_home(FileManager *fm) 
+
 {
     const gchar *home = g_get_home_dir();
     fm_open_location(fm, home);
 }
 
 void fm_go_back(FileManager *fm) 
+
 {
-    if (!fm->history) return;
-    
-    // If we're at a position, move back
+   // If at a position, move back
     if (fm->history_pos) {
         if (fm->history_pos->prev) {
             fm->history_pos = fm->history_pos->prev;
         }
-    } else {
+    } else if (!fm->history) return;
+    
+     {
         // Not in history, go to last item
         fm->history_pos = g_list_last(fm->history);
     }
@@ -172,6 +180,7 @@ void fm_go_back(FileManager *fm)
 }
 
 void fm_go_forward(FileManager *fm) 
+
 {
     if (!fm->history_pos || !fm->history_pos->next) return;
     
@@ -192,6 +201,7 @@ void fm_go_forward(FileManager *fm)
 }
 
 void fm_refresh(FileManager *fm) 
+
 {
     if (!fm->current_dir) return;
     gchar *path = g_file_get_path(fm->current_dir);
@@ -200,12 +210,14 @@ void fm_refresh(FileManager *fm)
 }
 
 void fm_on_location_activate(FileManager *fm) 
+
 {
     const gchar *text = gtk_entry_get_text(GTK_ENTRY(fm->location_entry));
     fm_open_location(fm, text);
 }
 
 void fm_on_row_activated(GtkTreeView *tree, GtkTreePath *path, GtkTreeViewColumn *col, FileManager *fm) 
+
 {
     GtkTreeModel *model = gtk_tree_view_get_model(tree);
     GtkTreeIter iter;
@@ -240,6 +252,7 @@ void fm_on_row_activated(GtkTreeView *tree, GtkTreePath *path, GtkTreeViewColumn
 }
 
 void fm_update_status(FileManager *fm) 
+
 {
     if (!fm->current_dir) return;
 
@@ -260,6 +273,7 @@ void fm_update_status(FileManager *fm)
 }
 
 void fm_populate_sidebar(FileManager *fm) 
+
 {
     gtk_list_store_clear(fm->sidebar_store);
     GtkTreeIter iter;
@@ -281,6 +295,7 @@ void fm_populate_sidebar(FileManager *fm)
 }
 
 void fm_on_sidebar_row_activated(GtkTreeView *tree, GtkTreePath *path, GtkTreeViewColumn *col, FileManager *fm) 
+
 {
     GtkTreeModel *model = gtk_tree_view_get_model(tree);
     GtkTreeIter iter;
