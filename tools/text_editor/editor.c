@@ -6,6 +6,7 @@
 #include <gdk/gdkx.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <libgen.h>
 
 // Dragging variables
 static int is_dragging = 0;
@@ -16,7 +17,13 @@ static GtkTextBuffer *buffer = NULL;
 static char *current_filename = NULL;
 static char *current_folder = NULL;
 
-// Function prototypes - declare ALL functions at the top
+// Dialog mode enum
+typedef enum {
+    DIALOG_MODE_OPEN,
+    DIALOG_MODE_SAVE
+} DialogMode;
+
+// Function prototypes
 static void new_file(GtkButton *button, gpointer data);
 static void open_file(GtkButton *button, gpointer data);
 static void save_file(GtkButton *button, gpointer data);
@@ -26,8 +33,8 @@ static void on_open_clicked(GtkButton *button, gpointer dialog);
 static void on_save_clicked(GtkButton *button, gpointer dialog);
 static void on_up_clicked(GtkButton *button, gpointer dialog);
 static void on_home_clicked(GtkButton *button, gpointer dialog);
-static void custom_open_dialog(GtkWidget *parent);
-static void custom_save_dialog(GtkWidget *parent);
+static void on_dialog_response(GtkDialog *dialog, gint response_id, gpointer user_data);
+static void custom_file_dialog(GtkWidget *parent, DialogMode mode);
 
 // Dragging handlers
 static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer window)
@@ -115,20 +122,18 @@ static void on_up_clicked(GtkButton *button, gpointer dialog)
         g_free(current_folder);
         current_folder = parent;
         
-        // Get the parent window before destroying dialog
+        // Get mode from dialog
+        DialogMode mode = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(dialog), "dialog-mode"));
+        
+        // Get the parent window
         GtkWindow *parent_win = gtk_window_get_transient_for(GTK_WINDOW(dialog));
         GtkWidget *parent_widget = GTK_WIDGET(parent_win);
         
-        // Refresh the dialog
+        // Destroy old dialog
         gtk_widget_destroy(GTK_WIDGET(dialog));
         
-        // Reopen dialog with new path
-        if (gtk_window_get_title(GTK_WINDOW(dialog)) && 
-            strstr(gtk_window_get_title(GTK_WINDOW(dialog)), "Open")) {
-            custom_open_dialog(parent_widget);
-        } else {
-            custom_save_dialog(parent_widget);
-        }
+        // Create new dialog with same mode
+        custom_file_dialog(parent_widget, mode);
     } else {
         g_free(parent);
     }
@@ -141,20 +146,18 @@ static void on_home_clicked(GtkButton *button, gpointer dialog)
     g_free(current_folder);
     current_folder = g_strdup(home);
     
-    // Get the parent window before destroying dialog
+    // Get mode from dialog
+    DialogMode mode = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(dialog), "dialog-mode"));
+    
+    // Get the parent window
     GtkWindow *parent_win = gtk_window_get_transient_for(GTK_WINDOW(dialog));
     GtkWidget *parent_widget = GTK_WIDGET(parent_win);
     
-    // Refresh the dialog
+    // Destroy old dialog
     gtk_widget_destroy(GTK_WIDGET(dialog));
     
-    // Reopen dialog with home path
-    if (gtk_window_get_title(GTK_WINDOW(dialog)) && 
-        strstr(gtk_window_get_title(GTK_WINDOW(dialog)), "Open")) {
-        custom_open_dialog(parent_widget);
-    } else {
-        custom_save_dialog(parent_widget);
-    }
+    // Create new dialog with same mode
+    custom_file_dialog(parent_widget, mode);
 }
 
 static void on_listbox_row_activated(GtkListBox *listbox, GtkListBoxRow *row, gpointer dialog)
@@ -172,26 +175,24 @@ static void on_listbox_row_activated(GtkListBox *listbox, GtkListBoxRow *row, gp
     gpointer is_dir_ptr = g_object_get_data(G_OBJECT(row_widget), "is_dir");
     int is_dir = GPOINTER_TO_INT(is_dir_ptr);
     
+    // Get mode from dialog
+    DialogMode mode = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(dialog), "dialog-mode"));
+    
     if (is_dir) {
         // Enter directory
         char *new_path = g_build_filename(current_folder, filename, NULL);
         g_free(current_folder);
         current_folder = new_path;
         
-        // Get the parent window before destroying dialog
+        // Get the parent window
         GtkWindow *parent_win = gtk_window_get_transient_for(GTK_WINDOW(dialog));
         GtkWidget *parent_widget = GTK_WIDGET(parent_win);
         
-        // Refresh the dialog
+        // Destroy old dialog
         gtk_widget_destroy(GTK_WIDGET(dialog));
         
-        // Reopen dialog with new path
-        if (gtk_window_get_title(GTK_WINDOW(dialog)) && 
-            strstr(gtk_window_get_title(GTK_WINDOW(dialog)), "Open")) {
-            custom_open_dialog(parent_widget);
-        } else {
-            custom_save_dialog(parent_widget);
-        }
+        // Create new dialog with same mode
+        custom_file_dialog(parent_widget, mode);
     } else {
         // Select file - set entry text
         GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
@@ -205,6 +206,11 @@ static void on_listbox_row_activated(GtkListBox *listbox, GtkListBoxRow *row, gp
                         for (GList *nc = name_box_children; nc; nc = nc->next) {
                             if (GTK_IS_ENTRY(nc->data)) {
                                 gtk_entry_set_text(GTK_ENTRY(nc->data), filename);
+                                
+                                // In open mode, automatically open on single click?
+                                if (mode == DIALOG_MODE_OPEN) {
+                                    // You could trigger open here if desired
+                                }
                             }
                         }
                         g_list_free(name_box_children);
@@ -256,11 +262,12 @@ static void on_open_clicked(GtkButton *button, gpointer dialog)
             fseek(f, 0, SEEK_SET);
             
             char *content = g_malloc(size + 1);
-            fread(content, 1, size, f);
-            content[size] = '\0';
+            size_t read_size = fread(content, 1, size, f);
+            if (read_size == size) {
+                content[size] = '\0';
+                gtk_text_buffer_set_text(buffer, content, -1);
+            }
             fclose(f);
-            
-            gtk_text_buffer_set_text(buffer, content, -1);
             g_free(content);
             
             // Update current filename
@@ -269,13 +276,16 @@ static void on_open_clicked(GtkButton *button, gpointer dialog)
             
             // Update window title
             GtkWindow *parent_win = gtk_window_get_transient_for(GTK_WINDOW(dialog));
-            GtkWidget *window = GTK_WIDGET(parent_win);
-            char *title = g_strdup_printf("BlackLine Editor - %s", filename);
-            gtk_window_set_title(GTK_WINDOW(window), title);
-            g_free(title);
+            if (parent_win) {
+                GtkWidget *window = GTK_WIDGET(parent_win);
+                char *title = g_strdup_printf("BlackLine Editor - %s", filename);
+                gtk_window_set_title(GTK_WINDOW(window), title);
+                g_free(title);
+            }
         } else {
             g_free(fullpath);
             g_free(filename);
+            filename = NULL;
         }
     }
     
@@ -331,10 +341,12 @@ static void on_save_clicked(GtkButton *button, gpointer dialog)
             
             // Update window title
             GtkWindow *parent_win = gtk_window_get_transient_for(GTK_WINDOW(dialog));
-            GtkWidget *window = GTK_WIDGET(parent_win);
-            char *title = g_strdup_printf("BlackLine Editor - %s", filename);
-            gtk_window_set_title(GTK_WINDOW(window), title);
-            g_free(title);
+            if (parent_win) {
+                GtkWidget *window = GTK_WIDGET(parent_win);
+                char *title = g_strdup_printf("BlackLine Editor - %s", filename);
+                gtk_window_set_title(GTK_WINDOW(window), title);
+                g_free(title);
+            }
         } else {
             g_free(fullpath);
         }
@@ -345,8 +357,16 @@ static void on_save_clicked(GtkButton *button, gpointer dialog)
     gtk_widget_destroy(GTK_WIDGET(dialog));
 }
 
-// Custom compact open dialog
-static void custom_open_dialog(GtkWidget *parent)
+static void on_dialog_response(GtkDialog *dialog, gint response_id, gpointer user_data)
+{
+    (void)user_data;
+    if (response_id == GTK_RESPONSE_DELETE_EVENT) {
+        gtk_widget_destroy(GTK_WIDGET(dialog));
+    }
+}
+
+// Unified file dialog function
+static void custom_file_dialog(GtkWidget *parent, DialogMode mode)
 {
     GtkWidget *dialog;
     GtkWidget *content;
@@ -355,7 +375,7 @@ static void custom_open_dialog(GtkWidget *parent)
     GtkWidget *listbox;
     GtkWidget *button_box;
     GtkWidget *cancel_btn;
-    GtkWidget *open_btn;
+    GtkWidget *action_btn;
     GtkWidget *entry;
     GtkWidget *path_box;
     GtkWidget *up_btn;
@@ -367,13 +387,21 @@ static void custom_open_dialog(GtkWidget *parent)
         current_folder = g_strdup(home);
     }
     
-    // Create dialog
+    // Create dialog with appropriate title
     dialog = gtk_dialog_new();
-    gtk_window_set_title(GTK_WINDOW(dialog), "Open File");
+    if (mode == DIALOG_MODE_OPEN) {
+        gtk_window_set_title(GTK_WINDOW(dialog), "Open File");
+    } else {
+        gtk_window_set_title(GTK_WINDOW(dialog), "Save File");
+    }
+    
     gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(parent));
     gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(dialog), 450, 350);
+    gtk_window_set_default_size(GTK_WINDOW(dialog), 450, 400);
     gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_CENTER_ON_PARENT);
+    
+    // Store mode in dialog for later use
+    g_object_set_data(G_OBJECT(dialog), "dialog-mode", GINT_TO_POINTER(mode));
     
     content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
     
@@ -403,7 +431,7 @@ static void custom_open_dialog(GtkWidget *parent)
     scrolled = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
                                    GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-    gtk_widget_set_size_request(scrolled, -1, 200);
+    gtk_widget_set_size_request(scrolled, -1, 250);
     gtk_box_pack_start(GTK_BOX(vbox), scrolled, TRUE, TRUE, 0);
     
     listbox = gtk_list_box_new();
@@ -429,6 +457,11 @@ static void custom_open_dialog(GtkWidget *parent)
                 } else {
                     display_name = g_strdup(entry->d_name);
                     g_object_set_data(G_OBJECT(row), "is_dir", GINT_TO_POINTER(0));
+                    
+                    // For save dialog, still show files but mark them as not directories
+                    if (mode == DIALOG_MODE_SAVE) {
+                        // Still show files in save dialog for reference
+                    }
                 }
                 
                 GtkWidget *label = gtk_label_new(display_name);
@@ -453,6 +486,15 @@ static void custom_open_dialog(GtkWidget *parent)
     entry = gtk_entry_new();
     gtk_box_pack_start(GTK_BOX(name_box), entry, TRUE, TRUE, 0);
     
+    // Set default filename for save dialog
+    if (mode == DIALOG_MODE_SAVE && current_filename) {
+        char *basename = g_path_get_basename(current_filename);
+        gtk_entry_set_text(GTK_ENTRY(entry), basename);
+        g_free(basename);
+    } else if (mode == DIALOG_MODE_SAVE) {
+        gtk_entry_set_text(GTK_ENTRY(entry), "untitled.txt");
+    }
+    
     // Buttons
     button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     gtk_box_pack_start(GTK_BOX(vbox), button_box, FALSE, FALSE, 0);
@@ -461,130 +503,20 @@ static void custom_open_dialog(GtkWidget *parent)
     g_signal_connect_swapped(cancel_btn, "clicked", G_CALLBACK(gtk_widget_destroy), dialog);
     gtk_box_pack_start(GTK_BOX(button_box), cancel_btn, TRUE, TRUE, 0);
     
-    open_btn = gtk_button_new_with_label("Open");
-    g_signal_connect(open_btn, "clicked", G_CALLBACK(on_open_clicked), dialog);
-    gtk_box_pack_start(GTK_BOX(button_box), open_btn, TRUE, TRUE, 0);
+    if (mode == DIALOG_MODE_OPEN) {
+        action_btn = gtk_button_new_with_label("Open");
+        g_signal_connect(action_btn, "clicked", G_CALLBACK(on_open_clicked), dialog);
+    } else {
+        action_btn = gtk_button_new_with_label("Save");
+        g_signal_connect(action_btn, "clicked", G_CALLBACK(on_save_clicked), dialog);
+    }
+    gtk_box_pack_start(GTK_BOX(button_box), action_btn, TRUE, TRUE, 0);
     
     // Handle row activation
     g_signal_connect(listbox, "row-activated", G_CALLBACK(on_listbox_row_activated), dialog);
     
-    gtk_widget_show_all(dialog);
-}
-
-// Custom compact save dialog
-static void custom_save_dialog(GtkWidget *parent)
-{
-    GtkWidget *dialog;
-    GtkWidget *content;
-    GtkWidget *vbox;
-    GtkWidget *scrolled;
-    GtkWidget *listbox;
-    GtkWidget *button_box;
-    GtkWidget *cancel_btn;
-    GtkWidget *save_btn;
-    GtkWidget *entry;
-    GtkWidget *path_box;
-    GtkWidget *up_btn;
-    GtkWidget *home_btn;
-    GtkWidget *path_label;
-    
-    const gchar *home = g_get_home_dir();
-    if (!current_folder) {
-        current_folder = g_strdup(home);
-    }
-    
-    // Create dialog
-    dialog = gtk_dialog_new();
-    gtk_window_set_title(GTK_WINDOW(dialog), "Save File");
-    gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(parent));
-    gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(dialog), 450, 350);
-    gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_CENTER_ON_PARENT);
-    
-    content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-    
-    vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
-    gtk_container_set_border_width(GTK_CONTAINER(vbox), 10);
-    gtk_box_pack_start(GTK_BOX(content), vbox, TRUE, TRUE, 0);
-    
-    // Path bar
-    path_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
-    gtk_box_pack_start(GTK_BOX(vbox), path_box, FALSE, FALSE, 0);
-    
-    up_btn = gtk_button_new_with_label("↑");
-    gtk_widget_set_size_request(up_btn, 30, 25);
-    g_signal_connect(up_btn, "clicked", G_CALLBACK(on_up_clicked), dialog);
-    gtk_box_pack_start(GTK_BOX(path_box), up_btn, FALSE, FALSE, 0);
-    
-    home_btn = gtk_button_new_with_label("🏠");
-    gtk_widget_set_size_request(home_btn, 30, 25);
-    g_signal_connect(home_btn, "clicked", G_CALLBACK(on_home_clicked), dialog);
-    gtk_box_pack_start(GTK_BOX(path_box), home_btn, FALSE, FALSE, 0);
-    
-    path_label = gtk_label_new(current_folder);
-    gtk_label_set_ellipsize(GTK_LABEL(path_label), PANGO_ELLIPSIZE_START);
-    gtk_box_pack_start(GTK_BOX(path_box), path_label, TRUE, TRUE, 5);
-    
-    // File list (directories only for save dialog)
-    scrolled = gtk_scrolled_window_new(NULL, NULL);
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
-                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-    gtk_widget_set_size_request(scrolled, -1, 150);
-    gtk_box_pack_start(GTK_BOX(vbox), scrolled, TRUE, TRUE, 0);
-    
-    listbox = gtk_list_box_new();
-    gtk_container_add(GTK_CONTAINER(scrolled), listbox);
-    
-    // Populate file list (directories only for save dialog)
-    DIR *dir = opendir(current_folder);
-    if (dir) {
-        struct dirent *entry;
-        while ((entry = readdir(dir)) != NULL) {
-            if (entry->d_name[0] == '.') continue;
-            
-            char *fullpath = g_build_filename(current_folder, entry->d_name, NULL);
-            struct stat st;
-            if (stat(fullpath, &st) == 0 && S_ISDIR(st.st_mode)) {
-                GtkWidget *row = gtk_list_box_row_new();
-                char *display_name = g_strdup_printf("[DIR] %s", entry->d_name);
-                GtkWidget *label = gtk_label_new(display_name);
-                gtk_label_set_xalign(GTK_LABEL(label), 0.0);
-                gtk_container_add(GTK_CONTAINER(row), label);
-                g_free(display_name);
-                
-                g_object_set_data(G_OBJECT(row), "is_dir", GINT_TO_POINTER(1));
-                gtk_list_box_insert(GTK_LIST_BOX(listbox), row, -1);
-            }
-            g_free(fullpath);
-        }
-        closedir(dir);
-    }
-    
-    // File name entry
-    GtkWidget *name_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-    gtk_box_pack_start(GTK_BOX(vbox), name_box, FALSE, FALSE, 0);
-    
-    GtkWidget *name_label = gtk_label_new("Name:");
-    gtk_box_pack_start(GTK_BOX(name_box), name_label, FALSE, FALSE, 0);
-    
-    entry = gtk_entry_new();
-    gtk_entry_set_text(GTK_ENTRY(entry), "untitled.txt");
-    gtk_box_pack_start(GTK_BOX(name_box), entry, TRUE, TRUE, 0);
-    
-    // Buttons
-    button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-    gtk_box_pack_start(GTK_BOX(vbox), button_box, FALSE, FALSE, 0);
-    
-    cancel_btn = gtk_button_new_with_label("Cancel");
-    g_signal_connect_swapped(cancel_btn, "clicked", G_CALLBACK(gtk_widget_destroy), dialog);
-    gtk_box_pack_start(GTK_BOX(button_box), cancel_btn, TRUE, TRUE, 0);
-    
-    save_btn = gtk_button_new_with_label("Save");
-    g_signal_connect(save_btn, "clicked", G_CALLBACK(on_save_clicked), dialog);
-    gtk_box_pack_start(GTK_BOX(button_box), save_btn, TRUE, TRUE, 0);
-    
-    // Handle row activation (enter directory)
-    g_signal_connect(listbox, "row-activated", G_CALLBACK(on_listbox_row_activated), dialog);
+    // Handle dialog close
+    g_signal_connect(dialog, "response", G_CALLBACK(on_dialog_response), NULL);
     
     gtk_widget_show_all(dialog);
 }
@@ -593,7 +525,7 @@ static void open_file(GtkButton *button, gpointer data)
 {
     (void)button;
     GtkWidget *window = GTK_WIDGET(data);
-    custom_open_dialog(window);
+    custom_file_dialog(window, DIALOG_MODE_OPEN);
 }
 
 static void save_file(GtkButton *button, gpointer data)
@@ -614,7 +546,7 @@ static void save_file(GtkButton *button, gpointer data)
         }
         g_free(text);
     } else {
-        custom_save_dialog(window);
+        custom_file_dialog(window, DIALOG_MODE_SAVE);
     }
 }
 
@@ -622,7 +554,7 @@ static void save_file_as(GtkButton *button, gpointer data)
 {
     (void)button;
     GtkWidget *window = GTK_WIDGET(data);
-    custom_save_dialog(window);
+    custom_file_dialog(window, DIALOG_MODE_SAVE);
 }
 
 static void activate(GtkApplication *app, gpointer user_data)
@@ -730,7 +662,8 @@ static void activate(GtkApplication *app, gpointer user_data)
         "list { background-color: #1a1a1a; color: #ffffff; }\n"
         "listboxrow { background-color: #1a1a1a; color: #ffffff; }\n"
         "listboxrow:hover { background-color: #333333; }\n"
-        "entry { background-color: #000000; color: #ffffff; }\n",
+        "entry { background-color: #000000; color: #ffffff; border: 1px solid #ff3333; }\n"
+        "label { color: #ffffff; }\n",
         -1, NULL);
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
         GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
