@@ -107,6 +107,78 @@ static void restore_window(GtkButton *button, gpointer data)
     }
 }
 
+// Function to close a minimized window completely
+static void close_window(GtkButton *button, gpointer data) 
+
+{
+    (void)button;
+    Window xid = (Window)GPOINTER_TO_INT(data);
+    
+    if (xdisplay) {
+        fprintf(stderr, "Closing window 0x%lx\n", (long)xid);
+        
+        // Try to send WM_DELETE_WINDOW protocol first
+        Atom wm_delete = XInternAtom(xdisplay, "WM_DELETE_WINDOW", False);
+        Atom wm_protocols = XInternAtom(xdisplay, "WM_PROTOCOLS", False);
+        
+        XEvent ev;
+        ev.xclient.type = ClientMessage;
+        ev.xclient.window = xid;
+        ev.xclient.message_type = wm_protocols;
+        ev.xclient.format = 32;
+        ev.xclient.data.l[0] = wm_delete;
+        ev.xclient.data.l[1] = CurrentTime;
+        
+        XSendEvent(xdisplay, xid, False, NoEventMask, &ev);
+        XFlush(xdisplay);
+        
+        // The window will be removed from list via DestroyNotify event
+    }
+}
+
+// Function to close all minimized windows
+static void close_all_windows(GtkButton *button, gpointer data) 
+
+{
+    (void)button;
+    (void)data;
+    
+    fprintf(stderr, "Closing all minimized windows\n");
+    
+    // Create a copy of the list to avoid modification issues while iterating
+    GList *iter = minimized_windows;
+    while (iter) {
+        MinimizedWindow *mw = (MinimizedWindow*)iter->data;
+        
+        if (xdisplay && mw) {
+            fprintf(stderr, "Closing window 0x%lx (%s)\n", (long)mw->xid, mw->title);
+            
+            // Try to send WM_DELETE_WINDOW protocol
+            Atom wm_delete = XInternAtom(xdisplay, "WM_DELETE_WINDOW", False);
+            Atom wm_protocols = XInternAtom(xdisplay, "WM_PROTOCOLS", False);
+            
+            XEvent ev;
+            ev.xclient.type = ClientMessage;
+            ev.xclient.window = mw->xid;
+            ev.xclient.message_type = wm_protocols;
+            ev.xclient.format = 32;
+            ev.xclient.data.l[0] = wm_delete;
+            ev.xclient.data.l[1] = CurrentTime;
+            
+            XSendEvent(xdisplay, mw->xid, False, NoEventMask, &ev);
+            XFlush(xdisplay);
+        }
+        
+        iter = iter->next;
+    }
+    
+    // Auto-hide the container after sending close commands
+    if (window) {
+        gtk_widget_hide(window);
+        fprintf(stderr, "Auto-hiding container after close all\n");
+    }
+}
+
 // Function to add a window to minimized list
 static void add_minimized_window(Window xid) 
 
@@ -157,6 +229,12 @@ static void add_minimized_window(Window xid)
     gtk_widget_set_size_request(restore_btn, 30, 25);
     g_signal_connect(restore_btn, "clicked", G_CALLBACK(restore_window), GINT_TO_POINTER((int)xid));
     gtk_box_pack_end(GTK_BOX(hbox), restore_btn, FALSE, FALSE, 5);
+    
+    // Add close button
+    GtkWidget *close_btn = gtk_button_new_with_label("✕");
+    gtk_widget_set_size_request(close_btn, 30, 25);
+    g_signal_connect(close_btn, "clicked", G_CALLBACK(close_window), GINT_TO_POINTER((int)xid));
+    gtk_box_pack_end(GTK_BOX(hbox), close_btn, FALSE, FALSE, 5);
     
     gtk_list_box_insert(GTK_LIST_BOX(listbox), row, -1);
     gtk_widget_show_all(row);
@@ -356,7 +434,7 @@ void minimized_container_initialize(void)
     // Create window
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(window), "Minimized Apps");
-    gtk_window_set_default_size(GTK_WINDOW(window), 300, 400);
+    gtk_window_set_default_size(GTK_WINDOW(window), 350, 400);
     gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
     gtk_window_set_resizable(GTK_WINDOW(window), FALSE);
     gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
@@ -395,6 +473,12 @@ void minimized_container_initialize(void)
     GtkWidget *title = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(title), "<b>Minimized Apps</b>");
     gtk_box_pack_start(GTK_BOX(hbox), title, TRUE, TRUE, 0);
+    
+    // Close All button
+    GtkWidget *close_all_btn = gtk_button_new_with_label("Close All");
+    gtk_widget_set_size_request(close_all_btn, 70, 25);
+    g_signal_connect(close_all_btn, "clicked", G_CALLBACK(close_all_windows), NULL);
+    gtk_box_pack_end(GTK_BOX(hbox), close_all_btn, FALSE, FALSE, 5);
     
     GtkWidget *close_btn = gtk_button_new_with_label("X");
     gtk_widget_set_size_request(close_btn, 30, 25);
