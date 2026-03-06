@@ -4,7 +4,7 @@ GTK_CFLAGS = $(shell pkg-config --cflags gtk+-3.0)
 GTK_LIBS = $(shell pkg-config --libs gtk+-3.0)
 X11_LIBS = -lX11
 
-all: blackline-wm blackline-panel blackline-launcher blackline-tools blackline-background blackline-fm blackline-editor blackline-calculator
+all: blackline-wm blackline-panel blackline-launcher blackline-tools blackline-background blackline-fm blackline-editor blackline-calculator blackline-system-monitor
 
 blackline-wm: wm/wm.c
 	$(CC) $(CFLAGS) -o $@ $< $(X11_LIBS)
@@ -32,12 +32,28 @@ blackline-editor: tools/text_editor/editor.c tools/text_editor/edit.c
 blackline-calculator: tools/calculator/calculator.c
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ tools/calculator/calculator.c $(GTK_LIBS) -lm
 
+# System Monitor
+blackline-system-monitor: tools/system-monitor/monitor.o tools/system-monitor/cpu.o tools/system-monitor/memory.o tools/system-monitor/processes.o
+	$(CC) -o $@ $^ $(GTK_LIBS)
+
+tools/system-monitor/monitor.o: tools/system-monitor/monitor.c tools/system-monitor/monitor.h
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
+
+tools/system-monitor/cpu.o: tools/system-monitor/cpu.c tools/system-monitor/monitor.h
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
+
+tools/system-monitor/memory.o: tools/system-monitor/memory.c tools/system-monitor/monitor.h
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
+
+tools/system-monitor/processes.o: tools/system-monitor/processes.c tools/system-monitor/monitor.h
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
+
 # Individual object files
 %.o: %.c
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
 
 clean:
-	rm -f blackline-wm blackline-panel blackline-launcher blackline-tools blackline-background blackline-fm blackline-editor blackline-calculator *.o
+	rm -f blackline-wm blackline-panel blackline-launcher blackline-tools blackline-background blackline-fm blackline-editor blackline-calculator blackline-system-monitor *.o tools/system-monitor/*.o
 
 # Install all binaries
 install: all
@@ -49,6 +65,7 @@ install: all
 	sudo cp blackline-fm /usr/local/bin/
 	sudo cp blackline-editor /usr/local/bin/
 	sudo cp blackline-calculator /usr/local/bin/
+	sudo cp blackline-system-monitor /usr/local/bin/
 
 # Uninstall all binaries
 uninstall:
@@ -60,8 +77,9 @@ uninstall:
 	sudo rm -f /usr/local/bin/blackline-fm
 	sudo rm -f /usr/local/bin/blackline-editor
 	sudo rm -f /usr/local/bin/blackline-calculator
+	sudo rm -f /usr/local/bin/blackline-system-monitor
 
-# Run the editor directly
+# Run commands
 run-editor: blackline-editor
 	./blackline-editor
 
@@ -71,4 +89,7 @@ run-wm: blackline-wm
 run-calculator: blackline-calculator
 	./blackline-calculator
 
-.PHONY: all clean install uninstall run-editor run-wm run-calculator
+run-system-monitor: blackline-system-monitor
+	./blackline-system-monitor
+
+.PHONY: all clean install uninstall run-editor run-wm run-calculator run-system-monitor
