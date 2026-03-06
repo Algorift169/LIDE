@@ -42,7 +42,13 @@ static void launch_calculator(GtkButton *button, gpointer window)
 {
     (void)button;
     (void)window;
-    system("gnome-calculator &");
+    
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Launch custom calculator 
+        execl("./blackline-calculator", "blackline-calculator", NULL);
+        exit(0);
+    }
 }
 
 static void launch_system_monitor(GtkButton *button, gpointer window) 
@@ -148,12 +154,12 @@ static void activate(GtkApplication *app, gpointer user_data)
     g_signal_connect(fm_btn, "clicked", G_CALLBACK(launch_file_manager), window);
     gtk_box_pack_start(GTK_BOX(vbox), fm_btn, FALSE, FALSE, 2);
     
-    // Text Editor button - NOW LAUNCHES CUSTOM EDITOR
+    // Text Editor button - LAUNCHES CUSTOM EDITOR
     GtkWidget *editor_btn = gtk_button_new_with_label("Text Editor");
     g_signal_connect(editor_btn, "clicked", G_CALLBACK(launch_text_editor), window);
     gtk_box_pack_start(GTK_BOX(vbox), editor_btn, FALSE, FALSE, 2);
     
-    // Calculator button
+    // Calculator button - NOW LAUNCHES CUSTOM CALCULATOR
     GtkWidget *calc_btn = gtk_button_new_with_label("Calculator");
     g_signal_connect(calc_btn, "clicked", G_CALLBACK(launch_calculator), window);
     gtk_box_pack_start(GTK_BOX(vbox), calc_btn, FALSE, FALSE, 2);
