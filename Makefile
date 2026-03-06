@@ -4,7 +4,7 @@ GTK_CFLAGS = $(shell pkg-config --cflags gtk+-3.0)
 GTK_LIBS = $(shell pkg-config --libs gtk+-3.0)
 X11_LIBS = -lX11
 
-all: blackline-wm blackline-panel blackline-launcher blackline-tools blackline-background blackline-fm blackline-editor
+all: blackline-wm blackline-panel blackline-launcher blackline-tools blackline-background blackline-fm blackline-editor blackline-calculator
 
 blackline-wm: wm/wm.c
 	$(CC) $(CFLAGS) -o $@ $< $(X11_LIBS)
@@ -28,12 +28,16 @@ blackline-fm: tools/file-manager/fm.c tools/file-manager/browser.c
 blackline-editor: tools/text_editor/editor.c tools/text_editor/edit.c
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ tools/text_editor/editor.c tools/text_editor/edit.c $(GTK_LIBS)
 
+# Calculator
+blackline-calculator: tools/calculator/calculator.c
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ tools/calculator/calculator.c $(GTK_LIBS) -lm
+
 # Individual object files
 %.o: %.c
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
 
 clean:
-	rm -f blackline-wm blackline-panel blackline-launcher blackline-tools blackline-background blackline-fm blackline-editor *.o
+	rm -f blackline-wm blackline-panel blackline-launcher blackline-tools blackline-background blackline-fm blackline-editor blackline-calculator *.o
 
 # Install all binaries
 install: all
@@ -44,6 +48,7 @@ install: all
 	sudo cp blackline-background /usr/local/bin/
 	sudo cp blackline-fm /usr/local/bin/
 	sudo cp blackline-editor /usr/local/bin/
+	sudo cp blackline-calculator /usr/local/bin/
 
 # Uninstall all binaries
 uninstall:
@@ -54,13 +59,16 @@ uninstall:
 	sudo rm -f /usr/local/bin/blackline-background
 	sudo rm -f /usr/local/bin/blackline-fm
 	sudo rm -f /usr/local/bin/blackline-editor
+	sudo rm -f /usr/local/bin/blackline-calculator
 
 # Run the editor directly
 run-editor: blackline-editor
 	./blackline-editor
 
-
 run-wm: blackline-wm
 	./blackline-wm
 
-.PHONY: all clean install uninstall run-editor run-wm
+run-calculator: blackline-calculator
+	./blackline-calculator
+
+.PHONY: all clean install uninstall run-editor run-wm run-calculator
