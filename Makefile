@@ -24,11 +24,11 @@ blackline-background: tools/background.c
 blackline-fm: tools/file-manager/fm.c tools/file-manager/browser.c
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ tools/file-manager/fm.c tools/file-manager/browser.c $(GTK_LIBS)
 
-# Text editor with edit features - now linking both editor.c and edit.c
+# Text editor with edit features
 blackline-editor: tools/text_editor/editor.c tools/text_editor/edit.c
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ tools/text_editor/editor.c tools/text_editor/edit.c $(GTK_LIBS)
 
-# Individual object files (optional - for faster recompilation)
+# Individual object files
 %.o: %.c
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
 

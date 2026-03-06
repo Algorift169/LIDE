@@ -42,7 +42,7 @@ echo "Press Ctrl+Shift to release mouse/keyboard"
 echo "Just close the Xephyr window to exit"
 echo "Or press Ctrl+C in this terminal"
 
-# Wait for Xephyr to exit (when window is closed)
+# Wait for Xephyr to exit 
 wait $XEPHYR_PID
 
 # Cleanup

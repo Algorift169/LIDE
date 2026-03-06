@@ -39,6 +39,7 @@ static void custom_file_dialog(GtkWidget *parent, DialogMode mode);
 
 // Dragging handlers
 static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer window)
+
 {
     if (event->button == 1)
     {
@@ -52,6 +53,7 @@ static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpoint
 }
 
 static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer window)
+
 {
     (void)widget;
     (void)event;
@@ -61,6 +63,7 @@ static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpoi
 }
 
 static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer window)
+
 {
     GtkWidget *win = GTK_WIDGET(window);
 
@@ -81,12 +84,14 @@ static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoin
 
 // Window control callbacks
 static void on_minimize_clicked(GtkButton *button, gpointer window)
+
 {
     (void)button;
     gtk_window_iconify(GTK_WINDOW(window));
 }
 
 static void on_maximize_clicked(GtkButton *button, gpointer window)
+
 {
     (void)button;
     if (gtk_window_is_maximized(GTK_WINDOW(window)))
@@ -96,6 +101,7 @@ static void on_maximize_clicked(GtkButton *button, gpointer window)
 }
 
 static void on_close_clicked(GtkButton *button, gpointer window)
+
 {
     (void)button;
     gtk_window_close(GTK_WINDOW(window));
@@ -103,6 +109,7 @@ static void on_close_clicked(GtkButton *button, gpointer window)
 
 // File operations
 static void new_file(GtkButton *button, gpointer data)
+
 {
     (void)button;
     GtkWidget *window = GTK_WIDGET(data);
@@ -116,6 +123,7 @@ static void new_file(GtkButton *button, gpointer data)
 
 // Directory navigation functions
 static void on_up_clicked(GtkButton *button, gpointer dialog)
+
 {
     (void)button;
     char *parent = g_path_get_dirname(current_folder);
@@ -141,6 +149,7 @@ static void on_up_clicked(GtkButton *button, gpointer dialog)
 }
 
 static void on_home_clicked(GtkButton *button, gpointer dialog)
+
 {
     (void)button;
     const gchar *home = g_get_home_dir();
@@ -162,6 +171,7 @@ static void on_home_clicked(GtkButton *button, gpointer dialog)
 }
 
 static void on_listbox_row_activated(GtkListBox *listbox, GtkListBoxRow *row, gpointer dialog)
+
 {
     (void)listbox;
     GtkWidget *row_widget = GTK_WIDGET(row);
@@ -208,9 +218,9 @@ static void on_listbox_row_activated(GtkListBox *listbox, GtkListBoxRow *row, gp
                             if (GTK_IS_ENTRY(nc->data)) {
                                 gtk_entry_set_text(GTK_ENTRY(nc->data), filename);
                                 
-                                // In open mode, automatically open on single click?
+                                // eneo janina
                                 if (mode == DIALOG_MODE_OPEN) {
-                                    // You could trigger open here if desired
+                                    //JANINA KI KORmu
                                 }
                             }
                         }
@@ -225,6 +235,7 @@ static void on_listbox_row_activated(GtkListBox *listbox, GtkListBoxRow *row, gp
 }
 
 static void on_open_clicked(GtkButton *button, gpointer dialog)
+
 {
     (void)button;
     
@@ -294,6 +305,7 @@ static void on_open_clicked(GtkButton *button, gpointer dialog)
 }
 
 static void on_save_clicked(GtkButton *button, gpointer dialog)
+
 {
     (void)button;
     
@@ -359,6 +371,7 @@ static void on_save_clicked(GtkButton *button, gpointer dialog)
 }
 
 static void on_dialog_response(GtkDialog *dialog, gint response_id, gpointer user_data)
+
 {
     (void)user_data;
     if (response_id == GTK_RESPONSE_DELETE_EVENT) {
@@ -368,6 +381,7 @@ static void on_dialog_response(GtkDialog *dialog, gint response_id, gpointer use
 
 // Unified file dialog function
 static void custom_file_dialog(GtkWidget *parent, DialogMode mode)
+
 {
     GtkWidget *dialog;
     GtkWidget *content;
@@ -518,6 +532,7 @@ static void custom_file_dialog(GtkWidget *parent, DialogMode mode)
 }
 
 static void open_file(GtkButton *button, gpointer data)
+
 {
     (void)button;
     GtkWidget *window = GTK_WIDGET(data);
@@ -525,6 +540,7 @@ static void open_file(GtkButton *button, gpointer data)
 }
 
 static void save_file(GtkButton *button, gpointer data)
+
 {
     (void)button;
     GtkWidget *window = GTK_WIDGET(data);
@@ -547,6 +563,7 @@ static void save_file(GtkButton *button, gpointer data)
 }
 
 static void save_file_as(GtkButton *button, gpointer data)
+
 {
     (void)button;
     GtkWidget *window = GTK_WIDGET(data);
@@ -554,6 +571,7 @@ static void save_file_as(GtkButton *button, gpointer data)
 }
 
 static void activate(GtkApplication *app, gpointer user_data)
+
 {
     (void)user_data;
     GtkWidget *window;
@@ -776,12 +794,12 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_widget_show_all(edit_menu);
     gtk_menu_button_set_popup(GTK_MENU_BUTTON(edit_menu_btn), GTK_WIDGET(edit_menu));
 
-    // Add Print button to toolbar for quick access
+    // Print button to toolbar for quick access
     GtkWidget *print_btn = gtk_button_new_with_label("Print");
     g_signal_connect(print_btn, "clicked", G_CALLBACK(edit_print), text_view);
     gtk_box_pack_start(GTK_BOX(toolbar), print_btn, FALSE, FALSE, 0);
 
-    // Apply CSS for dark theme
+    // CSS
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
         "window { background-color: #000000; color: #ffffff; }\n"
@@ -808,6 +826,7 @@ static void activate(GtkApplication *app, gpointer user_data)
 }
 
 int main(int argc, char **argv)
+
 {
     GtkApplication *app = gtk_application_new("org.blackline.editor", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);
