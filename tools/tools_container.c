@@ -8,18 +8,20 @@
 static int is_dragging = 0;
 static int drag_start_x, drag_start_y;
 
-// Launch functions - FIXED to launch actual programs
+// Launch functions 
 static void launch_file_manager(GtkButton *button, gpointer window) 
 
 {
     (void)button;
-    (void)window;
     
     pid_t pid = fork();
     if (pid == 0) {
         // Child process
         execl("./blackline-fm", "blackline-fm", NULL);
         exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools container
+        gtk_window_close(GTK_WINDOW(window));
     }
 }
 
@@ -27,13 +29,15 @@ static void launch_text_editor(GtkButton *button, gpointer window)
 
 {
     (void)button;
-    (void)window;
     
     pid_t pid = fork();
     if (pid == 0) {
         // Launch custom text editor
         execl("./blackline-editor", "blackline-editor", NULL);
         exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools container
+        gtk_window_close(GTK_WINDOW(window));
     }
 }
 
@@ -41,13 +45,15 @@ static void launch_calculator(GtkButton *button, gpointer window)
 
 {
     (void)button;
-    (void)window;
     
     pid_t pid = fork();
     if (pid == 0) {
         // Launch custom calculator 
         execl("./blackline-calculator", "blackline-calculator", NULL);
         exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools container
+        gtk_window_close(GTK_WINDOW(window));
     }
 }
 
@@ -55,13 +61,15 @@ static void launch_system_monitor(GtkButton *button, gpointer window)
 
 {
     (void)button;
-    (void)window;
     
     pid_t pid = fork();
     if (pid == 0) {
         // Launch custom system monitor
         execl("./blackline-system-monitor", "blackline-system-monitor", NULL);
         exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools container
+        gtk_window_close(GTK_WINDOW(window));
     }
 }
 
