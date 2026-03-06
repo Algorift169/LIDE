@@ -52,8 +52,37 @@ static void on_minimize_clicked(GtkButton *button, gpointer window)
 
 {
     (void)button;
-    // Iconify the window - this sends the right X11 message
     gtk_window_iconify(GTK_WINDOW(window));
+}
+
+static void on_maximize_clicked(GtkButton *button, gpointer window)
+
+{
+    (void)button;
+    GtkWindow *win = GTK_WINDOW(window);
+    
+    if (gtk_window_is_maximized(win)) {
+        gtk_window_unmaximize(win);
+    } else {
+        gtk_window_maximize(win);
+    }
+}
+
+// Track window state changes to update maximize button
+static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *event, gpointer data)
+
+{
+    GtkButton *max_btn = GTK_BUTTON(data);
+    
+    if (event->new_window_state & GDK_WINDOW_STATE_MAXIMIZED) {
+        gtk_button_set_label(max_btn, "❐"); // Restore symbol when maximized
+        gtk_widget_set_tooltip_text(GTK_WIDGET(max_btn), "Restore");
+    } else {
+        gtk_button_set_label(max_btn, "□"); // Maximize symbol when normal
+        gtk_widget_set_tooltip_text(GTK_WIDGET(max_btn), "Maximize");
+    }
+    
+    return FALSE;
 }
 
 static void on_close_clicked(GtkButton *button, gpointer window) 
@@ -110,7 +139,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_container_add(GTK_CONTAINER(fm->window), vbox);
 
-    // Title bar with minimize and close buttons
+    // Title bar with minimize, maximize and close buttons
     GtkWidget *title_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     gtk_widget_set_name(title_bar, "title-bar");
     gtk_widget_set_size_request(title_bar, -1, 30);
@@ -130,6 +159,14 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_widget_set_size_request(min_btn, 30, 25);
     g_signal_connect(min_btn, "clicked", G_CALLBACK(on_minimize_clicked), fm->window);
     gtk_box_pack_start(GTK_BOX(button_box), min_btn, FALSE, FALSE, 0);
+
+    // Maximize button
+    GtkWidget *max_btn = gtk_button_new_with_label("□");
+    gtk_widget_set_size_request(max_btn, 30, 25);
+    g_signal_connect(max_btn, "clicked", G_CALLBACK(on_maximize_clicked), fm->window);
+    // Connect window state changes to update button appearance
+    g_signal_connect(fm->window, "window-state-event", G_CALLBACK(on_window_state_changed), max_btn);
+    gtk_box_pack_start(GTK_BOX(button_box), max_btn, FALSE, FALSE, 0);
 
     // Close button
     GtkWidget *close_btn = gtk_button_new_with_label("✕");
