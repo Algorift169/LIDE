@@ -82,26 +82,42 @@ static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoin
     return FALSE;
 }
 
-// Window control callbacks
+// Window control callbacks - FIXED maximize function
 static void on_minimize_clicked(GtkButton *button, gpointer window)
-
 {
     (void)button;
     gtk_window_iconify(GTK_WINDOW(window));
 }
 
 static void on_maximize_clicked(GtkButton *button, gpointer window)
-
 {
     (void)button;
-    if (gtk_window_is_maximized(GTK_WINDOW(window)))
-        gtk_window_unmaximize(GTK_WINDOW(window));
-    else
-        gtk_window_maximize(GTK_WINDOW(window));
+    GtkWindow *win = GTK_WINDOW(window);
+    
+    if (gtk_window_is_maximized(win)) {
+        gtk_window_unmaximize(win);
+    } else {
+        gtk_window_maximize(win);
+    }
+}
+
+// Track window state changes to update maximize button
+static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *event, gpointer data)
+{
+    GtkButton *max_btn = GTK_BUTTON(data);
+    
+    if (event->new_window_state & GDK_WINDOW_STATE_MAXIMIZED) {
+        gtk_button_set_label(max_btn, "❐"); // Restore symbol when maximized
+        gtk_widget_set_tooltip_text(GTK_WIDGET(max_btn), "Restore");
+    } else {
+        gtk_button_set_label(max_btn, "□"); // Maximize symbol when normal
+        gtk_widget_set_tooltip_text(GTK_WIDGET(max_btn), "Maximize");
+    }
+    
+    return FALSE;
 }
 
 static void on_close_clicked(GtkButton *button, gpointer window)
-
 {
     (void)button;
     gtk_window_close(GTK_WINDOW(window));
@@ -582,6 +598,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     GtkWidget *edit_menu_btn;
     GtkWidget *edit_menu;
     GtkWidget *menu_item;
+    GtkWidget *max_btn;  // Store maximize button for state tracking
 
     window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(window), "BlackLine Editor - Untitled");
@@ -619,10 +636,12 @@ static void activate(GtkApplication *app, gpointer user_data)
     g_signal_connect(min_btn, "clicked", G_CALLBACK(on_minimize_clicked), window);
     gtk_box_pack_start(GTK_BOX(window_buttons), min_btn, FALSE, FALSE, 0);
 
-    // Maximize button
-    GtkWidget *max_btn = gtk_button_new_with_label("□");
+    // Maximize button - store reference for state tracking
+    max_btn = gtk_button_new_with_label("□");
     gtk_widget_set_size_request(max_btn, 30, 25);
     g_signal_connect(max_btn, "clicked", G_CALLBACK(on_maximize_clicked), window);
+    // Connect window state changes to update button appearance
+    g_signal_connect(window, "window-state-event", G_CALLBACK(on_window_state_changed), max_btn);
     gtk_box_pack_start(GTK_BOX(window_buttons), max_btn, FALSE, FALSE, 0);
 
     // Close button
@@ -660,21 +679,21 @@ static void activate(GtkApplication *app, gpointer user_data)
     GtkWidget *toolbar_sep = gtk_separator_new(GTK_ORIENTATION_VERTICAL);
     gtk_box_pack_start(GTK_BOX(toolbar), toolbar_sep, FALSE, FALSE, 5);
 
-    // Scrolled window for text view - MOVED BEFORE EDIT MENU
+    // Scrolled window for text view
     scrolled = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
                                    GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_box_pack_start(GTK_BOX(vbox), scrolled, TRUE, TRUE, 5);
 
-    // Text view - CREATED BEFORE EDIT MENU
+    // Text view
     text_view = gtk_text_view_new();
     buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view));
     gtk_container_add(GTK_CONTAINER(scrolled), text_view);
 
-    // Initialize edit features - NOW text_view is initialized
+    // Initialize edit features
     edit_init(buffer);
 
-    // Edit Menu Button - NOW AFTER text_view is initialized
+    // Edit Menu Button
     edit_menu_btn = gtk_menu_button_new();
     gtk_button_set_label(GTK_BUTTON(edit_menu_btn), "Edit");
     gtk_box_pack_start(GTK_BOX(toolbar), edit_menu_btn, FALSE, FALSE, 0);
