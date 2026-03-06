@@ -24,14 +24,43 @@ blackline-background: tools/background.c
 blackline-fm: tools/file-manager/fm.c tools/file-manager/browser.c
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ tools/file-manager/fm.c tools/file-manager/browser.c $(GTK_LIBS)
 
-# Single-file text editor (simplified)
-blackline-editor: tools/text_editor/editor.c
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $< $(GTK_LIBS)
+# Text editor with edit features - now linking both editor.c and edit.c
+blackline-editor: tools/text_editor/editor.c tools/text_editor/edit.c
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ tools/text_editor/editor.c tools/text_editor/edit.c $(GTK_LIBS)
+
+# Individual object files (optional - for faster recompilation)
+%.o: %.c
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
 
 clean:
-	rm -f blackline-wm blackline-panel blackline-launcher blackline-tools blackline-background blackline-fm blackline-editor
+	rm -f blackline-wm blackline-panel blackline-launcher blackline-tools blackline-background blackline-fm blackline-editor *.o
 
-run:
-	./run.sh
+# Install all binaries
+install: all
+	sudo cp blackline-wm /usr/local/bin/
+	sudo cp blackline-panel /usr/local/bin/
+	sudo cp blackline-launcher /usr/local/bin/
+	sudo cp blackline-tools /usr/local/bin/
+	sudo cp blackline-background /usr/local/bin/
+	sudo cp blackline-fm /usr/local/bin/
+	sudo cp blackline-editor /usr/local/bin/
 
-.PHONY: all clean run
+# Uninstall all binaries
+uninstall:
+	sudo rm -f /usr/local/bin/blackline-wm
+	sudo rm -f /usr/local/bin/blackline-panel
+	sudo rm -f /usr/local/bin/blackline-launcher
+	sudo rm -f /usr/local/bin/blackline-tools
+	sudo rm -f /usr/local/bin/blackline-background
+	sudo rm -f /usr/local/bin/blackline-fm
+	sudo rm -f /usr/local/bin/blackline-editor
+
+# Run the editor directly
+run-editor: blackline-editor
+	./blackline-editor
+
+
+run-wm: blackline-wm
+	./blackline-wm
+
+.PHONY: all clean install uninstall run-editor run-wm
