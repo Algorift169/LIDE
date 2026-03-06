@@ -865,7 +865,7 @@ static void on_begin_print_simple(GtkPrintOperation *operation, GtkPrintContext 
     gtk_text_buffer_get_end_iter(data->buffer, &end);
     gchar *text = gtk_text_buffer_get_text(data->buffer, &start, &end, FALSE);
     
-    // Rough estimate: count characters and assume ~3000 chars per page
+    // count characters and assume ~3000 chars per page
     int char_count = strlen(text);
     int n_pages = (char_count / 3000) + 1;
     if (n_pages < 1) n_pages = 1;
