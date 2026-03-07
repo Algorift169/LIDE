@@ -1,6 +1,8 @@
 #include "voidfox.h"
 #include "app_menu.h"
 #include "bookmarks.h"
+#include "download-stats.h"
+#include "downloads.h"
 #include <ctype.h>
 #include <stdio.h>
 
@@ -162,6 +164,16 @@ static void on_close_clicked(GtkButton *button, gpointer window)
 {
     (void)button;
     gtk_window_close(GTK_WINDOW(window));
+}
+
+// Download signal handler
+static void on_download_started(WebKitWebView *web_view, WebKitDownload *download, BrowserWindow *browser)
+{
+    (void)web_view;
+    DEBUG_PRINT("Download started");
+    
+    // Add the download to our manager
+    add_download(download, browser);
 }
 
 // Callbacks
@@ -373,6 +385,12 @@ void voidfox_activate(GtkApplication *app, gpointer user_data) {
     GtkWidget *bookmarks_menu = create_bookmarks_menu(browser);
     gtk_menu_button_set_popup(GTK_MENU_BUTTON(bookmarks_button), bookmarks_menu);
 
+    // Download stats button
+    GtkWidget *stats_button = gtk_button_new_with_label("📊");
+    gtk_widget_set_tooltip_text(stats_button, "Download Manager");
+    g_signal_connect(stats_button, "clicked", G_CALLBACK(show_download_stats_window), browser);
+    gtk_box_pack_start(GTK_BOX(toolbar), stats_button, FALSE, FALSE, 0);
+
     // Back button
     browser->back_button = gtk_button_new_from_icon_name("go-previous", GTK_ICON_SIZE_MENU);
     if (browser->back_button) {
@@ -503,8 +521,14 @@ void new_tab(BrowserWindow *browser, const char *url)
     if (settings) {
         webkit_settings_set_hardware_acceleration_policy(settings, WEBKIT_HARDWARE_ACCELERATION_POLICY_NEVER);
         webkit_settings_set_enable_webgl(settings, FALSE);
+        
+        // Set a proper user agent
+        webkit_settings_set_user_agent(settings, 
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
     }
     
+    // Connect download signal
+    g_signal_connect(web_view, "download-started", G_CALLBACK(on_download_started), browser);
     g_signal_connect(web_view, "load-changed", G_CALLBACK(on_load_changed), browser);
 
     // Load URL
@@ -570,7 +594,7 @@ void close_tab(BrowserWindow *browser, GtkWidget *tab_child)
     
     int page_num = gtk_notebook_page_num(GTK_NOTEBOOK(browser->notebook), tab_child);
     if (page_num != -1) {
-        // Dont close if it's the last tab 
+        // Don't close if it's the last tab 
         if (gtk_notebook_get_n_pages(GTK_NOTEBOOK(browser->notebook)) <= 1) {
             new_tab(browser, HOME_PAGE);
         }
