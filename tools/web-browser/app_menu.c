@@ -6,6 +6,7 @@
 
 // Callback for menu items
 static void on_new_window_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     // Launch a new browser window
@@ -17,6 +18,7 @@ static void on_new_window_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_new_private_window_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     // Launch a new private window (could add --private flag later)
@@ -28,6 +30,7 @@ static void on_new_private_window_clicked(GtkMenuItem *item, BrowserWindow *brow
 }
 
 static void on_print_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     int current_page = gtk_notebook_get_current_page(GTK_NOTEBOOK(browser->notebook));
@@ -41,6 +44,7 @@ static void on_print_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_save_page_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     int current_page = gtk_notebook_get_current_page(GTK_NOTEBOOK(browser->notebook));
@@ -49,7 +53,7 @@ static void on_save_page_clicked(GtkMenuItem *item, BrowserWindow *browser)
     
     BrowserTab *tab = g_object_get_data(G_OBJECT(current_page_widget), "browser-tab");
     if (tab && tab->web_view) {
-        // Simple save dialog - could be enhanced later
+        // Simple save dialog
         GtkWidget *dialog = gtk_file_chooser_dialog_new("Save Page As",
                                                         GTK_WINDOW(browser->window),
                                                         GTK_FILE_CHOOSER_ACTION_SAVE,
@@ -59,7 +63,6 @@ static void on_save_page_clicked(GtkMenuItem *item, BrowserWindow *browser)
         
         if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
             char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
-            // Could implement actual save functionality here
             g_free(filename);
         }
         gtk_widget_destroy(dialog);
@@ -67,6 +70,7 @@ static void on_save_page_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_find_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     // Simple find dialog
@@ -81,13 +85,12 @@ static void on_find_clicked(GtkMenuItem *item, BrowserWindow *browser)
     gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "Search...");
     gtk_box_pack_start(GTK_BOX(content), entry, FALSE, FALSE, 10);
     gtk_widget_show_all(dialog);
-    
-    // Could implement find functionality here
     gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
 }
 
 static void on_translate_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     int current_page = gtk_notebook_get_current_page(GTK_NOTEBOOK(browser->notebook));
@@ -106,6 +109,7 @@ static void on_translate_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_zoom_in_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     int current_page = gtk_notebook_get_current_page(GTK_NOTEBOOK(browser->notebook));
@@ -120,6 +124,7 @@ static void on_zoom_in_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_zoom_out_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     int current_page = gtk_notebook_get_current_page(GTK_NOTEBOOK(browser->notebook));
@@ -134,6 +139,7 @@ static void on_zoom_out_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_zoom_reset_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     int current_page = gtk_notebook_get_current_page(GTK_NOTEBOOK(browser->notebook));
@@ -147,9 +153,9 @@ static void on_zoom_reset_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_settings_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
-    // Simple settings dialog - could be expanded
     GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(browser->window),
                                               GTK_DIALOG_MODAL,
                                               GTK_MESSAGE_INFO,
@@ -163,6 +169,7 @@ static void on_settings_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_history_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     // Simple history view - could be expanded
@@ -176,6 +183,7 @@ static void on_history_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_downloads_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(browser->window),
@@ -188,6 +196,7 @@ static void on_downloads_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_passwords_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(browser->window),
@@ -200,6 +209,7 @@ static void on_passwords_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_extensions_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(browser->window),
@@ -212,6 +222,7 @@ static void on_extensions_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_report_broken_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(browser->window),
@@ -225,6 +236,7 @@ static void on_report_broken_clicked(GtkMenuItem *item, BrowserWindow *browser)
 
 // Create the application menu
 GtkWidget* create_application_menu(BrowserWindow *browser)
+
 {
     GtkWidget *menu = gtk_menu_new();
     
@@ -317,6 +329,7 @@ GtkWidget* create_application_menu(BrowserWindow *browser)
 }
 
 void show_app_menu(GtkWidget *menu, GtkWidget *button)
+
 {
     gtk_menu_popup_at_widget(GTK_MENU(menu), button,
                              GDK_GRAVITY_SOUTH_WEST,

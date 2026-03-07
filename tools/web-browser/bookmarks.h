@@ -5,7 +5,8 @@
 #include "voidfox.h"
 
 // Bookmark structure
-typedef struct {
+typedef struct 
+{
     char *title;
     char *url;
 } Bookmark;
