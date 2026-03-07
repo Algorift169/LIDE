@@ -73,7 +73,7 @@ static void launch_system_monitor(GtkButton *button, gpointer window)
     }
 }
 
-// NEW: Web browser launcher function
+// Web browser launcher function
 static void launch_web_browser(GtkButton *button, gpointer window) 
 
 {
@@ -83,6 +83,43 @@ static void launch_web_browser(GtkButton *button, gpointer window)
     if (pid == 0) {
         // Launch VoidFox web browser
         execl("./voidfox", "voidfox", NULL);
+        exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools container
+        gtk_window_close(GTK_WINDOW(window));
+    }
+}
+
+// Firefox wrapper launcher function
+static void launch_firefox_wrapper(GtkButton *button, gpointer window) 
+
+{
+    (void)button;
+    
+    // Check if Firefox wrapper exists
+    if (access("./tools/firefox/firefox-wrapper", X_OK) != 0 && 
+        access("./firefox-wrapper", X_OK) != 0) {
+        
+        GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(window),
+                                                  GTK_DIALOG_MODAL,
+                                                  GTK_MESSAGE_ERROR,
+                                                  GTK_BUTTONS_OK,
+                                                  "Firefox wrapper not found!\n\n"
+                                                  "Please build it first with:\n"
+                                                  "make firefox-wrapper");
+        gtk_dialog_run(GTK_DIALOG(dialog));
+        gtk_widget_destroy(dialog);
+        return;
+    }
+    
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Child process - try different paths
+        if (access("./tools/firefox/firefox-wrapper", X_OK) == 0) {
+            execl("./tools/firefox/firefox-wrapper", "firefox-wrapper", NULL);
+        } else {
+            execl("./firefox-wrapper", "firefox-wrapper", NULL);
+        }
         exit(0);
     } else if (pid > 0) {
         // Parent process - close tools container
@@ -145,7 +182,7 @@ static void activate(GtkApplication *app, gpointer user_data)
 {
     GtkWidget *window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(window), "BlackLine Tools");
-    gtk_window_set_default_size(GTK_WINDOW(window), 300, 450);  // Increased height for new button
+    gtk_window_set_default_size(GTK_WINDOW(window), 300, 550);  // Increased height for Firefox wrapper button
     gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
     gtk_window_set_resizable(GTK_WINDOW(window), FALSE);
     gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
@@ -201,10 +238,15 @@ static void activate(GtkApplication *app, gpointer user_data)
     g_signal_connect(monitor_btn, "clicked", G_CALLBACK(launch_system_monitor), window);
     gtk_box_pack_start(GTK_BOX(vbox), monitor_btn, FALSE, FALSE, 2);
     
-    // Web Browser Button
+    // VoidFox Web Browser Button
     GtkWidget *browser_btn = gtk_button_new_with_label("🌐 VoidFox");
     g_signal_connect(browser_btn, "clicked", G_CALLBACK(launch_web_browser), window);
     gtk_box_pack_start(GTK_BOX(vbox), browser_btn, FALSE, FALSE, 2);
+    
+    // Firefox Wrapper Button
+    GtkWidget *firefox_wrapper_btn = gtk_button_new_with_label("🦊 Firefox (LIDE)");
+    g_signal_connect(firefox_wrapper_btn, "clicked", G_CALLBACK(launch_firefox_wrapper), window);
+    gtk_box_pack_start(GTK_BOX(vbox), firefox_wrapper_btn, FALSE, FALSE, 2);
     
     // Add some spacing at the bottom
     GtkWidget *bottom_spacer = gtk_label_new("");
