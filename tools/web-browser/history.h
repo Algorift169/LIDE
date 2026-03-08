@@ -3,6 +3,7 @@
 
 #include <gtk/gtk.h>
 #include "voidfox.h"
+#include <time.h>
 
 // History entry structure
 typedef struct {
@@ -14,6 +15,7 @@ typedef struct {
 // Function prototypes
 void add_to_history(const char *url, const char *title);
 void show_history_tab(BrowserWindow *browser);
+void update_history_tab(BrowserWindow *browser);
 void save_history(void);
 void load_history(void);
 

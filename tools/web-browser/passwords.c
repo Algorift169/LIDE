@@ -14,11 +14,13 @@ static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser);
 
 // Show/hide password visibility
 static void on_show_password_toggle(GtkToggleButton *toggle, GtkEntry *entry)
+
 {
     gtk_entry_set_visibility(entry, gtk_toggle_button_get_active(toggle));
 }
 
 static void copy_to_clipboard(GtkButton *button)
+
 {
     const char *text = g_object_get_data(G_OBJECT(button), "password");
     if (text) {
@@ -32,6 +34,7 @@ static void copy_to_clipboard(GtkButton *button)
 }
 
 static void show_add_password_dialog(GtkButton *button, BrowserWindow *browser)
+
 {
     (void)button;
     
@@ -107,6 +110,7 @@ static void show_add_password_dialog(GtkButton *button, BrowserWindow *browser)
 }
 
 static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
+
 {
     GtkWidget *tab_child = g_object_get_data(G_OBJECT(button), "tab-child");
     if (tab_child) {
@@ -118,6 +122,7 @@ static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
 }
 
 void show_passwords_tab(BrowserWindow *browser)
+
 {
     GtkWidget *tab_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(tab_content), 20);
@@ -198,6 +203,7 @@ void show_passwords_tab(BrowserWindow *browser)
 }
 
 void add_password(const char *site, const char *username, const char *password)
+
 {
     PasswordEntry *entry = g_new(PasswordEntry, 1);
     entry->site = g_strdup(site);
@@ -209,6 +215,7 @@ void add_password(const char *site, const char *username, const char *password)
 }
 
 void save_passwords(void)
+
 {
     FILE *f = fopen(PASSWORDS_FILE, "w");
     if (!f) return;
@@ -222,6 +229,7 @@ void save_passwords(void)
 }
 
 void load_passwords(void)
+
 {
     FILE *f = fopen(PASSWORDS_FILE, "r");
     if (!f) return;

@@ -1,8 +1,7 @@
 #include "voidfox.h"
 #include "app_menu.h"
 #include "bookmarks.h"
-#include "download-stats.h"
-#include "downloads.h"
+#include "history.h"
 #include <ctype.h>
 #include <stdio.h>
 
@@ -166,16 +165,6 @@ static void on_close_clicked(GtkButton *button, gpointer window)
     gtk_window_close(GTK_WINDOW(window));
 }
 
-// Download signal handler
-static void on_download_started(WebKitWebView *web_view, WebKitDownload *download, BrowserWindow *browser)
-{
-    (void)web_view;
-    DEBUG_PRINT("Download started");
-    
-    // Add the download to our manager
-    add_download(download, browser);
-}
-
 // Callbacks
 static void on_url_activate(GtkEntry *entry, BrowserWindow *browser) 
 
@@ -243,7 +232,14 @@ static void on_load_changed(WebKitWebView *web_view, WebKitLoadEvent event, Brow
     
     if (event == WEBKIT_LOAD_FINISHED) {
         const char *uri = webkit_web_view_get_uri(web_view);
+        const char *title = webkit_web_view_get_title(web_view);
+        
         if (uri && *uri) {
+            printf("Page loaded: %s (%s)\n", uri, title ? title : "no title");
+            
+            // Add to history
+            add_to_history(uri, title);
+            
             // Update URL bar only if this is the current tab
             int current_page = gtk_notebook_get_current_page(GTK_NOTEBOOK(browser->notebook));
             GtkWidget *current_page_widget = gtk_notebook_get_nth_page(GTK_NOTEBOOK(browser->notebook), current_page);
@@ -385,12 +381,6 @@ void voidfox_activate(GtkApplication *app, gpointer user_data) {
     GtkWidget *bookmarks_menu = create_bookmarks_menu(browser);
     gtk_menu_button_set_popup(GTK_MENU_BUTTON(bookmarks_button), bookmarks_menu);
 
-    // Download stats button
-    GtkWidget *stats_button = gtk_button_new_with_label("📊");
-    gtk_widget_set_tooltip_text(stats_button, "Download Manager");
-    g_signal_connect(stats_button, "clicked", G_CALLBACK(show_download_stats_window), browser);
-    gtk_box_pack_start(GTK_BOX(toolbar), stats_button, FALSE, FALSE, 0);
-
     // Back button
     browser->back_button = gtk_button_new_from_icon_name("go-previous", GTK_ICON_SIZE_MENU);
     if (browser->back_button) {
@@ -485,6 +475,9 @@ void voidfox_activate(GtkApplication *app, gpointer user_data) {
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
         GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 
+    // Load history at startup
+    load_history();
+    
     DEBUG_PRINT("Creating first tab...");
     // Create first tab
     new_tab(browser, HOME_PAGE);
@@ -527,8 +520,7 @@ void new_tab(BrowserWindow *browser, const char *url)
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
     }
     
-    // Connect download signal
-    g_signal_connect(web_view, "download-started", G_CALLBACK(on_download_started), browser);
+    // Connect signals (removed download-started signal)
     g_signal_connect(web_view, "load-changed", G_CALLBACK(on_load_changed), browser);
 
     // Load URL

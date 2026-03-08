@@ -9,6 +9,7 @@ static GList *bookmarks = NULL;
 
 // Bookmark menu item callback
 static void on_bookmark_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     const char *url = g_object_get_data(G_OBJECT(item), "bookmark-url");
     if (url) {
@@ -18,6 +19,7 @@ static void on_bookmark_clicked(GtkMenuItem *item, BrowserWindow *browser)
 
 // Add current page to bookmarks
 static void on_add_bookmark_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     
@@ -80,6 +82,7 @@ static void on_add_bookmark_clicked(GtkMenuItem *item, BrowserWindow *browser)
 
 // Manage bookmarks
 static void on_manage_bookmarks_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     show_bookmarks_tab(browser);
@@ -99,6 +102,7 @@ static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
 
 // Create bookmarks menu
 GtkWidget* create_bookmarks_menu(BrowserWindow *browser)
+
 {
     GtkWidget *menu = gtk_menu_new();
     
@@ -130,6 +134,7 @@ GtkWidget* create_bookmarks_menu(BrowserWindow *browser)
 
 // Show bookmarks tab
 void show_bookmarks_tab(BrowserWindow *browser)
+
 {
     GtkWidget *tab_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(tab_content), 20);
@@ -191,6 +196,7 @@ void show_bookmarks_tab(BrowserWindow *browser)
 }
 
 void add_bookmark(BrowserWindow *browser, const char *url, const char *title)
+
 {
     (void)browser;
     
@@ -210,6 +216,7 @@ void add_bookmark(BrowserWindow *browser, const char *url, const char *title)
 }
 
 void show_bookmarks_menu(GtkWidget *menu, GtkWidget *button)
+
 {
     gtk_menu_popup_at_widget(GTK_MENU(menu), button,
                              GDK_GRAVITY_SOUTH_WEST,
@@ -218,6 +225,7 @@ void show_bookmarks_menu(GtkWidget *menu, GtkWidget *button)
 }
 
 void save_bookmarks(void)
+
 {
     FILE *f = fopen(BOOKMARKS_FILE, "w");
     if (!f) return;
@@ -231,6 +239,7 @@ void save_bookmarks(void)
 }
 
 void load_bookmarks(void)
+
 {
     FILE *f = fopen(BOOKMARKS_FILE, "r");
     if (!f) return;

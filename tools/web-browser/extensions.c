@@ -1,6 +1,7 @@
 #include "extensions.h"
 
 static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
+
 {
     GtkWidget *tab_child = g_object_get_data(G_OBJECT(button), "tab-child");
     if (tab_child) {
@@ -12,6 +13,7 @@ static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
 }
 
 void show_extensions_tab(BrowserWindow *browser)
+
 {
     GtkWidget *tab_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 20);
     gtk_container_set_border_width(GTK_CONTAINER(tab_content), 20);

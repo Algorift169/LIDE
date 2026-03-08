@@ -23,6 +23,7 @@ static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoin
 
 // Dragging handlers
 static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer window)
+
 {
     if (event->button == 1) {
         is_dragging = 1;
@@ -35,6 +36,7 @@ static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpoint
 }
 
 static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer window)
+
 {
     (void)widget;
     (void)event;
@@ -44,6 +46,7 @@ static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpoi
 }
 
 static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer window)
+
 {
     GtkWidget *win = GTK_WIDGET(window);
 
@@ -63,12 +66,14 @@ static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoin
 }
 
 static void on_minimize_clicked(GtkButton *button, gpointer window)
+
 {
     (void)button;
     gtk_window_iconify(GTK_WINDOW(window));
 }
 
 static void on_close_clicked(GtkButton *button, gpointer window)
+
 {
     (void)button;
     if (refresh_timeout) {
@@ -80,6 +85,7 @@ static void on_close_clicked(GtkButton *button, gpointer window)
 }
 
 static void update_stats_list(GtkListBox *listbox)
+
 {
     // Clear existing rows
     GList *children = gtk_container_get_children(GTK_CONTAINER(listbox));
@@ -156,6 +162,7 @@ static void update_stats_list(GtkListBox *listbox)
 }
 
 static gboolean refresh_stats(gpointer user_data)
+
 {
     GtkListBox *listbox = GTK_LIST_BOX(user_data);
     update_stats_list(listbox);
@@ -163,6 +170,7 @@ static gboolean refresh_stats(gpointer user_data)
 }
 
 void show_download_stats_window(BrowserWindow *browser)
+
 {
     if (stats_window) {
         gtk_window_present(GTK_WINDOW(stats_window));
@@ -228,7 +236,7 @@ void show_download_stats_window(BrowserWindow *browser)
     GtkWidget *listbox = gtk_list_box_new();
     gtk_container_add(GTK_CONTAINER(scrolled), listbox);
 
-    // Apply dark theme
+    // CSS
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
         "window { background-color: #0b0f14; color: #ffffff; }\n"

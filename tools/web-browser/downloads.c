@@ -22,6 +22,7 @@ static void on_download_failed(DownloadItem *item);
 
 // Create downloads directory if it doesn't exist
 static void ensure_download_dir(void)
+
 {
     struct stat st = {0};
     if (stat(DOWNLOAD_DIR, &st) == -1) {
@@ -31,6 +32,7 @@ static void ensure_download_dir(void)
 
 // Extract filename from URL
 static char* get_filename_from_url(const char *url)
+
 {
     if (!url) return g_strdup("download.bin");
     
@@ -47,6 +49,7 @@ static char* get_filename_from_url(const char *url)
 
 // Callbacks for download signals
 static void on_download_finished(DownloadItem *item)
+
 {
     item->status = 2; // complete
     item->progress = 100.0;
@@ -58,6 +61,7 @@ static void on_download_finished(DownloadItem *item)
 }
 
 static void on_download_failed(DownloadItem *item)
+
 {
     item->status = 3; // failed
     item->error_message = g_strdup("Download failed");
@@ -70,6 +74,7 @@ static void on_download_failed(DownloadItem *item)
 
 // Add a new download
 void add_download(WebKitDownload *download, BrowserWindow *browser)
+
 {
     ensure_download_dir();
     global_browser = browser;
@@ -117,6 +122,7 @@ void add_download(WebKitDownload *download, BrowserWindow *browser)
 }
 
 static void open_download_folder(GtkButton *button, DownloadItem *item)
+
 {
     (void)button;
     (void)item;
@@ -126,6 +132,7 @@ static void open_download_folder(GtkButton *button, DownloadItem *item)
 }
 
 static void remove_download(DownloadItem *item)
+
 {
     downloads = g_list_remove(downloads, item);
     if (item->download) g_object_unref(item->download);
@@ -138,6 +145,7 @@ static void remove_download(DownloadItem *item)
 }
 
 static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
+
 {
     GtkWidget *tab_child = g_object_get_data(G_OBJECT(button), "tab-child");
     if (tab_child) {
@@ -149,6 +157,7 @@ static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
 }
 
 static void clear_completed_downloads(GtkButton *button, BrowserWindow *browser)
+
 {
     (void)button;
     GList *new_list = NULL;
@@ -175,6 +184,7 @@ static void clear_completed_downloads(GtkButton *button, BrowserWindow *browser)
 }
 
 void update_downloads_tab(BrowserWindow *browser)
+
 {
     // Find and refresh the downloads tab if it's open
     GtkWidget *notebook = browser->notebook;
@@ -207,6 +217,7 @@ void update_downloads_tab(BrowserWindow *browser)
 }
 
 void show_downloads_tab(BrowserWindow *browser)
+
 {
     global_browser = browser;
     ensure_download_dir();

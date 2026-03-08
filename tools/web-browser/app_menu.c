@@ -43,6 +43,7 @@ static void find_next(GtkButton *button, FindDialogData *data)
 }
 
 static void find_previous(GtkButton *button, FindDialogData *data)
+
 {
     (void)button;
     const char *text = gtk_entry_get_text(GTK_ENTRY(data->entry));
@@ -58,6 +59,7 @@ static void find_previous(GtkButton *button, FindDialogData *data)
 }
 
 static void find_dialog_response(GtkDialog *dialog, gint response_id, FindDialogData *data)
+
 {
     if (response_id == GTK_RESPONSE_CLOSE || response_id == GTK_RESPONSE_DELETE_EVENT) {
         // Stop highlighting when closing
@@ -68,6 +70,7 @@ static void find_dialog_response(GtkDialog *dialog, gint response_id, FindDialog
 }
 
 static void find_entry_activate(GtkEntry *entry, FindDialogData *data)
+
 {
     (void)entry;
     find_next(NULL, data);
@@ -75,6 +78,7 @@ static void find_entry_activate(GtkEntry *entry, FindDialogData *data)
 
 // Callback for menu items
 static void on_new_window_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     // Launch a new browser window
@@ -86,6 +90,7 @@ static void on_new_window_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_new_private_window_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     // Launch a new private window
@@ -97,36 +102,42 @@ static void on_new_private_window_clicked(GtkMenuItem *item, BrowserWindow *brow
 }
 
 static void on_bookmarks_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     show_bookmarks_tab(browser);
 }
 
 static void on_history_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     show_history_tab(browser);
 }
 
 static void on_downloads_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     show_downloads_tab(browser);
 }
 
 static void on_passwords_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     show_passwords_tab(browser);
 }
 
 static void on_extensions_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     show_extensions_tab(browser);
 }
 
 static void on_print_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     int current_page = gtk_notebook_get_current_page(GTK_NOTEBOOK(browser->notebook));
@@ -141,6 +152,7 @@ static void on_print_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_find_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     
@@ -211,6 +223,7 @@ static void on_find_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_zoom_in_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     int current_page = gtk_notebook_get_current_page(GTK_NOTEBOOK(browser->notebook));
@@ -225,6 +238,7 @@ static void on_zoom_in_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_zoom_out_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     int current_page = gtk_notebook_get_current_page(GTK_NOTEBOOK(browser->notebook));
@@ -239,6 +253,7 @@ static void on_zoom_out_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_zoom_reset_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     int current_page = gtk_notebook_get_current_page(GTK_NOTEBOOK(browser->notebook));
@@ -252,6 +267,7 @@ static void on_zoom_reset_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_settings_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     // Simple settings dialog
@@ -299,6 +315,7 @@ static void on_settings_clicked(GtkMenuItem *item, BrowserWindow *browser)
 }
 
 static void on_report_broken_clicked(GtkMenuItem *item, BrowserWindow *browser)
+
 {
     (void)item;
     int current_page = gtk_notebook_get_current_page(GTK_NOTEBOOK(browser->notebook));
@@ -318,6 +335,7 @@ static void on_report_broken_clicked(GtkMenuItem *item, BrowserWindow *browser)
 
 // Create the application menu
 GtkWidget* create_application_menu(BrowserWindow *browser)
+
 {
     GtkWidget *menu = gtk_menu_new();
     
@@ -403,6 +421,7 @@ GtkWidget* create_application_menu(BrowserWindow *browser)
 }
 
 void show_app_menu(GtkWidget *menu, GtkWidget *button)
+
 {
     gtk_menu_popup_at_widget(GTK_MENU(menu), button,
                              GDK_GRAVITY_SOUTH_WEST,
