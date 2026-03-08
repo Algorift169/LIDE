@@ -29,5 +29,5 @@ user_pref("browser.download.folderList", 1);
 user_pref("browser.download.manager.showWhenStarting", true);
 
 // LIDE integration
-user_pref("browser.tabs.drawInTitlebar", false); // Let LIDE handle titlebar
+user_pref("browser.tabs.drawInTitlebar", false); r
 user_pref("browser.uidensity", 1); // Compact mode

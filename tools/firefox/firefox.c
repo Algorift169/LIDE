@@ -6,6 +6,7 @@ static int drag_start_x, drag_start_y;
 
 // Dragging handlers
 static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer window)
+
 {
     if (event->button == 1)
     {
@@ -19,6 +20,7 @@ static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpoint
 }
 
 static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer window)
+
 {
     (void)widget;
     (void)event;
@@ -28,6 +30,7 @@ static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpoi
 }
 
 static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer window)
+
 {
     GtkWidget *win = GTK_WIDGET(window);
 
@@ -48,12 +51,14 @@ static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoin
 
 // Window control callbacks
 static void on_minimize_clicked(GtkButton *button, gpointer window)
+
 {
     (void)button;
     gtk_window_iconify(GTK_WINDOW(window));
 }
 
 static void on_maximize_clicked(GtkButton *button, gpointer window)
+
 {
     (void)button;
     GtkWindow *win = GTK_WINDOW(window);
@@ -66,6 +71,7 @@ static void on_maximize_clicked(GtkButton *button, gpointer window)
 }
 
 static void on_close_clicked(GtkButton *button, gpointer window)
+
 {
     (void)button;
     gtk_window_close(GTK_WINDOW(window));
@@ -73,6 +79,7 @@ static void on_close_clicked(GtkButton *button, gpointer window)
 
 // Navigation callbacks
 static void on_url_activate(GtkEntry *entry, FirefoxWindow *firefox)
+
 {
     const char *text = gtk_entry_get_text(entry);
     if (text && *text) {
@@ -81,6 +88,7 @@ static void on_url_activate(GtkEntry *entry, FirefoxWindow *firefox)
 }
 
 static void on_go_clicked(GtkButton *button, FirefoxWindow *firefox)
+
 {
     (void)button;
     const char *text = gtk_entry_get_text(GTK_ENTRY(firefox->url_entry));
@@ -90,12 +98,14 @@ static void on_go_clicked(GtkButton *button, FirefoxWindow *firefox)
 }
 
 static void on_home_clicked(GtkButton *button, FirefoxWindow *firefox)
+
 {
     (void)button;
     load_url(firefox, "https://www.google.com");
 }
 
 static void on_load_changed(WebKitWebView *web_view, WebKitLoadEvent event, FirefoxWindow *firefox)
+
 {
     if (event == WEBKIT_LOAD_FINISHED) {
         const char *uri = webkit_web_view_get_uri(web_view);
@@ -107,6 +117,7 @@ static void on_load_changed(WebKitWebView *web_view, WebKitLoadEvent event, Fire
 }
 
 static void on_title_changed(WebKitWebView *web_view, GParamSpec *pspec, FirefoxWindow *firefox)
+
 {
     (void)pspec;
     const char *title = webkit_web_view_get_title(web_view);
@@ -119,6 +130,7 @@ static void on_title_changed(WebKitWebView *web_view, GParamSpec *pspec, Firefox
 
 // Firefox window creation
 void firefox_activate(GtkApplication *app, gpointer user_data)
+
 {
     (void)user_data;
     
@@ -239,7 +251,7 @@ void firefox_activate(GtkApplication *app, gpointer user_data)
     // Load home page
     webkit_web_view_load_uri(firefox->web_view, "https://www.google.com");
 
-    // Apply Firefox theme
+    // Firefox theme
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
         "window { background-color: #0b0f14; color: #ffffff; }\n"
@@ -257,6 +269,7 @@ void firefox_activate(GtkApplication *app, gpointer user_data)
 
 // Navigation functions
 void load_url(FirefoxWindow *firefox, const char *text)
+
 {
     if (!text || *text == '\0') return;
     
@@ -273,6 +286,7 @@ void load_url(FirefoxWindow *firefox, const char *text)
 }
 
 void go_back(FirefoxWindow *firefox)
+
 {
     if (webkit_web_view_can_go_back(firefox->web_view)) {
         webkit_web_view_go_back(firefox->web_view);
@@ -280,6 +294,7 @@ void go_back(FirefoxWindow *firefox)
 }
 
 void go_forward(FirefoxWindow *firefox)
+
 {
     if (webkit_web_view_can_go_forward(firefox->web_view)) {
         webkit_web_view_go_forward(firefox->web_view);
@@ -287,17 +302,20 @@ void go_forward(FirefoxWindow *firefox)
 }
 
 void reload_page(FirefoxWindow *firefox)
+
 {
     webkit_web_view_reload(firefox->web_view);
 }
 
 void update_navigation_buttons(FirefoxWindow *firefox)
+
 {
     gtk_widget_set_sensitive(firefox->back_button, webkit_web_view_can_go_back(firefox->web_view));
     gtk_widget_set_sensitive(firefox->forward_button, webkit_web_view_can_go_forward(firefox->web_view));
 }
 
 int main(int argc, char **argv)
+
 {
     GtkApplication *app = gtk_application_new("org.lide.firefox", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(firefox_activate), NULL);

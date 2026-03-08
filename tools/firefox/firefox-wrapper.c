@@ -16,12 +16,14 @@ static GtkWidget *launch_btn = NULL;
 
 // Window control callbacks
 static void on_minimize_clicked(GtkButton *button, gpointer window)
+
 {
     (void)button;
     gtk_window_iconify(GTK_WINDOW(window));
 }
 
 static void on_maximize_clicked(GtkButton *button, gpointer window)
+
 {
     (void)button;
     GtkWindow *win = GTK_WINDOW(window);
@@ -35,6 +37,7 @@ static void on_maximize_clicked(GtkButton *button, gpointer window)
 
 // Track window state changes
 static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *event, gpointer data)
+
 {
     GtkButton *max_btn = GTK_BUTTON(data);
     
@@ -50,6 +53,7 @@ static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *
 }
 
 static void on_close_clicked(GtkButton *button, gpointer window)
+
 {
     (void)button;
     if (firefox_pid > 0) {
@@ -61,6 +65,7 @@ static void on_close_clicked(GtkButton *button, gpointer window)
 
 // Dragging handlers
 static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer window)
+
 {
     if (event->button == 1)
     {
@@ -74,6 +79,7 @@ static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpoint
 }
 
 static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer window)
+
 {
     (void)widget;
     (void)event;
@@ -83,6 +89,7 @@ static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpoi
 }
 
 static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer window)
+
 {
     GtkWidget *win = GTK_WIDGET(window);
 
@@ -103,6 +110,7 @@ static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoin
 
 // Check if Firefox is installed
 static int is_firefox_installed(void)
+
 {
     return (system("which firefox > /dev/null 2>&1") == 0 || 
             system("which firefox-esr > /dev/null 2>&1") == 0);
@@ -110,12 +118,14 @@ static int is_firefox_installed(void)
 
 // Check if process is running
 static int is_process_running(pid_t pid)
+
 {
     return (kill(pid, 0) == 0);
 }
 
 // Launch Firefox
 static void launch_firefox(GtkButton *button, gpointer window)
+
 {
     (void)button;
     
@@ -182,6 +192,7 @@ static void launch_firefox(GtkButton *button, gpointer window)
 
 // Monitor Firefox process
 static gboolean monitor_firefox_process(gpointer data)
+
 {
     (void)data;
     
@@ -199,6 +210,7 @@ static gboolean monitor_firefox_process(gpointer data)
 }
 
 static void activate(GtkApplication *app, gpointer user_data)
+
 {
     (void)user_data;
     
@@ -303,7 +315,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_widget_set_opacity(status_label, 0.7);
     gtk_box_pack_start(GTK_BOX(content), status_label, FALSE, FALSE, 5);
 
-    // Apply Firefox theme (orange accent)
+    // Firefox theme
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
         "window { background-color: #0b0f14; color: #ffffff; }\n"
@@ -325,6 +337,7 @@ static void activate(GtkApplication *app, gpointer user_data)
 }
 
 int main(int argc, char **argv)
+
 {
     GtkApplication *app = gtk_application_new("org.lide.firefox", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);

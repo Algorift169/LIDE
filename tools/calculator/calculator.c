@@ -17,6 +17,7 @@
 
 // Dragging handlers
 gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data) 
+
 {
     Calculator *calc = (Calculator *)data;
     
@@ -31,6 +32,7 @@ gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data
 }
 
 gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer data) 
+
 {
     Calculator *calc = (Calculator *)data;
     
@@ -42,6 +44,7 @@ gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer da
 }
 
 gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer data) 
+
 {
     Calculator *calc = (Calculator *)data;
     
@@ -62,6 +65,7 @@ gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer dat
 
 // Window control callbacks
 static void on_minimize_clicked(GtkButton *button, gpointer data) 
+
 {
     (void)button;
     Calculator *calc = (Calculator *)data;
@@ -69,6 +73,7 @@ static void on_minimize_clicked(GtkButton *button, gpointer data)
 }
 
 static void on_close_clicked(GtkButton *button, gpointer data) 
+
 {
     (void)button;
     Calculator *calc = (Calculator *)data;
@@ -77,6 +82,7 @@ static void on_close_clicked(GtkButton *button, gpointer data)
 
 // Calculator functions
 static void update_display(Calculator *calc) 
+
 {
     if (calc->error_state) {
         gtk_label_set_text(GTK_LABEL(calc->display), "Error");
@@ -86,6 +92,7 @@ static void update_display(Calculator *calc)
 }
 
 static void append_to_input(Calculator *calc, const char *text) 
+
 {
     if (calc->error_state) {
         strcpy(calc->current_input, "");
@@ -111,6 +118,7 @@ static void append_to_input(Calculator *calc, const char *text)
 }
 
 void number_clicked(GtkButton *button, gpointer data) 
+
 {
     Calculator *calc = (Calculator *)data;
     const char *text = gtk_button_get_label(button);
@@ -118,6 +126,7 @@ void number_clicked(GtkButton *button, gpointer data)
 }
 
 void operator_clicked(GtkButton *button, gpointer data) 
+
 {
     Calculator *calc = (Calculator *)data;
     const char *op = gtk_button_get_label(button);
@@ -132,6 +141,7 @@ void operator_clicked(GtkButton *button, gpointer data)
 }
 
 void function_clicked(GtkButton *button, gpointer data) 
+
 {
     Calculator *calc = (Calculator *)data;
     const char *func = gtk_button_get_label(button);
@@ -182,6 +192,7 @@ void function_clicked(GtkButton *button, gpointer data)
 }
 
 void equals_clicked(GtkButton *button, gpointer data) 
+
 {
     (void)button;
     Calculator *calc = (Calculator *)data;
@@ -225,6 +236,7 @@ void equals_clicked(GtkButton *button, gpointer data)
 }
 
 void clear_clicked(GtkButton *button, gpointer data) 
+
 {
     (void)button;
     Calculator *calc = (Calculator *)data;
@@ -238,6 +250,7 @@ void clear_clicked(GtkButton *button, gpointer data)
 }
 
 void backspace_clicked(GtkButton *button, gpointer data) 
+
 {
     (void)button;
     Calculator *calc = (Calculator *)data;
@@ -256,6 +269,7 @@ void backspace_clicked(GtkButton *button, gpointer data)
 
 // FIXED MEMORY FUNCTIONS
 void memory_clicked(GtkButton *button, gpointer data) 
+
 {
     Calculator *calc = (Calculator *)data;
     const char *action = gtk_button_get_label(button);
@@ -288,6 +302,7 @@ void memory_clicked(GtkButton *button, gpointer data)
 }
 
 void toggle_mode(GtkButton *button, gpointer data) 
+
 {
     Calculator *calc = (Calculator *)data;
     
@@ -303,6 +318,7 @@ void toggle_mode(GtkButton *button, gpointer data)
 }
 
 static void create_button_grid(Calculator *calc) 
+
 {
     calc->button_grid = gtk_grid_new();
     gtk_grid_set_row_spacing(GTK_GRID(calc->button_grid), 2);
@@ -357,6 +373,7 @@ static void create_button_grid(Calculator *calc)
 }
 
 static void activate(GtkApplication *app, gpointer user_data) 
+
 {
     (void)user_data;
     Calculator *calc = g_new(Calculator, 1);
@@ -447,7 +464,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     create_button_grid(calc);
     gtk_box_pack_start(GTK_BOX(vbox), calc->button_grid, TRUE, TRUE, 5);
     
-    // Apply CSS for dark theme with green accent
+    // css
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
         "window { background-color: #000000; color: #ffffff; }\n"
@@ -468,6 +485,7 @@ static void activate(GtkApplication *app, gpointer user_data)
 }
 
 int main(int argc, char **argv) 
+
 {
     GtkApplication *app = gtk_application_new("org.blackline.calculator", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);
