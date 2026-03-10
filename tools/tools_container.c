@@ -6,8 +6,9 @@
 #include <gdk/gdkx.h>
 #include "viewMode.h"
 
-static int is_dragging = 0;
-static int drag_start_x, drag_start_y;
+// Drag variables - commented out to disable dragging
+// static int is_dragging = 0;
+// static int drag_start_x, drag_start_y;
 
 // Launch functions 
 static void launch_file_manager(GtkButton *button, gpointer window) 
@@ -21,7 +22,7 @@ static void launch_file_manager(GtkButton *button, gpointer window)
         execl("./blackline-fm", "blackline-fm", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
+        //close container
         gtk_window_close(GTK_WINDOW(window));
     }
 }
@@ -38,7 +39,7 @@ static gboolean launch_file_manager_event(GtkWidget *widget, GdkEventButton *eve
         execl("./blackline-fm", "blackline-fm", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
+        //clo
         gtk_window_close(GTK_WINDOW(window));
     }
     return TRUE;
@@ -55,7 +56,7 @@ static void launch_text_editor(GtkButton *button, gpointer window)
         execl("./blackline-editor", "blackline-editor", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
+        //close container
         gtk_window_close(GTK_WINDOW(window));
     }
 }
@@ -72,7 +73,7 @@ static gboolean launch_text_editor_event(GtkWidget *widget, GdkEventButton *even
         execl("./blackline-editor", "blackline-editor", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
+        //close container
         gtk_window_close(GTK_WINDOW(window));
     }
     return TRUE;
@@ -89,7 +90,7 @@ static void launch_calculator(GtkButton *button, gpointer window)
         execl("./blackline-calculator", "blackline-calculator", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
+        //close container
         gtk_window_close(GTK_WINDOW(window));
     }
 }
@@ -102,11 +103,11 @@ static gboolean launch_calculator_event(GtkWidget *widget, GdkEventButton *event
     
     pid_t pid = fork();
     if (pid == 0) {
-        // Launch calculator
+        // Launch custom calculator 
         execl("./blackline-calculator", "blackline-calculator", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
+        //close container
         gtk_window_close(GTK_WINDOW(window));
     }
     return TRUE;
@@ -123,7 +124,7 @@ static void launch_system_monitor(GtkButton *button, gpointer window)
         execl("./blackline-system-monitor", "blackline-system-monitor", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
+        //close container
         gtk_window_close(GTK_WINDOW(window));
     }
 }
@@ -140,7 +141,7 @@ static gboolean launch_system_monitor_event(GtkWidget *widget, GdkEventButton *e
         execl("./blackline-system-monitor", "blackline-system-monitor", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
+        //close container
         gtk_window_close(GTK_WINDOW(window));
     }
     return TRUE;
@@ -158,7 +159,7 @@ static void launch_web_browser(GtkButton *button, gpointer window)
         execl("./voidfox", "voidfox", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
+        //close container
         gtk_window_close(GTK_WINDOW(window));
     }
 }
@@ -175,7 +176,7 @@ static gboolean launch_web_browser_event(GtkWidget *widget, GdkEventButton *even
         execl("./voidfox", "voidfox", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
+        //close container
         gtk_window_close(GTK_WINDOW(window));
     }
     return TRUE;
@@ -213,7 +214,7 @@ static void launch_firefox_wrapper(GtkButton *button, gpointer window)
         }
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
+        //close container
         gtk_window_close(GTK_WINDOW(window));
     }
 }
@@ -250,7 +251,7 @@ static gboolean launch_firefox_wrapper_event(GtkWidget *widget, GdkEventButton *
         }
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
+        //close container
         gtk_window_close(GTK_WINDOW(window));
     }
     return TRUE;
@@ -267,7 +268,8 @@ static ToolItem tools[] = {
 };
 static int num_tools = sizeof(tools) / sizeof(tools[0]);
 
-// Dragging functions
+// Dragging functions - commented out to disable
+/*
 static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer window) 
 
 {
@@ -310,6 +312,7 @@ static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoin
     }
     return FALSE;
 }
+*/
 
 static void on_close_clicked(GtkButton *button, gpointer window) 
 
@@ -365,11 +368,16 @@ static void activate(GtkApplication *app, gpointer user_data)
         gtk_window_set_default_size(GTK_WINDOW(window), 350, 450);
     }
     
-    gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
+    // Set fixed position 
+    // These coordinates are relative to the X display
+    gtk_window_move(GTK_WINDOW(window), 9 , 40);  // Fixed position (x=10, y=30)
+    
+    gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_NONE);  // Don't auto-center
     gtk_window_set_resizable(GTK_WINDOW(window), FALSE);
     gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
-    
-    // Enable events for dragging
+    gtk_window_set_decorated(GTK_WINDOW(window), FALSE);  
+    // Enable events for dragging - commented out to disable
+    /*
     gtk_widget_add_events(window, GDK_BUTTON_PRESS_MASK | 
                                    GDK_BUTTON_RELEASE_MASK | 
                                    GDK_POINTER_MOTION_MASK);
@@ -378,6 +386,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     g_signal_connect(window, "button-press-event", G_CALLBACK(on_button_press), window);
     g_signal_connect(window, "button-release-event", G_CALLBACK(on_button_release), window);
     g_signal_connect(window, "motion-notify-event", G_CALLBACK(on_motion_notify), window);
+    */
     
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     gtk_container_set_border_width(GTK_CONTAINER(vbox), 10);
@@ -427,6 +436,18 @@ static void activate(GtkApplication *app, gpointer user_data)
     // Add some spacing at the bottom
     GtkWidget *bottom_spacer = gtk_label_new("");
     gtk_box_pack_start(GTK_BOX(vbox), bottom_spacer, TRUE, TRUE, 0);
+    
+    // CSS
+    GtkCssProvider *provider = gtk_css_provider_new();
+    gtk_css_provider_load_from_data(provider,
+        "window { background-color: #0b0f14; color: #ffffff; border: 1px solid #00ff88; }"
+        "button { background-color: #1e2429; color: #00ff88; border: none; }"
+        "button:hover { background-color: #2a323a; }"
+        "label { color: #ffffff; }"
+        "entry { background-color: #1e2429; color: #ffffff; border: 1px solid #00ff88; }",
+        -1, NULL);
+    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
+        GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
     
     gtk_widget_show_all(window);
     gtk_window_present(GTK_WINDOW(window));
