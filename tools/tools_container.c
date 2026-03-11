@@ -4,11 +4,16 @@
 #include <string.h>
 #include <unistd.h>
 #include <gdk/gdkx.h>
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
 #include "viewMode.h"
 
 // Drag variables - commented out to disable dragging
 // static int is_dragging = 0;
 // static int drag_start_x, drag_start_y;
+
+// Global display connection for cleanup
+static Display *global_display = NULL;
 
 // Launch functions 
 static void launch_file_manager(GtkButton *button, gpointer window) 
@@ -317,6 +322,23 @@ static void on_close_clicked(GtkButton *button, gpointer window)
     gtk_window_close(GTK_WINDOW(window));
 }
 
+// Window destroy handler to clean up the atom
+static void on_window_destroy(GtkWidget *widget, gpointer data) 
+
+{
+    (void)widget;
+    (void)data;
+    
+    if (global_display) {
+        // Remove the atom property
+        Atom tools_atom = XInternAtom(global_display, "_BLACKLINE_TOOLS_WINDOW", False);
+        if (tools_atom != None) {
+            XDeleteProperty(global_display, DefaultRootWindow(global_display), tools_atom);
+            XFlush(global_display);
+        }
+    }
+}
+
 // View toggle callback
 static void on_view_toggle_clicked(GtkButton *button, gpointer user_data) 
 
@@ -443,6 +465,9 @@ static void activate(GtkApplication *app, gpointer user_data)
     // Connect view toggle button
     g_signal_connect(view_btn, "clicked", G_CALLBACK(on_view_toggle_clicked), NULL);
     
+    // Connect destroy signal to clean up atom
+    g_signal_connect(window, "destroy", G_CALLBACK(on_window_destroy), NULL);
+    
     // Add some spacing at the bottom
     GtkWidget *bottom_spacer = gtk_label_new("");
     gtk_box_pack_start(GTK_BOX(vbox), bottom_spacer, TRUE, TRUE, 0);
@@ -468,12 +493,76 @@ static void activate(GtkApplication *app, gpointer user_data)
     
     // CRITICAL: Show all widgets
     gtk_widget_show_all(window);
+    
+    // Get display for atom operations
+    Display *xdisplay = GDK_DISPLAY_XDISPLAY(gtk_widget_get_display(window));
+    global_display = xdisplay;  // Store for cleanup
+    
+    // Set _NET_WM_PID property for easier window detection (optional, kept for compatibility)
+    Window xwindow = GDK_WINDOW_XID(gtk_widget_get_window(window));
+    Atom net_wm_pid = XInternAtom(xdisplay, "_NET_WM_PID", False);
+    pid_t pid = getpid();
+    XChangeProperty(xdisplay, xwindow, net_wm_pid, XA_CARDINAL, 32,
+                PropModeReplace, (unsigned char*)&pid, 1);
+    
+    // Set a unique atom on the root window to identify this instance
+    Atom tools_atom = XInternAtom(xdisplay, "_BLACKLINE_TOOLS_WINDOW", False);
+    XChangeProperty(xdisplay, DefaultRootWindow(xdisplay), tools_atom, XA_WINDOW, 32,
+                    PropModeReplace, (unsigned char*)&xwindow, 1);
+    XFlush(xdisplay);
+    
     gtk_window_present(GTK_WINDOW(window));
+}
+
+// Single-instance check: if another instance exists, raise it and exit.
+static Window find_existing_instance(Display *dpy) 
+{
+    Atom atom = XInternAtom(dpy, "_BLACKLINE_TOOLS_WINDOW", False);
+    if (atom == None) return None;
+    
+    Window root = DefaultRootWindow(dpy);
+    Atom actual_type;
+    int actual_format;
+    unsigned long nitems, bytes_after;
+    unsigned char *data = NULL;
+    
+    if (XGetWindowProperty(dpy, root, atom, 0, 1, False, XA_WINDOW,
+                           &actual_type, &actual_format, &nitems, &bytes_after,
+                           &data) == Success && actual_type == XA_WINDOW && nitems == 1) {
+        Window win = *(Window*)data;
+        XFree(data);
+        
+        // Verify the window still exists
+        XWindowAttributes attrs;
+        if (XGetWindowAttributes(dpy, win, &attrs) != 0) {
+            return win;
+        }
+    }
+    return None;
+}
+
+static void raise_window(Display *dpy, Window win) 
+{
+    XRaiseWindow(dpy, win);
+    XMapRaised(dpy, win);
+    XFlush(dpy);
 }
 
 int main(int argc, char **argv) 
 
 {
+    // Check for existing instance
+    Display *dpy = XOpenDisplay(NULL);
+    if (dpy) {
+        Window existing = find_existing_instance(dpy);
+        if (existing != None) {
+            raise_window(dpy, existing);
+            XCloseDisplay(dpy);
+            return 0;  // Exit silently
+        }
+        XCloseDisplay(dpy);
+    }
+    
     GtkApplication *app = gtk_application_new("org.blackline.tools", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);
     int status = g_application_run(G_APPLICATION(app), argc, argv);

@@ -25,13 +25,13 @@ blackline-wm: wm/wm.c
 	$(CC) $(CFLAGS) -o $@ $< $(X11_LIBS)
 
 blackline-panel: panel/panel.c tools/minimized_container.c
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ panel/panel.c tools/minimized_container.c $(GTK_LIBS) $(X11_LIBS)
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ panel/panel.c tools/minimized_container.c $(GTK_LIBS) -lX11
 
 blackline-launcher: launcher/launcher.c
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $< $(GTK_LIBS)
 
 blackline-tools: tools/tools_container.c tools/viewMode.c
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ tools/tools_container.c tools/viewMode.c $(GTK_LIBS)
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ tools/tools_container.c tools/viewMode.c $(GTK_LIBS) -lX11
 
 blackline-background: tools/background.c
 	$(CC) $(CFLAGS) -o $@ $<
