@@ -4,6 +4,17 @@ GTK_CFLAGS = $(shell pkg-config --cflags gtk+-3.0)
 GTK_LIBS = $(shell pkg-config --libs gtk+-3.0)
 X11_LIBS = -lX11
 
+# VTE detection for terminal
+VTE_PKG := $(shell pkg-config --exists vte-2.91 && echo vte-2.91)
+ifneq ($(VTE_PKG),)
+    VTE_CFLAGS = $(shell pkg-config --cflags vte-2.91)
+    VTE_LIBS = $(shell pkg-config --libs vte-2.91)
+    HAVE_VTE = yes
+else
+    $(warning "vte-2.91 not found, terminal will not be built")
+    HAVE_VTE = no
+endif
+
 # WebKitGTK auto-detection for VoidFox
 WEBKIT_PKG := $(shell pkg-config --exists webkit2gtk-4.1 && echo webkit2gtk-4.1 || \
                      (pkg-config --exists webkit2gtk-4.0 && echo webkit2gtk-4.0) || \
@@ -19,27 +30,36 @@ endif
 # Firefox wrapper build
 FIREFOX_WRAPPER = tools/firefox/firefox-wrapper
 
-all: blackline-wm blackline-panel blackline-launcher blackline-tools blackline-background blackline-fm blackline-editor blackline-calculator blackline-system-monitor voidfox firefox-wrapper
+# Base targets
+all: blackline-wm blackline-panel blackline-launcher blackline-tools blackline-background \
+     blackline-fm blackline-editor blackline-calculator blackline-system-monitor \
+     voidfox firefox-wrapper blackline-terminal
 
+# Window Manager
 blackline-wm: wm/wm.c
 	$(CC) $(CFLAGS) -o $@ $< $(X11_LIBS)
 
+# Panel
 blackline-panel: panel/panel.c tools/minimized_container.c
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ panel/panel.c tools/minimized_container.c $(GTK_LIBS) -lX11
 
+# Launcher
 blackline-launcher: launcher/launcher.c
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $< $(GTK_LIBS)
 
+# Tools Container
 blackline-tools: tools/tools_container.c tools/viewMode.c
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ tools/tools_container.c tools/viewMode.c $(GTK_LIBS) -lX11
 
+# Background
 blackline-background: tools/background.c
 	$(CC) $(CFLAGS) -o $@ $<
 
+# File Manager
 blackline-fm: tools/file-manager/fm.c tools/file-manager/browser.c
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ tools/file-manager/fm.c tools/file-manager/browser.c $(GTK_LIBS)
 
-# Text editor with edit features
+# Text Editor
 blackline-editor: tools/text_editor/editor.c tools/text_editor/edit.c
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ tools/text_editor/editor.c tools/text_editor/edit.c $(GTK_LIBS)
 
@@ -48,7 +68,8 @@ blackline-calculator: tools/calculator/calculator.c
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ tools/calculator/calculator.c $(GTK_LIBS) -lm
 
 # System Monitor
-blackline-system-monitor: tools/system-monitor/monitor.o tools/system-monitor/cpu.o tools/system-monitor/memory.o tools/system-monitor/processes.o
+blackline-system-monitor: tools/system-monitor/monitor.o tools/system-monitor/cpu.o \
+                          tools/system-monitor/memory.o tools/system-monitor/processes.o
 	$(CC) -o $@ $^ $(GTK_LIBS)
 
 tools/system-monitor/monitor.o: tools/system-monitor/monitor.c tools/system-monitor/monitor.h
@@ -67,7 +88,19 @@ tools/system-monitor/processes.o: tools/system-monitor/processes.c tools/system-
 tools/viewMode.o: tools/viewMode.c tools/viewMode.h
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
 
-# VoidFox Web Browser with all features including download stats and settings
+# Terminal - only build if VTE is available
+ifeq ($(HAVE_VTE),yes)
+blackline-terminal: tools/terminal/terminal.o
+	$(CC) -o $@ $^ $(GTK_LIBS) $(VTE_LIBS)
+
+tools/terminal/terminal.o: tools/terminal/terminal.c
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(VTE_CFLAGS) -c $< -o $@
+else
+blackline-terminal:
+	@echo "Skipping terminal build (vte-2.91 not found)"
+endif
+
+# VoidFox Web Browser
 voidfox: tools/web-browser/voidfox.o tools/web-browser/browser.o tools/web-browser/tab.o \
          tools/web-browser/app_menu.o tools/web-browser/bookmarks.o \
          tools/web-browser/history.o tools/web-browser/downloads.o \
@@ -135,9 +168,12 @@ firefox-wrapper: $(FIREFOX_WRAPPER).c
 %.o: %.c
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
 
+# Clean
 clean:
-	rm -f blackline-wm blackline-panel blackline-launcher blackline-tools blackline-background blackline-fm blackline-editor blackline-calculator blackline-system-monitor voidfox $(FIREFOX_WRAPPER)
-	rm -f *.o tools/*.o tools/system-monitor/*.o tools/web-browser/*.o
+	rm -f blackline-wm blackline-panel blackline-launcher blackline-tools blackline-background \
+	      blackline-fm blackline-editor blackline-calculator blackline-system-monitor \
+	      voidfox $(FIREFOX_WRAPPER) blackline-terminal
+	rm -f *.o tools/*.o tools/system-monitor/*.o tools/web-browser/*.o tools/terminal/*.o
 	rm -f ~/.config/blackline/tools_view_mode.conf
 
 # Install all binaries
@@ -153,6 +189,7 @@ install: all
 	sudo cp blackline-system-monitor /usr/local/bin/
 	sudo cp voidfox /usr/local/bin/
 	sudo cp $(FIREFOX_WRAPPER) /usr/local/bin/lide-firefox
+	-test -f blackline-terminal && sudo cp blackline-terminal /usr/local/bin/
 
 # Uninstall all binaries
 uninstall:
@@ -167,6 +204,7 @@ uninstall:
 	sudo rm -f /usr/local/bin/blackline-system-monitor
 	sudo rm -f /usr/local/bin/voidfox
 	sudo rm -f /usr/local/bin/lide-firefox
+	sudo rm -f /usr/local/bin/blackline-terminal
 	rm -f ~/.config/blackline/tools_view_mode.conf
 
 # Run commands
@@ -187,6 +225,9 @@ run-voidfox: voidfox
 
 run-firefox: firefox-wrapper
 	./$(FIREFOX_WRAPPER)
+
+run-terminal: blackline-terminal
+	./blackline-terminal
 
 # WebKit dependency check
 check-webkit:
@@ -216,6 +257,16 @@ check-firefox:
 		echo "  or: sudo apt install firefox-esr"; \
 	fi
 
+# VTE check
+check-vte:
+	@echo "Checking VTE installation..."
+	@if pkg-config --exists vte-2.91; then \
+		echo "✓ VTE 2.91 found: $$(pkg-config --modversion vte-2.91)"; \
+	else \
+		echo "✗ VTE not found!"; \
+		echo "  Install with: sudo apt install libvte-2.91-dev"; \
+	fi
+
 help:
 	@echo "Blackline Desktop Environment - Makefile"
 	@echo ""
@@ -228,6 +279,7 @@ help:
 	@echo "  blackline-background    - Build background setter"
 	@echo "  blackline-fm            - Build file manager"
 	@echo "  blackline-editor        - Build text editor"
+	@echo "  blackline-terminal      - Build terminal emulator"
 	@echo "  blackline-calculator    - Build calculator"
 	@echo "  blackline-system-monitor - Build system monitor"
 	@echo "  voidfox                 - Build VoidFox web browser"
@@ -237,6 +289,7 @@ help:
 	@echo "  uninstall               - Remove all binaries from /usr/local/bin"
 	@echo "  check-webkit            - Check WebKitGTK installation"
 	@echo "  check-firefox           - Check Firefox installation"
+	@echo "  check-vte               - Check VTE installation"
 	@echo ""
 	@echo "Run targets:"
 	@echo "  run-editor              - Run text editor"
@@ -245,9 +298,11 @@ help:
 	@echo "  run-system-monitor      - Run system monitor"
 	@echo "  run-voidfox             - Run VoidFox web browser"
 	@echo "  run-firefox             - Run Firefox wrapper"
+	@echo "  run-terminal            - Run terminal emulator"
 	@echo ""
 	@echo "View Mode:"
 	@echo "  The tools container now supports List/Grid view toggle"
 	@echo "  View preference is saved in ~/.config/blackline/tools_view_mode.conf"
 
-.PHONY: all clean install uninstall run-editor run-wm run-calculator run-system-monitor run-voidfox run-firefox check-webkit check-firefox help
+.PHONY: all clean install uninstall run-editor run-wm run-calculator run-system-monitor \
+        run-voidfox run-firefox run-terminal check-webkit check-firefox check-vte help

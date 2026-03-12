@@ -262,15 +262,52 @@ static gboolean launch_firefox_wrapper_event(GtkWidget *widget, GdkEventButton *
     return TRUE;
 }
 
+// Terminal launcher function
+static void launch_terminal(GtkButton *button, gpointer window) 
+
+{
+    (void)button;
+    
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Launch terminal
+        execl("./blackline-terminal", "blackline-terminal", NULL);
+        exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools container
+        gtk_window_close(GTK_WINDOW(window));
+    }
+}
+
+static gboolean launch_terminal_event(GtkWidget *widget, GdkEventButton *event, gpointer window)
+
+{
+    (void)widget;
+    (void)event;
+    
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Launch terminal
+        execl("./blackline-terminal", "blackline-terminal", NULL);
+        exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools container
+        gtk_window_close(GTK_WINDOW(window));
+    }
+    return TRUE;
+}
+
 // Tool definitions for view mode
 static ToolItem tools[] = {
     {"File Manager", "📁", launch_file_manager, launch_file_manager_event, NULL},
     {"Text Editor", "📝", launch_text_editor, launch_text_editor_event, NULL},
+    {"Terminal", ">_", launch_terminal, launch_terminal_event, NULL},  // Added this line
     {"Calculator", "🧮", launch_calculator, launch_calculator_event, NULL},
     {"System Monitor", "📊", launch_system_monitor, launch_system_monitor_event, NULL},
     {"VoidFox", "🌐", launch_web_browser, launch_web_browser_event, NULL},
     {"Firefox", "🦊", launch_firefox_wrapper, launch_firefox_wrapper_event, NULL}
 };
+
 static int num_tools = sizeof(tools) / sizeof(tools[0]);
 
 // Dragging functions - commented out to disable
