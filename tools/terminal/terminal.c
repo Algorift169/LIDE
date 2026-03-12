@@ -112,7 +112,7 @@ static void on_close_clicked(GtkButton *button, gpointer window)
     gtk_window_close(GTK_WINDOW(window));
 }
 
-// CSS
+// CSS 
 static void apply_css(void) {
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
@@ -123,7 +123,12 @@ static void apply_css(void) {
         "notebook tab button { padding: 0; min-width: 20px; min-height: 20px; }\n"
         "#title-bar { background-color: #0b0f14; border-bottom: 2px solid #00ff88; }\n"
         "button { background-color: #1e2429; color: #00ff88; border: none; }\n"
-        "button:hover { background-color: #2a323a; }\n",
+        "button:hover { background-color: #2a323a; }\n"
+        "scrollbar { background-color: #1e2429; }\n"
+        "scrollbar slider { background-color: #00ff88; border-radius: 4px; min-width: 8px; min-height: 8px; }\n"
+        "scrollbar slider:hover { background-color: #33ffaa; }\n"
+        "scrollbar slider:active { background-color: #00cc66; }\n"
+        "scrollbar trough { background-color: #2a323a; border-radius: 4px; }",
         -1, NULL);
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
         GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
@@ -150,11 +155,12 @@ static void close_tab_callback(GtkButton *button, gpointer notebook)
     }
 }
 
-// Create a new terminal tab
+// Create a new terminal tab - FIXED: Added scrolled window
 static void new_terminal_tab(const char *initial_directory) 
 
 {
     GtkWidget *vte = vte_terminal_new();
+    GtkWidget *scrolled_window;
 
     // Set basic options
     vte_terminal_set_scrollback_lines(VTE_TERMINAL(vte), 10000);
@@ -177,6 +183,14 @@ static void new_terminal_tab(const char *initial_directory)
         spawn_callback,
         NULL);
 
+    // Create scrolled window for the terminal
+    scrolled_window = gtk_scrolled_window_new(NULL, NULL);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled_window),
+                                   GTK_POLICY_AUTOMATIC,  // Horizontal scrollbar
+                                   GTK_POLICY_AUTOMATIC); // Vertical scrollbar
+    gtk_container_add(GTK_CONTAINER(scrolled_window), vte);
+    gtk_widget_show(vte);
+
     // Create tab with close button
     GtkWidget *tab_label_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     GtkWidget *tab_label = gtk_label_new("Terminal");
@@ -188,13 +202,13 @@ static void new_terminal_tab(const char *initial_directory)
     gtk_box_pack_start(GTK_BOX(tab_label_box), close_btn, FALSE, FALSE, 0);
     gtk_widget_show_all(tab_label_box);
 
-    // Add to notebook
-    int page_num = gtk_notebook_append_page(GTK_NOTEBOOK(notebook), vte, tab_label_box);
+    // Add to notebook (use scrolled_window instead of vte directly)
+    int page_num = gtk_notebook_append_page(GTK_NOTEBOOK(notebook), scrolled_window, tab_label_box);
     gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), page_num);
-    gtk_notebook_set_tab_reorderable(GTK_NOTEBOOK(notebook), vte, TRUE);
+    gtk_notebook_set_tab_reorderable(GTK_NOTEBOOK(notebook), scrolled_window, TRUE);
 
     // Connect close button
-    g_object_set_data(G_OBJECT(close_btn), "tab", vte);
+    g_object_set_data(G_OBJECT(close_btn), "tab", scrolled_window);
     g_signal_connect(close_btn, "clicked", G_CALLBACK(close_tab_callback), notebook);
 }
 
