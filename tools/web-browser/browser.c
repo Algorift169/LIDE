@@ -164,44 +164,45 @@ static int is_valid_url(const char *str)
     return 0;
 }
 
-// Dragging handlers
-static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer window)
-
+// Dragging handlers - EXACTLY like calculator
+gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data)
 {
-    if (event->button == 1)
-    {
+    BrowserWindow *browser = (BrowserWindow *)data;
+    
+    if (event->button == 1) {
         is_dragging = 1;
         drag_start_x = event->x_root;
         drag_start_y = event->y_root;
-        gtk_window_present(GTK_WINDOW(window));
+        gtk_window_present(GTK_WINDOW(browser->window));
         return TRUE;
     }
     return FALSE;
 }
 
-static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer window)
-
+gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer data)
 {
-    (void)widget;
-    (void)event;
-    (void)window;
-    is_dragging = 0;
+    BrowserWindow *browser = (BrowserWindow *)data;
+    (void)browser;
+    
+    if (event->button == 1) {
+        is_dragging = 0;
+        return TRUE;
+    }
     return FALSE;
 }
 
-static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer window)
-
+gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer data)
 {
-    GtkWidget *win = GTK_WIDGET(window);
-
+    BrowserWindow *browser = (BrowserWindow *)data;
+    
     if (is_dragging) {
         int dx = event->x_root - drag_start_x;
         int dy = event->y_root - drag_start_y;
-
+        
         int x, y;
-        gtk_window_get_position(GTK_WINDOW(win), &x, &y);
-        gtk_window_move(GTK_WINDOW(win), x + dx, y + dy);
-
+        gtk_window_get_position(GTK_WINDOW(browser->window), &x, &y);
+        gtk_window_move(GTK_WINDOW(browser->window), x + dx, y + dy);
+        
         drag_start_x = event->x_root;
         drag_start_y = event->y_root;
         return TRUE;
@@ -380,8 +381,8 @@ static gboolean on_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
 
 // ==================== SETTINGS INTEGRATION ====================
 
-// Permission request handler
-static gboolean on_permission_request(WebKitWebView *web_view, WebKitPermissionRequest *request, BrowserWindow *browser) {
+// Permission request handler - connect to WebKitWebView
+static gboolean on_web_view_permission_request(WebKitWebView *web_view, WebKitPermissionRequest *request, BrowserWindow *browser) {
     (void)web_view;
     (void)browser;
     
@@ -413,8 +414,8 @@ static gboolean on_permission_request(WebKitWebView *web_view, WebKitPermissionR
     return TRUE;
 }
 
-// Download request handler
-static gboolean on_decide_policy(WebKitWebView *web_view, WebKitPolicyDecision *decision, WebKitPolicyDecisionType type, BrowserWindow *browser) {
+// Download request handler - connect to WebKitWebView
+static gboolean on_web_view_decide_policy(WebKitWebView *web_view, WebKitPolicyDecision *decision, WebKitPolicyDecisionType type, BrowserWindow *browser) {
     (void)browser;
     
     if (type == WEBKIT_POLICY_DECISION_TYPE_RESPONSE) {
@@ -498,6 +499,11 @@ void settings_updated(BrowserWindow *browser) {
     if (browser->title_bar) {
         gtk_widget_set_visible(browser->title_bar, !settings.use_system_title_bar);
         gtk_window_set_decorated(GTK_WINDOW(browser->window), settings.use_system_title_bar);
+        
+        // Force a resize to ensure proper window state
+        int width, height;
+        gtk_window_get_size(GTK_WINDOW(browser->window), &width, &height);
+        gtk_window_resize(GTK_WINDOW(browser->window), width, height);
     }
     
     // Update CSS for dark mode
@@ -509,7 +515,8 @@ void settings_updated(BrowserWindow *browser) {
             "button { background-color: #1e2429; color: #00ff88; border: none; }\n"
             "button:hover { background-color: #2a323a; }\n"
             "notebook { background-color: #0b0f14; }\n"
-            "#title-bar { background-color: #0b0f14; border-bottom: 2px solid #00ff88; }\n",
+            "#title-bar { background-color: #0b0f14; border-bottom: 2px solid #00ff88; }\n"
+            "#bookmarks-bar { background-color: #1e2429; padding: 2px; }\n",
             -1, NULL);
     } else {
         gtk_css_provider_load_from_data(provider,
@@ -518,7 +525,8 @@ void settings_updated(BrowserWindow *browser) {
             "button { background-color: #e0e0e0; color: #000000; border: none; }\n"
             "button:hover { background-color: #d0d0d0; }\n"
             "notebook { background-color: #f0f0f0; }\n"
-            "#title-bar { background-color: #e0e0e0; border-bottom: 2px solid #888888; }\n",
+            "#title-bar { background-color: #e0e0e0; border-bottom: 2px solid #888888; }\n"
+            "#bookmarks-bar { background-color: #d0d0d0; padding: 2px; }\n",
             -1, NULL);
     }
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
@@ -555,62 +563,59 @@ void voidfox_activate(GtkApplication *app, gpointer user_data) {
     gtk_window_set_default_size(GTK_WINDOW(browser->window), 1024, 768);
     gtk_window_set_position(GTK_WINDOW(browser->window), GTK_WIN_POS_CENTER);
     gtk_window_set_decorated(GTK_WINDOW(browser->window), settings.use_system_title_bar ? TRUE : FALSE);
-
-    // Enable events for dragging on the whole window (only if using custom title bar)
-    if (!settings.use_system_title_bar) {
-        gtk_widget_add_events(browser->window, GDK_BUTTON_PRESS_MASK |
-                                               GDK_BUTTON_RELEASE_MASK |
-                                               GDK_POINTER_MOTION_MASK);
-        g_signal_connect(browser->window, "button-press-event", G_CALLBACK(on_button_press), browser->window);
-        g_signal_connect(browser->window, "button-release-event", G_CALLBACK(on_button_release), browser->window);
-        g_signal_connect(browser->window, "motion-notify-event", G_CALLBACK(on_motion_notify), browser->window);
-    }
+    
+    // Enable events for dragging on the window - EXACTLY like calculator
+    gtk_widget_add_events(browser->window, GDK_BUTTON_PRESS_MASK | 
+                                         GDK_BUTTON_RELEASE_MASK | 
+                                         GDK_POINTER_MOTION_MASK);
+    g_signal_connect(browser->window, "button-press-event", G_CALLBACK(on_button_press), browser);
+    g_signal_connect(browser->window, "button-release-event", G_CALLBACK(on_button_release), browser);
+    g_signal_connect(browser->window, "motion-notify-event", G_CALLBACK(on_motion_notify), browser);
 
     // Main vertical box
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_container_add(GTK_CONTAINER(browser->window), vbox);
     DEBUG_PRINT("VBox created");
 
-    // Custom title bar (only if not using system title bar)
-    if (!settings.use_system_title_bar) {
-        GtkWidget *title_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-        gtk_widget_set_name(title_bar, "title-bar");
-        gtk_widget_set_size_request(title_bar, -1, 30);
-        gtk_box_pack_start(GTK_BOX(vbox), title_bar, FALSE, FALSE, 0);
-        browser->title_bar = title_bar;
+    // Custom title bar
+    GtkWidget *title_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_widget_set_name(title_bar, "title-bar");
+    gtk_widget_set_size_request(title_bar, -1, 30);
+    gtk_box_pack_start(GTK_BOX(vbox), title_bar, FALSE, FALSE, 0);
+    browser->title_bar = title_bar;
 
-        GtkWidget *title_label = gtk_label_new("VoidFox Web Browser");
-        gtk_label_set_xalign(GTK_LABEL(title_label), 0.0);
-        gtk_box_pack_start(GTK_BOX(title_bar), title_label, TRUE, TRUE, 10);
+    GtkWidget *title_label = gtk_label_new("VoidFox Web Browser");
+    gtk_label_set_xalign(GTK_LABEL(title_label), 0.0);
+    gtk_box_pack_start(GTK_BOX(title_bar), title_label, TRUE, TRUE, 10);
 
-        GtkWidget *window_buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
-        gtk_box_pack_end(GTK_BOX(title_bar), window_buttons, FALSE, FALSE, 5);
+    GtkWidget *window_buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+    gtk_box_pack_end(GTK_BOX(title_bar), window_buttons, FALSE, FALSE, 5);
 
-        // Minimize button
-        GtkWidget *min_btn = gtk_button_new_with_label("─");
-        gtk_widget_set_size_request(min_btn, 30, 25);
-        g_signal_connect(min_btn, "clicked", G_CALLBACK(on_minimize_clicked), browser->window);
-        gtk_box_pack_start(GTK_BOX(window_buttons), min_btn, FALSE, FALSE, 0);
+    // Minimize button
+    GtkWidget *min_btn = gtk_button_new_with_label("─");
+    gtk_widget_set_size_request(min_btn, 30, 25);
+    g_signal_connect(min_btn, "clicked", G_CALLBACK(on_minimize_clicked), browser->window);
+    gtk_box_pack_start(GTK_BOX(window_buttons), min_btn, FALSE, FALSE, 0);
 
-        // Maximize button
-        GtkWidget *max_btn = gtk_button_new_with_label("□");
-        gtk_widget_set_size_request(max_btn, 30, 25);
-        g_signal_connect(max_btn, "clicked", G_CALLBACK(on_maximize_clicked), browser->window);
-        g_signal_connect(browser->window, "window-state-event", G_CALLBACK(on_window_state_changed), max_btn);
-        gtk_box_pack_start(GTK_BOX(window_buttons), max_btn, FALSE, FALSE, 0);
+    // Maximize button
+    GtkWidget *max_btn = gtk_button_new_with_label("□");
+    gtk_widget_set_size_request(max_btn, 30, 25);
+    g_signal_connect(max_btn, "clicked", G_CALLBACK(on_maximize_clicked), browser->window);
+    g_signal_connect(browser->window, "window-state-event", G_CALLBACK(on_window_state_changed), max_btn);
+    gtk_box_pack_start(GTK_BOX(window_buttons), max_btn, FALSE, FALSE, 0);
 
-        // Close button
-        GtkWidget *close_btn = gtk_button_new_with_label("✕");
-        gtk_widget_set_size_request(close_btn, 30, 25);
-        g_signal_connect(close_btn, "clicked", G_CALLBACK(on_close_clicked), browser->window);
-        gtk_box_pack_start(GTK_BOX(window_buttons), close_btn, FALSE, FALSE, 0);
+    // Close button
+    GtkWidget *close_btn = gtk_button_new_with_label("✕");
+    gtk_widget_set_size_request(close_btn, 30, 25);
+    g_signal_connect(close_btn, "clicked", G_CALLBACK(on_close_clicked), browser->window);
+    gtk_box_pack_start(GTK_BOX(window_buttons), close_btn, FALSE, FALSE, 0);
 
-        // Separator
-        GtkWidget *sep1 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
-        gtk_box_pack_start(GTK_BOX(vbox), sep1, FALSE, FALSE, 0);
-    } else {
-        browser->title_bar = NULL;
-    }
+    // Show/hide title bar based on settings
+    gtk_widget_set_visible(title_bar, !settings.use_system_title_bar);
+
+    // Separator after title bar
+    GtkWidget *sep1 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+    gtk_box_pack_start(GTK_BOX(vbox), sep1, FALSE, FALSE, 0);
 
     // Toolbar
     GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
@@ -811,13 +816,6 @@ void voidfox_activate(GtkApplication *app, gpointer user_data) {
     
     DEBUG_PRINT("First tab created");
 
-    // Connect permission request handler
-    WebKitWebContext *context = webkit_web_context_get_default();
-    g_signal_connect(context, "permission-request", G_CALLBACK(on_permission_request), browser);
-    
-    // Connect download policy decision handler
-    g_signal_connect(context, "decide-policy", G_CALLBACK(on_decide_policy), browser);
-
     gtk_widget_show_all(browser->window);
     DEBUG_PRINT("Window shown");
     
@@ -848,6 +846,10 @@ void new_tab(BrowserWindow *browser, const char *url)
     apply_settings_to_web_view(web_view);
     
     g_signal_connect(web_view, "load-changed", G_CALLBACK(on_load_changed), browser);
+    
+    // Connect permission and policy signals to the WebView
+    g_signal_connect(web_view, "permission-request", G_CALLBACK(on_web_view_permission_request), browser);
+    g_signal_connect(web_view, "decide-policy", G_CALLBACK(on_web_view_decide_policy), browser);
 
     // Load URL - use provided URL or custom home page
     if (url && *url) {
