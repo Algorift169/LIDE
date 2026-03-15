@@ -284,14 +284,146 @@ LIDE/
 
 ## Building from Source
 
-### Dependencies
-
-```bash
 # Debian/Ubuntu/Kali
 sudo apt update
-sudo apt install libx11-dev libgtk-3-dev libwebkit2gtk-4.1-dev \
-                 pkg-config feh xterm gedit gnome-calculator \
-                 gnome-system-monitor
+sudo apt install \
+    # X11 and window manager dependencies
+    libx11-dev \
+    xorg-dev \
+    xephyr \
+    xserver-xephyr \
+    
+    # GTK3 development
+    libgtk-3-dev \
+    libglib2.0-dev \
+    pkg-config \
+    
+    # Web browser (VoidFox) dependencies
+    libwebkit2gtk-4.1-dev \
+    libsoup-3.0-dev \
+    libjavascriptcoregtk-4.1-dev \
+    
+    # Terminal emulator dependencies
+    libvte-2.91-dev \
+    
+    # System monitor dependencies
+    libgtop2-dev \
+    liblm-sensors-dev \
+    
+    # Build tools
+    build-essential \
+    make \
+    gcc \
+    g++ \
+    
+    # Runtime applications (optional but recommended)
+    feh \
+    xterm \
+    gedit \
+    gnome-calculator \
+    gnome-system-monitor \
+    firefox-esr \
+    
+    # Additional utilities
+    git \
+    cmake \
+    autoconf \
+    automake \
+    libtool
+
+# For Fedora/RHEL/CentOS
+sudo dnf install \
+    libX11-devel \
+    gtk3-devel \
+    webkit2gtk4.1-devel \
+    libsoup3-devel \
+    javascriptcoregtk4.1-devel \
+    vte291-devel \
+    libgtop2-devel \
+    lm_sensors-devel \
+    xorg-x11-server-Xephyr \
+    pkgconfig \
+    make \
+    gcc \
+    gcc-c++ \
+    feh \
+    xterm \
+    gedit \
+    gnome-calculator \
+    gnome-system-monitor \
+    firefox
+
+# For Arch Linux
+sudo pacman -S \
+    libx11 \
+    gtk3 \
+    webkit2gtk \
+    libsoup3 \
+    javascriptcoregtk \
+    vte3 \
+    libgtop \
+    lm_sensors \
+    xorg-server-xephyr \
+    pkgconf \
+    make \
+    gcc \
+    feh \
+    xterm \
+    gedit \
+    gnome-calculator \
+    gnome-system-monitor \
+    firefox
+
+# For openSUSE
+sudo zypper install \
+    libX11-devel \
+    gtk3-devel \
+    webkit2gtk3-devel \
+    libsoup-3_0-devel \
+    javascriptcoregtk-4_1-devel \
+    vte-devel \
+    libgtop-devel \
+    lm_sensors-devel \
+    xephyr \
+    pkg-config \
+    make \
+    gcc \
+    gcc-c++ \
+    feh \
+    xterm \
+    gedit \
+    gnome-calculator \
+    gnome-system-monitor \
+    firefox
+
+# Verify installations
+echo "Verifying critical components..."
+
+# Check Xephyr
+if command -v Xephyr >/dev/null 2>&1; then
+    echo "✓ Xephyr found"
+else
+    echo "✗ Xephyr not found - required for testing"
+fi
+
+# Check VTE
+if pkg-config --exists vte-2.91; then
+    echo "✓ VTE found: $(pkg-config --modversion vte-2.91)"
+else
+    echo "✗ VTE not found - terminal will not build"
+fi
+
+# Check WebKitGTK
+if pkg-config --exists webkit2gtk-4.1; then
+    echo "✓ WebKitGTK 4.1 found: $(pkg-config --modversion webkit2gtk-4.1)"
+elif pkg-config --exists webkit2gtk-4.0; then
+    echo "✓ WebKitGTK 4.0 found: $(pkg-config --modversion webkit2gtk-4.0)"
+else
+    echo "✗ WebKitGTK not found - VoidFox browser will not build"
+fi
+
+# Optional: Install all development packages in one line (Debian/Ubuntu/Kali)
+sudo apt install libx11-dev xorg-dev xephyr xserver-xephyr libgtk-3-dev libglib2.0-dev pkg-config libwebkit2gtk-4.1-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libvte-2.91-dev libgtop2-dev liblm-sensors-dev build-essential make gcc g++ feh xterm gedit gnome-calculator gnome-system-monitor firefox-esr git cmake autoconf automake libtool
 
 Build Commands
 # Clone the repository
