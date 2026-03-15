@@ -7,8 +7,55 @@
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 #include "tools/minimized_container.h"
+#include "network_stats.c"  // Unified network stats
+
+// Define HISTORY_SIZE before using it
+#define HISTORY_SIZE 60
+
+// Define the global variables expected by the system monitor code
+double cpu_history[HISTORY_SIZE] = {0};
+int cpu_history_index = 0;
+double mem_history[HISTORY_SIZE] = {0};
+int mem_history_index = 0;
+
+// Include system monitor files after defining the globals and HISTORY_SIZE
+#include "../tools/system-monitor/cpu.c"
+#include "../tools/system-monitor/memory.c"
 
 static pid_t tools_pid = 0;  // Store the PID of the launched tools container
+
+// Global stat variables - renamed to avoid conflicts with monitor.h
+static double panel_cpu_percent = 0.0;
+static guint64 panel_mem_total = 0;
+static guint64 panel_mem_available = 0;
+static guint64 panel_mem_used = 0;
+static int panel_mem_percent = 0;
+
+// CPU history for smooth display - renamed to avoid conflicts
+static float panel_cpu_history[5] = {0};
+static int panel_cpu_history_index = 0;
+
+// Wrapper functions to avoid parameter issues
+static void panel_update_cpu_usage(void)
+{
+    CpuData cpu;
+    update_cpu_usage(&cpu);
+    panel_cpu_percent = cpu.usage;
+}
+
+static void panel_update_mem_usage(void)
+{
+    MemData mem;
+    update_mem_usage(&mem);
+    panel_mem_total = mem.total;
+    panel_mem_available = mem.available;
+    panel_mem_used = panel_mem_total - panel_mem_available;
+    if (panel_mem_total > 0) {
+        panel_mem_percent = (panel_mem_used * 100) / panel_mem_total;
+    } else {
+        panel_mem_percent = 0;
+    }
+}
 
 // Find a window with a given PID using _NET_WM_PID
 static Window find_window_by_pid(Display *display, pid_t pid)
@@ -110,6 +157,63 @@ static void do_nothing(GtkButton *button, gpointer data)
     (void)data;
 }
 
+// Update all system stats
+static gboolean update_system_stats(gpointer user_data)
+{
+    GtkWidget *cpu_label = GTK_WIDGET(user_data);
+    GtkWidget *mem_label = GTK_WIDGET(g_object_get_data(G_OBJECT(cpu_label), "mem-label"));
+    GtkWidget *upload_label = GTK_WIDGET(g_object_get_data(G_OBJECT(cpu_label), "upload-label"));
+    GtkWidget *download_label = GTK_WIDGET(g_object_get_data(G_OBJECT(cpu_label), "download-label"));
+    
+    if (!cpu_label || !mem_label || !upload_label || !download_label) {
+        return G_SOURCE_CONTINUE;
+    }
+    
+    // Update CPU using wrapper
+    panel_update_cpu_usage();
+    
+    // Smooth CPU display with moving average
+    panel_cpu_history[panel_cpu_history_index] = panel_cpu_percent;
+    panel_cpu_history_index = (panel_cpu_history_index + 1) % 5;
+    
+    float avg_cpu = 0;
+    for (int i = 0; i < 5; i++) {
+        avg_cpu += panel_cpu_history[i];
+    }
+    avg_cpu /= 5;
+    
+    char cpu_text[64];
+    if (avg_cpu < 10) {
+        snprintf(cpu_text, sizeof(cpu_text), "CPU:  %.1f%%", avg_cpu);
+    } else {
+        snprintf(cpu_text, sizeof(cpu_text), "CPU: %.1f%%", avg_cpu);
+    }
+    gtk_label_set_text(GTK_LABEL(cpu_label), cpu_text);
+    
+    // Update Memory using wrapper
+    panel_update_mem_usage();
+    
+    char mem_text[64];
+    snprintf(mem_text, sizeof(mem_text), "RAM: %d%%", panel_mem_percent);
+    gtk_label_set_text(GTK_LABEL(mem_label), mem_text);
+    
+    // Update Network stats
+    update_network_stats(NULL);
+    double upload_speed = get_upload_speed();
+    double download_speed = get_download_speed();
+
+    char upload_text[64];
+    char download_text[64];
+
+    snprintf(upload_text, sizeof(upload_text), "↑ %s", format_speed(upload_speed));
+    snprintf(download_text, sizeof(download_text), "↓ %s", format_speed(download_speed));
+
+    gtk_label_set_text(GTK_LABEL(upload_label), upload_text);
+    gtk_label_set_text(GTK_LABEL(download_label), download_text);
+    
+    return G_SOURCE_CONTINUE;
+}
+
 static gboolean update_clock(gpointer label)
 
 {
@@ -132,6 +236,9 @@ static void activate(GtkApplication *app, gpointer user_data)
     
     // Initialize the minimized container
     minimized_container_initialize();
+    
+    // Initialize network stats
+    network_stats_init();
     
     GtkWidget *window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(window), "BlackLine Panel");
@@ -168,11 +275,61 @@ static void activate(GtkApplication *app, gpointer user_data)
     GtkWidget *spacer = gtk_label_new(NULL);
     gtk_box_pack_start(GTK_BOX(box), spacer, TRUE, TRUE, 0);
     
+    // System stats container (right side)
+    GtkWidget *stats_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_box_pack_end(GTK_BOX(box), stats_box, FALSE, FALSE, 5);
+    
+    // CPU Label
+    GtkWidget *cpu_label = gtk_label_new("CPU: 0.0%");
+    gtk_box_pack_start(GTK_BOX(stats_box), cpu_label, FALSE, FALSE, 0);
+    
+    // Memory Label
+    GtkWidget *mem_label = gtk_label_new("RAM: 0%");
+    gtk_box_pack_start(GTK_BOX(stats_box), mem_label, FALSE, FALSE, 0);
+    
+    // Separator
+    GtkWidget *sep1 = gtk_label_new("|");
+    gtk_box_pack_start(GTK_BOX(stats_box), sep1, FALSE, FALSE, 0);
+    
+    // Upload Label
+    GtkWidget *upload_label = gtk_label_new("↑ 0 KB/s");
+    gtk_box_pack_start(GTK_BOX(stats_box), upload_label, FALSE, FALSE, 0);
+    
+    // Download Label
+    GtkWidget *download_label = gtk_label_new("↓ 0 KB/s");
+    gtk_box_pack_start(GTK_BOX(stats_box), download_label, FALSE, FALSE, 0);
+    
+    // Separator
+    GtkWidget *sep2 = gtk_label_new("|");
+    gtk_box_pack_start(GTK_BOX(stats_box), sep2, FALSE, FALSE, 0);
+    
     // Clock with date
     GtkWidget *clock = gtk_label_new(NULL);
     update_clock(clock);
+    gtk_box_pack_start(GTK_BOX(stats_box), clock, FALSE, FALSE, 0);
+    
+    // Store references for stats update
+    g_object_set_data(G_OBJECT(cpu_label), "mem-label", mem_label);
+    g_object_set_data(G_OBJECT(cpu_label), "upload-label", upload_label);
+    g_object_set_data(G_OBJECT(cpu_label), "download-label", download_label);
+    
+    // Update timers
     g_timeout_add_seconds(1, update_clock, clock);
-    gtk_box_pack_end(GTK_BOX(box), clock, FALSE, FALSE, 10);
+    g_timeout_add(2000, update_system_stats, cpu_label);  // Update every 2 seconds
+    
+    // Apply minimal CSS styling to match original design
+    GtkCssProvider *provider = gtk_css_provider_new();
+    gtk_css_provider_load_from_data(provider,
+        "window { background-color: #0b0f14; color: #ffffff; border-bottom: 1px solid #00ff88; }"
+        "button { background-color: #1e2429; color: #00ff88; border: none; padding: 2px 8px; margin: 2px; }"
+        "button:hover { background-color: #2a323a; }"
+        "label { color: #00ff88; padding: 0 2px; font-size: 11px; }"
+        "#stats-box label { font-family: monospace; }",
+        -1, NULL);
+    
+    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
+        GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    g_object_unref(provider);
     
     gtk_widget_show_all(window);
 }
@@ -184,5 +341,9 @@ int main(int argc, char **argv)
     g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);
     int status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
+    
+    // Cleanup
+    network_stats_cleanup();
+    
     return status;
 }
