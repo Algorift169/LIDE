@@ -20,7 +20,6 @@ static gboolean is_minimized = FALSE;  // Added for minimize state
 // Forward declarations for animation callbacks
 static void on_minimize_clicked(GtkButton *button, gpointer window);
 static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *event, gpointer data);
-static gboolean remove_old_container(gpointer user_data);
 static gboolean reset_button_opacity(gpointer button);
 
 // Data structure for view toggle
@@ -425,7 +424,8 @@ static void on_minimize_clicked(GtkButton *button, gpointer window)
     anim->complete_data = win;
     
     is_minimized = TRUE;
-    gtk_widget_add_tick_callback(win, on_animation_tick, anim, g_free);
+    guint anim_id = gtk_widget_add_tick_callback(win, on_animation_tick, anim, g_free);
+    g_print("Minimize animation started with ID: %u\n", anim_id);
 }
 
 // Window state change handler for restore animation
@@ -476,7 +476,8 @@ static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *
         anim->easing = ANIM_EASE_OUT_ELASTIC;
         anim->active = TRUE;
         
-        gtk_widget_add_tick_callback(window, on_animation_tick, anim, g_free);
+        guint anim_id = gtk_widget_add_tick_callback(window, on_animation_tick, anim, g_free);
+        g_print("Restore animation started with ID: %u\n", anim_id);
     }
     
     return FALSE;
@@ -597,22 +598,6 @@ static void on_window_realized(GtkWidget *window, gpointer data)
 }
 
 // Helper functions for view toggle
-static gboolean remove_old_container(gpointer user_data)
-{
-    ViewToggleData *data = (ViewToggleData *)user_data;
-    
-    if (data->old_container && GTK_IS_WIDGET(data->old_container)) {
-        // Hide first, then destroy after a short delay
-        gtk_widget_hide(data->old_container);
-        
-        // Use idle add to ensure we're not in the middle of an animation
-        g_idle_add((GSourceFunc)gtk_widget_destroy, data->old_container);
-        data->old_container = NULL;
-    }
-    
-    return FALSE;
-}
-
 static gboolean reset_button_opacity(gpointer button)
 {
     if (button && GTK_IS_WIDGET(button)) {
@@ -621,7 +606,7 @@ static gboolean reset_button_opacity(gpointer button)
     return FALSE;
 }
 
-// View toggle callback with animation - FIXED VERSION
+// View toggle callback with animation - ENHANCED VERSION WITH VISIBLE ANIMATION
 static void on_view_toggle_clicked(GtkButton *button, gpointer user_data) 
 {
     ViewToggleData *data = (ViewToggleData *)user_data;
@@ -630,6 +615,8 @@ static void on_view_toggle_clicked(GtkButton *button, gpointer user_data)
         g_warning("Missing data in view toggle callback");
         return;
     }
+    
+    g_print("View toggle clicked - starting animation\n");
     
     // Animate button press
     gtk_widget_set_opacity(GTK_WIDGET(button), 0.5);
@@ -646,6 +633,8 @@ static void on_view_toggle_clicked(GtkButton *button, gpointer user_data)
     
     // Create new container with new mode
     GtkWidget *new_container = view_mode_create_container(tools, num_tools, new_mode, data->window);
+    
+    // Start with opacity 0 for fade-in
     gtk_widget_set_opacity(new_container, 0.0);
     
     // Remove old container from scrolled window
@@ -675,27 +664,29 @@ static void on_view_toggle_clicked(GtkButton *button, gpointer user_data)
     // Show all widgets
     gtk_widget_show_all(data->window);
     
-    // Fade in new container
+    // Fade in new container with animation
     Animation *fade_in = g_new0(Animation, 1);
     fade_in->widget = new_container;
     fade_in->start_opacity = 0.0;
     fade_in->target_opacity = 1.0;
-    fade_in->duration = 300;
+    fade_in->duration = 500;  // Longer duration to make it visible
     fade_in->start_time = g_get_monotonic_time() / 1000;
     fade_in->easing = ANIM_EASE_OUT_QUAD;
     fade_in->active = TRUE;
-    gtk_widget_add_tick_callback(new_container, on_animation_tick, fade_in, g_free);
+    
+    guint anim_id = gtk_widget_add_tick_callback(new_container, on_animation_tick, fade_in, g_free);
+    g_print("Fade animation started with ID: %u\n", anim_id);
     
     // Destroy the old container after a short delay
-    g_timeout_add(50, (GSourceFunc)gtk_widget_destroy, old_container);
+    g_timeout_add(100, (GSourceFunc)gtk_widget_destroy, old_container);
     
     // Restore button opacity after fade in
-    g_timeout_add(300, reset_button_opacity, button);
+    g_timeout_add(500, reset_button_opacity, button);
     
     // Save the new mode to config file
     view_mode_save();
     
-    g_print("Switched to %s mode\n", new_mode == VIEW_MODE_LIST ? "LIST" : "GRID");
+    g_print("Switched to %s mode with fade animation\n", new_mode == VIEW_MODE_LIST ? "LIST" : "GRID");
 }
 
 static void activate(GtkApplication *app, gpointer user_data) 
@@ -703,6 +694,7 @@ static void activate(GtkApplication *app, gpointer user_data)
 {
     // Initialize animation system
     animation_init();
+    g_print("Animation system initialized\n");
     
     GtkWidget *window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(window), "BlackLine Tools");
@@ -843,11 +835,13 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
         GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
     
-    // Show all widgets
+    // Show all widgets first
     gtk_widget_show_all(window);
+    g_print("Window shown, starting fade-in animation\n");
     
-    // Animate window opening with simple fade
+    // Then animate fade in
     gtk_widget_set_opacity(window, 0.0);
+    
     Animation *open_anim = g_new0(Animation, 1);
     open_anim->widget = window;
     open_anim->start_opacity = 0.0;
@@ -856,7 +850,9 @@ static void activate(GtkApplication *app, gpointer user_data)
     open_anim->start_time = g_get_monotonic_time() / 1000;
     open_anim->easing = ANIM_EASE_OUT_QUAD;  // Simple fade
     open_anim->active = TRUE;
-    gtk_widget_add_tick_callback(window, on_animation_tick, open_anim, g_free);
+    
+    guint anim_id = gtk_widget_add_tick_callback(window, on_animation_tick, open_anim, g_free);
+    g_print("Opening animation started with ID: %u\n", anim_id);
 }
 
 // Single-instance check: if another instance exists, raise it and exit.
