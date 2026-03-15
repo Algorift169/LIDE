@@ -7,6 +7,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 #include "viewMode.h"
+#include "animation.h" 
 
 // Drag variables - commented out to disable dragging
 // static int is_dragging = 0;
@@ -14,12 +15,23 @@
 
 // Global display connection for cleanup
 static Display *global_display = NULL;
+static gboolean is_minimized = FALSE;  // Added for minimize state
 
-// Launch functions 
+// Forward declarations for animation callbacks
+static void on_minimize_clicked(GtkButton *button, gpointer window);
+static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *event, gpointer data);
+
+// Launch functions with smooth animations
 static void launch_file_manager(GtkButton *button, gpointer window) 
 
 {
     (void)button;
+    
+    // Animate button press
+    GtkWidget *btn = GTK_WIDGET(button);
+    gtk_widget_set_opacity(btn, 0.5);
+    
+    g_usleep(100000); // 100ms for visual feedback
     
     pid_t pid = fork();
     if (pid == 0) {
@@ -27,8 +39,9 @@ static void launch_file_manager(GtkButton *button, gpointer window)
         execl("./blackline-fm", "blackline-fm", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
-        gtk_window_close(GTK_WINDOW(window));
+        // Parent process - animate window close
+        animate_fade_out_with_scale(GTK_WIDGET(window), 200);
+        g_timeout_add(200, (GSourceFunc)gtk_window_close, window);
     }
 }
 
@@ -44,8 +57,9 @@ static gboolean launch_file_manager_event(GtkWidget *widget, GdkEventButton *eve
         execl("./blackline-fm", "blackline-fm", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
-        gtk_window_close(GTK_WINDOW(window));
+        // Parent process - animate window close
+        animate_fade_out_with_scale(GTK_WIDGET(window), 200);
+        g_timeout_add(200, (GSourceFunc)gtk_window_close, window);
     }
     return TRUE;
 }
@@ -55,14 +69,21 @@ static void launch_text_editor(GtkButton *button, gpointer window)
 {
     (void)button;
     
+    // Animate button press
+    GtkWidget *btn = GTK_WIDGET(button);
+    gtk_widget_set_opacity(btn, 0.5);
+    
+    g_usleep(100000); // 100ms
+    
     pid_t pid = fork();
     if (pid == 0) {
         // Launch custom text editor
         execl("./blackline-editor", "blackline-editor", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
-        gtk_window_close(GTK_WINDOW(window));
+        // Parent process - animate window close
+        animate_fade_out_with_scale(GTK_WIDGET(window), 200);
+        g_timeout_add(200, (GSourceFunc)gtk_window_close, window);
     }
 }
 
@@ -78,8 +99,9 @@ static gboolean launch_text_editor_event(GtkWidget *widget, GdkEventButton *even
         execl("./blackline-editor", "blackline-editor", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
-        gtk_window_close(GTK_WINDOW(window));
+        // Parent process - animate window close
+        animate_fade_out_with_scale(GTK_WIDGET(window), 200);
+        g_timeout_add(200, (GSourceFunc)gtk_window_close, window);
     }
     return TRUE;
 }
@@ -89,14 +111,21 @@ static void launch_calculator(GtkButton *button, gpointer window)
 {
     (void)button;
     
+    // Animate button press
+    GtkWidget *btn = GTK_WIDGET(button);
+    gtk_widget_set_opacity(btn, 0.5);
+    
+    g_usleep(100000); // 100ms
+    
     pid_t pid = fork();
     if (pid == 0) {
         // Launch custom calculator 
         execl("./blackline-calculator", "blackline-calculator", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
-        gtk_window_close(GTK_WINDOW(window));
+        // Parent process - animate window close
+        animate_fade_out_with_scale(GTK_WIDGET(window), 200);
+        g_timeout_add(200, (GSourceFunc)gtk_window_close, window);
     }
 }
 
@@ -112,8 +141,9 @@ static gboolean launch_calculator_event(GtkWidget *widget, GdkEventButton *event
         execl("./blackline-calculator", "blackline-calculator", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
-        gtk_window_close(GTK_WINDOW(window));
+        // Parent process - animate window close
+        animate_fade_out_with_scale(GTK_WIDGET(window), 200);
+        g_timeout_add(200, (GSourceFunc)gtk_window_close, window);
     }
     return TRUE;
 }
@@ -123,14 +153,21 @@ static void launch_system_monitor(GtkButton *button, gpointer window)
 {
     (void)button;
     
+    // Animate button press
+    GtkWidget *btn = GTK_WIDGET(button);
+    gtk_widget_set_opacity(btn, 0.5);
+    
+    g_usleep(100000); // 100ms
+    
     pid_t pid = fork();
     if (pid == 0) {
         // Launch custom system monitor
         execl("./blackline-system-monitor", "blackline-system-monitor", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
-        gtk_window_close(GTK_WINDOW(window));
+        // Parent process - animate window close
+        animate_fade_out_with_scale(GTK_WIDGET(window), 200);
+        g_timeout_add(200, (GSourceFunc)gtk_window_close, window);
     }
 }
 
@@ -146,8 +183,9 @@ static gboolean launch_system_monitor_event(GtkWidget *widget, GdkEventButton *e
         execl("./blackline-system-monitor", "blackline-system-monitor", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
-        gtk_window_close(GTK_WINDOW(window));
+        // Parent process - animate window close
+        animate_fade_out_with_scale(GTK_WIDGET(window), 200);
+        g_timeout_add(200, (GSourceFunc)gtk_window_close, window);
     }
     return TRUE;
 }
@@ -158,14 +196,21 @@ static void launch_web_browser(GtkButton *button, gpointer window)
 {
     (void)button;
     
+    // Animate button press
+    GtkWidget *btn = GTK_WIDGET(button);
+    gtk_widget_set_opacity(btn, 0.5);
+    
+    g_usleep(100000); // 100ms
+    
     pid_t pid = fork();
     if (pid == 0) {
         // Launch VoidFox web browser
         execl("./voidfox", "voidfox", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
-        gtk_window_close(GTK_WINDOW(window));
+        // animate window close
+        animate_fade_out_with_scale(GTK_WIDGET(window), 200);
+        g_timeout_add(200, (GSourceFunc)gtk_window_close, window);
     }
 }
 
@@ -181,8 +226,9 @@ static gboolean launch_web_browser_event(GtkWidget *widget, GdkEventButton *even
         execl("./voidfox", "voidfox", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
-        gtk_window_close(GTK_WINDOW(window));
+        // Parent process - animate window close
+        animate_fade_out_with_scale(GTK_WIDGET(window), 200);
+        g_timeout_add(200, (GSourceFunc)gtk_window_close, window);
     }
     return TRUE;
 }
@@ -192,6 +238,12 @@ static void launch_firefox_wrapper(GtkButton *button, gpointer window)
 
 {
     (void)button;
+    
+    // Animate button press
+    GtkWidget *btn = GTK_WIDGET(button);
+    gtk_widget_set_opacity(btn, 0.5);
+    
+    g_usleep(100000); // 100ms
     
     // Check if Firefox wrapper exists
     if (access("./tools/firefox/firefox-wrapper", X_OK) != 0 && 
@@ -206,6 +258,9 @@ static void launch_firefox_wrapper(GtkButton *button, gpointer window)
                                                   "make firefox-wrapper");
         gtk_dialog_run(GTK_DIALOG(dialog));
         gtk_widget_destroy(dialog);
+        
+        // Reset button opacity
+        gtk_widget_set_opacity(btn, 1.0);
         return;
     }
     
@@ -219,8 +274,9 @@ static void launch_firefox_wrapper(GtkButton *button, gpointer window)
         }
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
-        gtk_window_close(GTK_WINDOW(window));
+        // Parent process - animate window close
+        animate_fade_out_with_scale(GTK_WIDGET(window), 200);
+        g_timeout_add(200, (GSourceFunc)gtk_window_close, window);
     }
 }
 
@@ -229,6 +285,9 @@ static gboolean launch_firefox_wrapper_event(GtkWidget *widget, GdkEventButton *
 {
     (void)widget;
     (void)event;
+    
+    // Animate button press
+    gtk_widget_set_opacity(widget, 0.5);
     
     // Check if Firefox wrapper exists
     if (access("./tools/firefox/firefox-wrapper", X_OK) != 0 && 
@@ -243,6 +302,9 @@ static gboolean launch_firefox_wrapper_event(GtkWidget *widget, GdkEventButton *
                                                   "make firefox-wrapper");
         gtk_dialog_run(GTK_DIALOG(dialog));
         gtk_widget_destroy(dialog);
+        
+        // Reset button opacity
+        gtk_widget_set_opacity(widget, 1.0);
         return TRUE;
     }
     
@@ -256,8 +318,9 @@ static gboolean launch_firefox_wrapper_event(GtkWidget *widget, GdkEventButton *
         }
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
-        gtk_window_close(GTK_WINDOW(window));
+        // Parent process - animate window close
+        animate_fade_out_with_scale(GTK_WIDGET(window), 200);
+        g_timeout_add(200, (GSourceFunc)gtk_window_close, window);
     }
     return TRUE;
 }
@@ -268,14 +331,21 @@ static void launch_terminal(GtkButton *button, gpointer window)
 {
     (void)button;
     
+    // Animate button press
+    GtkWidget *btn = GTK_WIDGET(button);
+    gtk_widget_set_opacity(btn, 0.5);
+    
+    g_usleep(100000); // 100ms
+    
     pid_t pid = fork();
     if (pid == 0) {
         // Launch terminal
         execl("./blackline-terminal", "blackline-terminal", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
-        gtk_window_close(GTK_WINDOW(window));
+        // Parent process - animate window close
+        animate_fade_out_with_scale(GTK_WIDGET(window), 200);
+        g_timeout_add(200, (GSourceFunc)gtk_window_close, window);
     }
 }
 
@@ -291,17 +361,119 @@ static gboolean launch_terminal_event(GtkWidget *widget, GdkEventButton *event, 
         execl("./blackline-terminal", "blackline-terminal", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent process - close tools container
-        gtk_window_close(GTK_WINDOW(window));
+        // Parent process - animate window close
+        animate_fade_out_with_scale(GTK_WIDGET(window), 200);
+        g_timeout_add(200, (GSourceFunc)gtk_window_close, window);
     }
     return TRUE;
+}
+
+// Minimize button handler with animation
+static void on_minimize_clicked(GtkButton *button, gpointer window) 
+{
+    (void)button;
+    
+    GtkWidget *win = GTK_WIDGET(window);
+    
+    // Get panel position using GdkMonitor
+    GdkDisplay *display = gtk_widget_get_display(win);
+    GdkMonitor *monitor = gdk_display_get_primary_monitor(display);
+    GdkRectangle geometry;
+    gdk_monitor_get_geometry(monitor, &geometry);
+    
+    int panel_x = geometry.x;
+    int panel_y = geometry.y;
+    int panel_width = geometry.width;
+    int panel_height = 30;
+    
+    // Get current window position and size
+    int x, y, width, height;
+    gtk_window_get_position(GTK_WINDOW(win), &x, &y);
+    gtk_window_get_size(GTK_WINDOW(win), &width, &height);
+    
+    // Animate minimize to panel
+    Animation *anim = g_new0(Animation, 1);
+    anim->widget = win;
+    anim->start_x = x;
+    anim->start_y = y;
+    anim->target_x = panel_x + panel_width/2 - 10;
+    anim->target_y = panel_y + panel_height/2 - 5;
+    anim->start_width = width;
+    anim->start_height = height;
+    anim->target_width = 20;
+    anim->target_height = 20;
+    anim->start_opacity = 1.0;
+    anim->target_opacity = 0.0;
+    anim->duration = 300;
+    anim->start_time = g_get_monotonic_time() / 1000;
+    anim->easing = ANIM_EASE_IN_OUT_QUAD;
+    anim->active = TRUE;
+    anim->on_complete = (void (*)(gpointer))gtk_window_iconify;
+    anim->complete_data = win;
+    
+    is_minimized = TRUE;
+    gtk_widget_add_tick_callback(win, on_animation_tick, anim, g_free);
+}
+
+// Window state change handler for restore animation
+static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *event, gpointer data) 
+{
+    (void)data;
+    
+    if (is_minimized && !(event->new_window_state & GDK_WINDOW_STATE_ICONIFIED)) {
+        is_minimized = FALSE;
+        
+        // Get panel position
+        GdkDisplay *display = gtk_widget_get_display(window);
+        GdkMonitor *monitor = gdk_display_get_primary_monitor(display);
+        GdkRectangle geometry;
+        gdk_monitor_get_geometry(monitor, &geometry);
+        
+        int panel_x = geometry.x;
+        int panel_y = geometry.y;
+        int panel_width = geometry.width;
+        int panel_height = 30;
+        
+        // Get target position and size
+        int x, y, width, height;
+        gtk_window_get_position(GTK_WINDOW(window), &x, &y);
+        gtk_window_get_size(GTK_WINDOW(window), &width, &height);
+        
+        // Start from panel
+        gtk_window_move(GTK_WINDOW(window), panel_x + panel_width/2 - 10, panel_y + panel_height/2 - 5);
+        gtk_window_resize(GTK_WINDOW(window), 20, 20);
+        gtk_widget_set_opacity(window, 0.0);
+        gtk_widget_show(window);
+        
+        // Animate restore
+        Animation *anim = g_new0(Animation, 1);
+        anim->widget = window;
+        anim->start_x = panel_x + panel_width/2 - 10;
+        anim->start_y = panel_y + panel_height/2 - 5;
+        anim->target_x = x;
+        anim->target_y = y;
+        anim->start_width = 20;
+        anim->start_height = 20;
+        anim->target_width = width;
+        anim->target_height = height;
+        anim->start_opacity = 0.0;
+        anim->target_opacity = 1.0;
+        anim->duration = 400;
+        anim->start_time = g_get_monotonic_time() / 1000;
+        anim->easing = ANIM_EASE_OUT_ELASTIC;
+        anim->active = TRUE;
+        
+        gtk_widget_add_tick_callback(window, on_animation_tick, anim, g_free);
+    }
+    
+    return FALSE;
 }
 
 // Tool definitions for view mode
 static ToolItem tools[] = {
     {"File Manager", "📁", launch_file_manager, launch_file_manager_event, NULL},
     {"Text Editor", "📝", launch_text_editor, launch_text_editor_event, NULL},
-    {"Terminal", ">_", launch_terminal, launch_terminal_event, NULL},  // Added this line
+    {"Terminal", ">_", launch_terminal, launch_terminal_event, NULL},
     {"Calculator", "🧮", launch_calculator, launch_calculator_event, NULL},
     {"System Monitor", "📊", launch_system_monitor, launch_system_monitor_event, NULL},
     {"VoidFox", "🌐", launch_web_browser, launch_web_browser_event, NULL},
@@ -356,7 +528,9 @@ static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoin
 static void on_close_clicked(GtkButton *button, gpointer window) 
 
 {
-    gtk_window_close(GTK_WINDOW(window));
+    // Animate window close
+    animate_fade_out_with_scale(GTK_WIDGET(window), 250);
+    g_timeout_add(250, (GSourceFunc)gtk_window_close, window);
 }
 
 // Window destroy handler to clean up the atom
@@ -409,7 +583,7 @@ static void on_window_realized(GtkWidget *window, gpointer data)
     }
 }
 
-// View toggle callback
+// View toggle callback with animation
 static void on_view_toggle_clicked(GtkButton *button, gpointer user_data) 
 
 {
@@ -423,15 +597,33 @@ static void on_view_toggle_clicked(GtkButton *button, gpointer user_data)
         return;
     }
     
+    // Animate button press
+    gtk_widget_set_opacity(GTK_WIDGET(button), 0.5);
+    
     // Get current mode and toggle
     ViewMode current = view_mode_get_current();
     ViewMode new_mode = (current == VIEW_MODE_LIST) ? VIEW_MODE_GRID : VIEW_MODE_LIST;
     
-    // Remove old container from scrolled window
-    gtk_container_remove(GTK_CONTAINER(scrolled_window), old_container);
+    // Fade out old container
+    gtk_widget_set_opacity(old_container, 1.0);
+    Animation *fade_out = g_new0(Animation, 1);
+    fade_out->widget = old_container;
+    fade_out->start_opacity = 1.0;
+    fade_out->target_opacity = 0.0;
+    fade_out->duration = 200;
+    fade_out->start_time = g_get_monotonic_time() / 1000;
+    fade_out->easing = ANIM_EASE_IN_QUAD;
+    fade_out->active = TRUE;
+    gtk_widget_add_tick_callback(old_container, on_animation_tick, fade_out, g_free);
+    
+    // Delay the container removal and creation
+    g_timeout_add(200, (GSourceFunc)gtk_widget_hide, old_container);
+    g_timeout_add(250, (GSourceFunc)gtk_container_remove, 
+                 g_strdup_printf("%p|%p", scrolled_window, old_container));
     
     // Create new container with new mode
     GtkWidget *new_container = view_mode_create_container(tools, num_tools, new_mode, window);
+    gtk_widget_set_opacity(new_container, 0.0);
     
     // Add new container to scrolled window
     gtk_container_add(GTK_CONTAINER(scrolled_window), new_container);
@@ -451,6 +643,21 @@ static void on_view_toggle_clicked(GtkButton *button, gpointer user_data)
     // Show all widgets
     gtk_widget_show_all(window);
     
+    // Fade in new container
+    Animation *fade_in = g_new0(Animation, 1);
+    fade_in->widget = new_container;
+    fade_in->start_opacity = 0.0;
+    fade_in->target_opacity = 1.0;
+    fade_in->duration = 300;
+    fade_in->start_time = g_get_monotonic_time() / 1000;
+    fade_in->easing = ANIM_EASE_OUT_QUAD;
+    fade_in->active = TRUE;
+    gtk_widget_add_tick_callback(new_container, on_animation_tick, fade_in, g_free);
+    
+    // Restore button opacity
+    g_timeout_add(300, (GSourceFunc)gtk_widget_set_opacity, 
+                 g_strdup_printf("%p|%f", button, 1.0));
+    
     // Save the new mode to config file
     view_mode_save();
 }
@@ -458,6 +665,9 @@ static void on_view_toggle_clicked(GtkButton *button, gpointer user_data)
 static void activate(GtkApplication *app, gpointer user_data) 
 
 {
+    // Initialize animation system
+    animation_init();
+    
     GtkWidget *window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(window), "BlackLine Tools");
     
@@ -490,11 +700,14 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
     gtk_window_set_decorated(GTK_WINDOW(window), FALSE); 
     
+    // Connect window state signal for minimize/restore animations
+    g_signal_connect(window, "window-state-event", G_CALLBACK(on_window_state_changed), NULL);
+    
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     gtk_container_set_border_width(GTK_CONTAINER(vbox), 10);
     gtk_container_add(GTK_CONTAINER(window), vbox);
     
-    // Title bar with view toggle and close
+    // Title bar with view toggle, minimize, and close
     GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
     
@@ -506,6 +719,12 @@ static void activate(GtkApplication *app, gpointer user_data)
     GtkWidget *view_btn = gtk_button_new_with_label("");
     gtk_widget_set_size_request(view_btn, 60, 25);
     gtk_box_pack_end(GTK_BOX(hbox), view_btn, FALSE, FALSE, 0);
+    
+    // Minimize button
+    GtkWidget *min_btn = gtk_button_new_with_label("─");
+    gtk_widget_set_size_request(min_btn, 30, 25);
+    g_signal_connect(min_btn, "clicked", G_CALLBACK(on_minimize_clicked), window);
+    gtk_box_pack_end(GTK_BOX(hbox), min_btn, FALSE, FALSE, 0);
     
     GtkWidget *close_btn = gtk_button_new_with_label("X");
     gtk_widget_set_size_request(close_btn, 30, 25);
@@ -557,20 +776,26 @@ static void activate(GtkApplication *app, gpointer user_data)
     GtkWidget *bottom_spacer = gtk_label_new("");
     gtk_box_pack_start(GTK_BOX(vbox), bottom_spacer, TRUE, TRUE, 0);
     
-    // CSS
+    // CSS with animation support
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
-        "window { background-color: #0b0f14; color: #ffffff; border: 1px solid #00ff88; }"
-        "button { background-color: #1e2429; color: #00ff88; border: none; }"
-        "button:hover { background-color: #2a323a; }"
+        "window { background-color: #0b0f14; color: #ffffff; border: 1px solid #00ff88; "
+        "         transition: all 200ms ease-out; }"
+        "button { background-color: #1e2429; color: #00ff88; border: none; "
+        "         transition: all 150ms ease-out; }"
+        "button:hover { background-color: #2a323a; transform: scale(1.05); }"
+        "button:active { background-color: #2a323a; transform: scale(0.95); }"
         "label { color: #ffffff; }"
-        "entry { background-color: #1e2429; color: #ffffff; border: 1px solid #00ff88; }"
+        "entry { background-color: #1e2429; color: #ffffff; border: 1px solid #00ff88; "
+        "        transition: all 200ms ease; }"
+        "entry:focus { border-color: #44ffaa; box-shadow: 0 0 10px rgba(0, 255, 136, 0.5); }"
         "scrolledwindow { border: none; background-color: #0b0f14; }"
         /* Style the scrollbar */
         "scrollbar { background-color: #1e2429; }"
-        "scrollbar slider { background-color: #00ff88; border-radius: 4px; min-width: 8px; min-height: 8px; }"
-        "scrollbar slider:hover { background-color: #33ffaa; }"
-        "scrollbar slider:active { background-color: #00cc66; }"
+        "scrollbar slider { background-color: #00ff88; border-radius: 4px; min-width: 8px; min-height: 8px; "
+        "                  transition: background-color 200ms ease, transform 150ms ease; }"
+        "scrollbar slider:hover { background-color: #33ffaa; transform: scaleX(1.2); }"
+        "scrollbar slider:active { background-color: #00cc66; transform: scaleX(1.3); }"
         "scrollbar trough { background-color: #2a323a; border-radius: 4px; }",
         -1, NULL);
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
@@ -578,7 +803,18 @@ static void activate(GtkApplication *app, gpointer user_data)
     
     // Show all widgets
     gtk_widget_show_all(window);
-    gtk_window_present(GTK_WINDOW(window));
+    
+    // Animate window opening with fade and scale
+    gtk_widget_set_opacity(window, 0.0);
+    Animation *open_anim = g_new0(Animation, 1);
+    open_anim->widget = window;
+    open_anim->start_opacity = 0.0;
+    open_anim->target_opacity = 1.0;
+    open_anim->duration = 400;
+    open_anim->start_time = g_get_monotonic_time() / 1000;
+    open_anim->easing = ANIM_EASE_OUT_ELASTIC;
+    open_anim->active = TRUE;
+    gtk_widget_add_tick_callback(window, on_animation_tick, open_anim, g_free);
 }
 
 // Single-instance check: if another instance exists, raise it and exit.
@@ -636,7 +872,7 @@ int main(int argc, char **argv)
         if (existing != None) {
             raise_window(dpy, existing);
             XCloseDisplay(dpy);
-            return 0;  // Exit silently
+            return 0;  // Exit
         }
         XCloseDisplay(dpy);
     }
