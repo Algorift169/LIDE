@@ -284,6 +284,8 @@ LIDE/
 
 ## Building from Source
 
+### Dependencies
+
 # Debian/Ubuntu/Kali
 sudo apt update
 sudo apt install \
