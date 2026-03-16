@@ -14,6 +14,7 @@
 
 // Global display connection for cleanup
 static Display *global_display = NULL;
+static GtkWidget *main_window = NULL;
 
 // Data structure for view toggle
 typedef struct {
@@ -24,7 +25,14 @@ typedef struct {
     GtkWidget *view_button;
 } ViewToggleData;
 
-// Launch functions - DON'T close the tools window
+// Launch functions - close tools window after launching
+static void close_tools_window(void)
+{
+    if (main_window) {
+        gtk_window_close(GTK_WINDOW(main_window));
+    }
+}
+
 static void launch_file_manager(GtkButton *button, gpointer window) 
 
 {
@@ -36,8 +44,10 @@ static void launch_file_manager(GtkButton *button, gpointer window)
         // Child process
         execl("./blackline-fm", "blackline-fm", NULL);
         exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools window
+        close_tools_window();
     }
-    // Parent process does NOTHING - tools window stays open
 }
 
 static gboolean launch_file_manager_event(GtkWidget *widget, GdkEventButton *event, gpointer window)
@@ -52,6 +62,9 @@ static gboolean launch_file_manager_event(GtkWidget *widget, GdkEventButton *eve
         // Child process
         execl("./blackline-fm", "blackline-fm", NULL);
         exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools window
+        close_tools_window();
     }
     return TRUE;
 }
@@ -67,6 +80,9 @@ static void launch_text_editor(GtkButton *button, gpointer window)
         // Launch custom text editor
         execl("./blackline-editor", "blackline-editor", NULL);
         exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools window
+        close_tools_window();
     }
 }
 
@@ -82,6 +98,9 @@ static gboolean launch_text_editor_event(GtkWidget *widget, GdkEventButton *even
         // Launch custom text editor
         execl("./blackline-editor", "blackline-editor", NULL);
         exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools window
+        close_tools_window();
     }
     return TRUE;
 }
@@ -97,6 +116,9 @@ static void launch_calculator(GtkButton *button, gpointer window)
         // Launch custom calculator 
         execl("./blackline-calculator", "blackline-calculator", NULL);
         exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools window
+        close_tools_window();
     }
 }
 
@@ -112,6 +134,9 @@ static gboolean launch_calculator_event(GtkWidget *widget, GdkEventButton *event
         // Launch custom calculator 
         execl("./blackline-calculator", "blackline-calculator", NULL);
         exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools window
+        close_tools_window();
     }
     return TRUE;
 }
@@ -127,6 +152,9 @@ static void launch_system_monitor(GtkButton *button, gpointer window)
         // Launch custom system monitor
         execl("./blackline-system-monitor", "blackline-system-monitor", NULL);
         exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools window
+        close_tools_window();
     }
 }
 
@@ -142,6 +170,9 @@ static gboolean launch_system_monitor_event(GtkWidget *widget, GdkEventButton *e
         // Launch custom system monitor
         execl("./blackline-system-monitor", "blackline-system-monitor", NULL);
         exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools window
+        close_tools_window();
     }
     return TRUE;
 }
@@ -158,6 +189,9 @@ static void launch_web_browser(GtkButton *button, gpointer window)
         // Launch VoidFox web browser
         execl("./voidfox", "voidfox", NULL);
         exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools window
+        close_tools_window();
     }
 }
 
@@ -173,6 +207,9 @@ static gboolean launch_web_browser_event(GtkWidget *widget, GdkEventButton *even
         // Launch VoidFox web browser
         execl("./voidfox", "voidfox", NULL);
         exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools window
+        close_tools_window();
     }
     return TRUE;
 }
@@ -209,6 +246,9 @@ static void launch_firefox_wrapper(GtkButton *button, gpointer window)
             execl("./firefox-wrapper", "firefox-wrapper", NULL);
         }
         exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools window
+        close_tools_window();
     }
 }
 
@@ -244,6 +284,9 @@ static gboolean launch_firefox_wrapper_event(GtkWidget *widget, GdkEventButton *
             execl("./firefox-wrapper", "firefox-wrapper", NULL);
         }
         exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools window
+        close_tools_window();
     }
     return TRUE;
 }
@@ -260,6 +303,9 @@ static void launch_terminal(GtkButton *button, gpointer window)
         // Launch terminal
         execl("./blackline-terminal", "blackline-terminal", NULL);
         exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools window
+        close_tools_window();
     }
 }
 
@@ -275,6 +321,9 @@ static gboolean launch_terminal_event(GtkWidget *widget, GdkEventButton *event, 
         // Launch terminal
         execl("./blackline-terminal", "blackline-terminal", NULL);
         exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools window
+        close_tools_window();
     }
     return TRUE;
 }
@@ -425,6 +474,7 @@ static void activate(GtkApplication *app, gpointer user_data)
 
 {
     GtkWidget *window = gtk_application_window_new(app);
+    main_window = window;  // Store global reference for close function
     gtk_window_set_title(GTK_WINDOW(window), "BlackLine Tools");
     
     // Load saved view mode - this loads from file

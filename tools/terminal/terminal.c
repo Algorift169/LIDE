@@ -3,6 +3,7 @@
 #include <gdk/gdkkeysyms.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "window_resize.h"
 
 // Terminal application data
@@ -164,7 +165,7 @@ static void on_close_clicked(GtkButton *button, gpointer window)
     gtk_window_close(GTK_WINDOW(window));
 }
 
-// CSS with visible borders
+// CSS 
 static void apply_css(void) {
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,

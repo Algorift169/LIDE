@@ -3,6 +3,7 @@
 #include <gio/gio.h>
 #include <string.h>
 #include <gdk/gdkkeysyms.h>
+#include <unistd.h>
 
 // Clipboard for cut/copy
 static gchar *clipboard_path = NULL;
@@ -366,14 +367,20 @@ static void fm_delete_permanently(const gchar *path)
     g_object_unref(file);
 }
 
+// Fixed: Now launches the LIDE terminal application
 static void fm_open_in_terminal(const gchar *path)
 {
     gchar *dir = g_path_get_dirname(path);
-    gchar *cmd = g_strdup_printf("cd '%s' && exec $SHELL", dir);
-    gchar *argv[] = {"/bin/sh", "-c", cmd, NULL};
-    g_spawn_async(NULL, argv, NULL, G_SPAWN_SEARCH_PATH, NULL, NULL, NULL, NULL);
+    
+    // Launch the LIDE terminal application
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Child process - change to the directory and launch terminal
+        execl("./blackline-terminal", "blackline-terminal", NULL);
+        exit(0);
+    }
+    
     g_free(dir);
-    g_free(cmd);
 }
 
 static void fm_show_properties(const gchar *path)
