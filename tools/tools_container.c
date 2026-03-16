@@ -538,7 +538,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     GtkWidget *bottom_spacer = gtk_label_new("");
     gtk_box_pack_start(GTK_BOX(vbox), bottom_spacer, TRUE, TRUE, 0);
     
-    // Simple CSS - no animations
+    // css
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
         "window { background-color: #0b0f14; color: #ffffff; border: 1px solid #00ff88; }"

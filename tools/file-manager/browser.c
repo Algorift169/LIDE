@@ -332,6 +332,7 @@ void fm_update_status(FileManager *fm)
     }
 }
 
+/*
 void fm_populate_sidebar(FileManager *fm) 
 
 {
@@ -386,3 +387,4 @@ void fm_on_sidebar_row_activated(GtkTreeView *tree, GtkTreePath *path, GtkTreeVi
     }
     g_free(name);
 }
+    */
