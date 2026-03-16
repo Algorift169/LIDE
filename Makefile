@@ -4,6 +4,7 @@ GTK_CFLAGS = $(shell pkg-config --cflags gtk+-3.0)
 GTK_LIBS = $(shell pkg-config --libs gtk+-3.0)
 X11_LIBS = -lX11
 MATH_LIBS = -lm
+IMLIB2_LIBS = -lImlib2
 
 # VTE detection for terminal
 VTE_PKG := $(shell pkg-config --exists vte-2.91 && echo vte-2.91)
@@ -36,9 +37,9 @@ all: blackline-wm blackline-panel blackline-launcher blackline-tools blackline-b
      blackline-fm blackline-editor blackline-calculator blackline-system-monitor \
      voidfox firefox-wrapper blackline-terminal
 
-# Window Manager
+# Window Manager with Imlib2 support
 blackline-wm: wm/wm.c
-	$(CC) $(CFLAGS) -o $@ $< $(X11_LIBS)
+	$(CC) $(CFLAGS) -o $@ $< $(X11_LIBS) $(IMLIB2_LIBS)
 
 # Panel with system stats - using network_stats.c
 blackline-panel: panel/panel.c tools/minimized_container.c panel/network_stats.c
@@ -272,38 +273,52 @@ check-vte:
 		echo "  Install with: sudo apt install libvte-2.91-dev"; \
 	fi
 
+# Imlib2 check
+check-imlib2:
+	@echo "Checking Imlib2 installation..."
+	@if pkg-config --exists imlib2; then \
+		echo "✓ Imlib2 found: $$(pkg-config --modversion imlib2)"; \
+	else \
+		echo "✗ Imlib2 not found!"; \
+		echo "  Install with: sudo apt install libimlib2-dev"; \
+		echo "  On Fedora: sudo dnf install imlib2-devel"; \
+		echo "  On Arch: sudo pacman -S imlib2"; \
+	fi
+
+# Help
 help:
 	@echo "Blackline Desktop Environment - Makefile"
 	@echo ""
 	@echo "Available targets:"
 	@echo "  all                    - Build all components"
-	@echo "  blackline-wm           - Build window manager"
+	@echo "  blackline-wm           - Build window manager (with Imlib2 wallpaper support)"
 	@echo "  blackline-panel        - Build panel with system stats (CPU, RAM, Network)"
-	@echo "  blackline-launcher      - Build application launcher"
-	@echo "  blackline-tools         - Build tools container with view mode"
-	@echo "  blackline-background    - Build background setter"
-	@echo "  blackline-fm            - Build file manager"
-	@echo "  blackline-editor        - Build text editor"
-	@echo "  blackline-terminal      - Build terminal emulator"
-	@echo "  blackline-calculator    - Build calculator"
+	@echo "  blackline-launcher     - Build application launcher"
+	@echo "  blackline-tools        - Build tools container with view mode"
+	@echo "  blackline-background   - Build background setter"
+	@echo "  blackline-fm           - Build file manager"
+	@echo "  blackline-editor       - Build text editor"
+	@echo "  blackline-terminal     - Build terminal emulator"
+	@echo "  blackline-calculator   - Build calculator"
 	@echo "  blackline-system-monitor - Build system monitor"
-	@echo "  voidfox                 - Build VoidFox web browser"
-	@echo "  firefox-wrapper         - Build Firefox wrapper"
-	@echo "  clean                   - Remove all binaries and object files"
-	@echo "  install                 - Install all binaries to /usr/local/bin"
-	@echo "  uninstall               - Remove all binaries from /usr/local/bin"
-	@echo "  check-webkit            - Check WebKitGTK installation"
-	@echo "  check-firefox           - Check Firefox installation"
-	@echo "  check-vte               - Check VTE installation"
+	@echo "  voidfox                - Build VoidFox web browser"
+	@echo "  firefox-wrapper        - Build Firefox wrapper"
+	@echo "  clean                  - Remove all binaries and object files"
+	@echo "  install                - Install all binaries to /usr/local/bin"
+	@echo "  uninstall              - Remove all binaries from /usr/local/bin"
+	@echo "  check-webkit           - Check WebKitGTK installation"
+	@echo "  check-firefox          - Check Firefox installation"
+	@echo "  check-vte              - Check VTE installation"
+	@echo "  check-imlib2           - Check Imlib2 installation"
 	@echo ""
 	@echo "Run targets:"
-	@echo "  run-editor              - Run text editor"
-	@echo "  run-wm                  - Run window manager"
-	@echo "  run-calculator          - Run calculator"
-	@echo "  run-system-monitor      - Run system monitor"
-	@echo "  run-voidfox             - Run VoidFox web browser"
-	@echo "  run-firefox             - Run Firefox wrapper"
-	@echo "  run-terminal            - Run terminal emulator"
+	@echo "  run-editor             - Run text editor"
+	@echo "  run-wm                 - Run window manager"
+	@echo "  run-calculator         - Run calculator"
+	@echo "  run-system-monitor     - Run system monitor"
+	@echo "  run-voidfox            - Run VoidFox web browser"
+	@echo "  run-firefox            - Run Firefox wrapper"
+	@echo "  run-terminal           - Run terminal emulator"
 	@echo ""
 	@echo "Panel Features:"
 	@echo "  - CPU usage with smoothing"
@@ -312,9 +327,16 @@ help:
 	@echo "  - Date and time display"
 	@echo "  - Minimized apps container"
 	@echo ""
+	@echo "Window Manager Features:"
+	@echo "  - Imlib2 wallpaper support (PNG, JPEG, GIF)"
+	@echo "  - Desktop icons from ~/Desktop"
+	@echo "  - Right-click context menu"
+	@echo "  - Window dragging and resizing"
+	@echo "  - Maximize/unmaximize support"
+	@echo ""
 	@echo "View Mode:"
 	@echo "  The tools container supports List/Grid view toggle"
 	@echo "  View preference is saved in ~/.config/blackline/tools_view_mode.conf"
 
 .PHONY: all clean install uninstall run-editor run-wm run-calculator run-system-monitor \
-        run-voidfox run-firefox run-terminal check-webkit check-firefox check-vte help
+        run-voidfox run-firefox run-terminal check-webkit check-firefox check-vte check-imlib2 help

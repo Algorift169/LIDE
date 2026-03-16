@@ -6,7 +6,6 @@
 
 static pid_t wm_pid = 0;
 static pid_t panel_pid = 0;
-static pid_t wallpaper_pid = 0;
 
 static void start_program(const char *path, pid_t *pid) 
 
@@ -25,10 +24,8 @@ static void cleanup(int sig)
     (void)sig;
     if (wm_pid > 0) kill(wm_pid, SIGTERM);
     if (panel_pid > 0) kill(panel_pid, SIGTERM);
-    if (wallpaper_pid > 0) kill(wallpaper_pid, SIGTERM);
     exit(0);
 }
-
 
 int main(void) 
 
@@ -41,8 +38,6 @@ int main(void)
 
     sleep(1);
 
-    start_program("./blackline-wallpaper", &wallpaper_pid);
-
     start_program("./blackline-panel", &panel_pid);
     if (panel_pid < 0) 
     {
@@ -51,14 +46,12 @@ int main(void)
     }
 
     int status;
-
     pid_t exited = wait(&status);
 
     if (exited == wm_pid || exited == panel_pid) 
     {
         if (wm_pid > 0 && exited != wm_pid) kill(wm_pid, SIGTERM);
         if (panel_pid > 0 && exited != panel_pid) kill(panel_pid, SIGTERM);
-        if (wallpaper_pid > 0) kill(wallpaper_pid, SIGTERM);
     }
 
     return 0;
