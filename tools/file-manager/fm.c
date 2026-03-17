@@ -4,14 +4,28 @@
 #include <string.h>
 #include <gdk/gdkkeysyms.h>
 #include <unistd.h>
+#include <time.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
+// Forward declaration of browser function
+void browser_open_file(FileManager *fm, const gchar *path);
 
 // Clipboard for cut/copy
 static gchar *clipboard_path = NULL;
 static gboolean clipboard_is_cut = FALSE;
 
+// History management
+typedef struct {
+    GFile *location;
+    GtkTreePath *scroll_position;
+} HistoryEntry;
+
+static GList *history = NULL;
+static GList *current_history_pos = NULL;
+
 // Function prototypes for new features
-static void fm_show_context_menu(FileManager *fm, GdkEventButton *event, const gchar *selected_path);
-static void fm_open_file(const gchar *path);
+static void fm_show_context_menu(FileManager *fm, GdkEventButton *event, const gchar *selected_path, gboolean is_directory);
 static void fm_cut_file(FileManager *fm, const gchar *path);
 static void fm_copy_file(const gchar *path);
 static void fm_paste_file(FileManager *fm, const gchar *dest_dir);
@@ -19,11 +33,58 @@ static void fm_move_to_trash(const gchar *path);
 static void fm_delete_permanently(const gchar *path);
 static void fm_open_in_terminal(const gchar *path);
 static void fm_show_properties(const gchar *path);
-static void fm_move_to(FileManager *fm, const gchar *source);
-static void fm_copy_to(FileManager *fm, const gchar *source);
+static void fm_new_folder(FileManager *fm);
+static void fm_new_file(FileManager *fm);
+static void fm_load_directory_contents(FileManager *fm);
+static void fm_update_navigation_buttons(FileManager *fm);
+static void fm_add_to_history(FileManager *fm, GFile *file);
+
+// Helper functions for formatting
+static gchar *format_size(guint64 size)
+
+{
+    if (size < 1024) return g_strdup_printf("%lu B", size);
+    if (size < 1024 * 1024) return g_strdup_printf("%.1f KB", size / 1024.0);
+    if (size < 1024 * 1024 * 1024) return g_strdup_printf("%.1f MB", size / (1024.0 * 1024.0));
+    return g_strdup_printf("%.1f GB", size / (1024.0 * 1024.0 * 1024.0));
+}
+
+// Input dialog for getting names
+static gchar* show_input_dialog(GtkWindow *parent, const gchar *title, const gchar *prompt)
+
+{
+    GtkWidget *dialog = gtk_dialog_new_with_buttons(title,
+                                                     parent,
+                                                     GTK_DIALOG_MODAL,
+                                                     "_Cancel", GTK_RESPONSE_CANCEL,
+                                                     "_OK", GTK_RESPONSE_ACCEPT,
+                                                     NULL);
+    
+    GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    gtk_container_set_border_width(GTK_CONTAINER(box), 10);
+    gtk_box_pack_start(GTK_BOX(content), box, TRUE, TRUE, 0);
+    
+    GtkWidget *label = gtk_label_new(prompt);
+    gtk_box_pack_start(GTK_BOX(box), label, FALSE, FALSE, 0);
+    
+    GtkWidget *entry = gtk_entry_new();
+    gtk_box_pack_start(GTK_BOX(box), entry, FALSE, FALSE, 0);
+    
+    gtk_widget_show_all(dialog);
+    
+    gchar *result = NULL;
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+        result = g_strdup(gtk_entry_get_text(GTK_ENTRY(entry)));
+    }
+    
+    gtk_widget_destroy(dialog);
+    return result;
+}
 
 // Dragging functions
 static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data)
+
 {
     FileManager *fm = (FileManager *)data;
 
@@ -46,6 +107,7 @@ static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpoint
 }
 
 static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer data)
+
 {
     FileManager *fm = (FileManager *)data;
 
@@ -59,6 +121,7 @@ static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpoi
 }
 
 static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer data)
+
 {
     FileManager *fm = (FileManager *)data;
 
@@ -97,12 +160,14 @@ static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoin
 
 // Window control callbacks
 static void on_minimize_clicked(GtkButton *button, gpointer window)
+
 {
     (void)button;
     gtk_window_iconify(GTK_WINDOW(window));
 }
 
 static void on_maximize_clicked(GtkButton *button, gpointer window)
+
 {
     (void)button;
     GtkWindow *win = GTK_WINDOW(window);
@@ -115,6 +180,7 @@ static void on_maximize_clicked(GtkButton *button, gpointer window)
 }
 
 static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *event, gpointer data)
+
 {
     GtkButton *max_btn = GTK_BUTTON(data);
     
@@ -130,13 +196,67 @@ static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *
 }
 
 static void on_close_clicked(GtkButton *button, gpointer window)
+
 {
     (void)button;
     gtk_window_close(GTK_WINDOW(window));
 }
 
-// Populate sidebar with places including Recent, Starred, Trash
+// Update navigation buttons state
+static void fm_update_navigation_buttons(FileManager *fm)
+
+{
+    gtk_widget_set_sensitive(fm->back_button, (current_history_pos != NULL && current_history_pos->prev != NULL));
+    gtk_widget_set_sensitive(fm->forward_button, (current_history_pos != NULL && current_history_pos->next != NULL));
+}
+
+// Add current location to history
+static void fm_add_to_history(FileManager *fm, GFile *file)
+
+{
+    // If we're not at the end of history, truncate forward history
+    if (current_history_pos && current_history_pos->next) {
+        GList *next = current_history_pos->next;
+        GList *tmp;
+        while (next) {
+            tmp = next->next;
+            HistoryEntry *entry = (HistoryEntry *)next->data;
+            if (entry->location) g_object_unref(entry->location);
+            if (entry->scroll_position) gtk_tree_path_free(entry->scroll_position);
+            g_free(entry);
+            g_list_free_1(next);
+            next = tmp;
+        }
+        current_history_pos->next = NULL;
+    }
+    
+    // Create new history entry
+    HistoryEntry *entry = g_new(HistoryEntry, 1);
+    entry->location = g_object_ref(file);
+    
+    // Save current scroll position
+    GtkAdjustment *vadjust = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(
+        gtk_widget_get_parent(GTK_WIDGET(fm->main_tree))));
+    if (vadjust) {
+        gdouble value = gtk_adjustment_get_value(vadjust);
+        GtkTreePath *path = NULL;
+        gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(fm->main_tree), 10, value, &path, NULL, NULL, NULL);
+        entry->scroll_position = path ? gtk_tree_path_copy(path) : NULL;
+        if (path) gtk_tree_path_free(path);
+    } else {
+        entry->scroll_position = NULL;
+    }
+    
+    // Add to history
+    history = g_list_append(history, entry);
+    current_history_pos = g_list_last(history);
+    
+    fm_update_navigation_buttons(fm);
+}
+
+// Populate sidebar with places including Recent, Starred, Trash, and Root
 void fm_populate_sidebar(FileManager *fm)
+
 {
     gtk_list_store_clear(fm->sidebar_store);
 
@@ -147,6 +267,11 @@ void fm_populate_sidebar(FileManager *fm)
     gtk_list_store_append(fm->sidebar_store, &iter);
     gtk_list_store_set(fm->sidebar_store, &iter, 0, "Home", -1);
     g_object_set_data_full(G_OBJECT(fm->sidebar_tree), "path_Home", g_strdup(home), g_free);
+
+    // Root
+    gtk_list_store_append(fm->sidebar_store, &iter);
+    gtk_list_store_set(fm->sidebar_store, &iter, 0, "Root", -1);
+    g_object_set_data_full(G_OBJECT(fm->sidebar_tree), "path_Root", g_strdup("/"), g_free);
 
     // Recent
     gtk_list_store_append(fm->sidebar_store, &iter);
@@ -165,6 +290,7 @@ void fm_populate_sidebar(FileManager *fm)
 
 // Handle sidebar row activation
 void fm_on_sidebar_row_activated(GtkTreeView *tree, GtkTreePath *path, GtkTreeViewColumn *col, FileManager *fm)
+
 {
     GtkTreeIter iter;
     if (!gtk_tree_model_get_iter(GTK_TREE_MODEL(fm->sidebar_store), &iter, path))
@@ -175,6 +301,8 @@ void fm_on_sidebar_row_activated(GtkTreeView *tree, GtkTreePath *path, GtkTreeVi
 
     if (g_strcmp0(text, "Home") == 0) {
         fm_go_home(fm);
+    } else if (g_strcmp0(text, "Root") == 0) {
+        fm_open_location(fm, "/");
     } else if (g_strcmp0(text, "Recent") == 0) {
         gtk_label_set_text(GTK_LABEL(fm->status_label), "Recent files");
     } else if (g_strcmp0(text, "Starred") == 0) {
@@ -188,30 +316,258 @@ void fm_on_sidebar_row_activated(GtkTreeView *tree, GtkTreePath *path, GtkTreeVi
     g_free(text);
 }
 
+// Load directory contents (with special handling for home)
+static void fm_load_directory_contents(FileManager *fm)
+
+{
+    gtk_tree_store_clear(fm->main_store);
+
+    const gchar *home = g_get_home_dir();
+    gchar *current_dir_path = g_file_get_path(fm->current_dir);
+    gboolean is_home = (g_strcmp0(current_dir_path, home) == 0);
+    g_free(current_dir_path);
+
+    if (is_home) {
+        // Show standard XDG user directories
+        GtkTreeIter iter;
+
+        // Define XDG user directories
+        const gchar *dir_names[] = {
+            "Desktop", "Documents", "Downloads", "Music",
+            "Pictures", "Public", "Videos", NULL
+        };
+
+        for (int i = 0; dir_names[i] != NULL; i++) {
+            gchar *path = g_build_filename(home, dir_names[i], NULL);
+            if (g_file_test(path, G_FILE_TEST_IS_DIR)) {
+                GFile *file = g_file_new_for_path(path);
+                GFileInfo *info = g_file_query_info(file,
+                                                    "time::modified",
+                                                    G_FILE_QUERY_INFO_NONE,
+                                                    NULL, NULL);
+                gchar *modified = NULL;
+                if (info) {
+                    GDateTime *dt = g_file_info_get_modification_date_time(info);
+                    if (dt)
+                        modified = g_date_time_format(dt, "%Y-%m-%d %H:%M");
+                    g_object_unref(info);
+                }
+                if (!modified)
+                    modified = g_strdup("");
+
+                gtk_tree_store_append(fm->main_store, &iter, NULL);
+                gtk_tree_store_set(fm->main_store, &iter,
+                                   0, dir_names[i],
+                                   1, "",
+                                   2, "Folder",
+                                   3, modified,
+                                   4, path,
+                                   -1);
+                g_free(modified);
+                g_object_unref(file);
+            }
+            g_free(path);
+        }
+    } else {
+        // Normal directory listing
+        GFileEnumerator *enumerator = g_file_enumerate_children(fm->current_dir,
+                                                                "standard::name,standard::size,standard::content-type,time::modified",
+                                                                G_FILE_QUERY_INFO_NONE,
+                                                                NULL, NULL);
+        if (!enumerator) {
+            return;
+        }
+
+        GFileInfo *info;
+        while ((info = g_file_enumerator_next_file(enumerator, NULL, NULL)) != NULL) {
+            const gchar *name = g_file_info_get_name(info);
+            guint64 size = g_file_info_get_size(info);
+            const gchar *content_type = g_file_info_get_content_type(info);
+            GDateTime *modified_dt = g_file_info_get_modification_date_time(info);
+            GFileType file_type = g_file_info_get_file_type(info);
+
+            gchar *size_str = (file_type == G_FILE_TYPE_DIRECTORY) ? g_strdup("") : format_size(size);
+            gchar *modified = modified_dt ? g_date_time_format(modified_dt, "%Y-%m-%d %H:%M") : g_strdup("");
+            gchar *type_str = (file_type == G_FILE_TYPE_DIRECTORY) ? g_strdup("Folder") : 
+                              (file_type == G_FILE_TYPE_SYMBOLIC_LINK) ? g_strdup("Link") :
+                              g_content_type_get_description(content_type);
+
+            current_dir_path = g_file_get_path(fm->current_dir);
+            gchar *full_path = g_build_filename(current_dir_path, name, NULL);
+            g_free(current_dir_path);
+
+            GtkTreeIter iter;
+            gtk_tree_store_append(fm->main_store, &iter, NULL);
+            gtk_tree_store_set(fm->main_store, &iter,
+                               0, name,
+                               1, size_str,
+                               2, type_str,
+                               3, modified,
+                               4, full_path,
+                               -1);
+
+            g_free(size_str);
+            g_free(modified);
+            g_free(type_str);
+            g_free(full_path);
+            g_object_unref(info);
+        }
+
+        g_file_enumerator_close(enumerator, NULL, NULL);
+        g_object_unref(enumerator);
+    }
+
+    current_dir_path = g_file_get_path(fm->current_dir);
+    gtk_label_set_text(GTK_LABEL(fm->status_label), current_dir_path);
+    g_free(current_dir_path);
+}
+
+// Open a location and load its contents
+void fm_open_location(FileManager *fm, const gchar *path)
+
+{
+    if (!path) return;
+
+    GFile *new_dir = g_file_new_for_path(path);
+    
+    if (!g_file_query_exists(new_dir, NULL)) {
+        g_object_unref(new_dir);
+        return;
+    }
+
+    // Add current location to history before changing
+    if (fm->current_dir) {
+        fm_add_to_history(fm, fm->current_dir);
+        g_object_unref(fm->current_dir);
+    }
+    
+    fm->current_dir = g_object_ref(new_dir);
+    fm_load_directory_contents(fm);
+
+    // Update location entry
+    gtk_entry_set_text(GTK_ENTRY(fm->location_entry), path);
+    
+    g_object_unref(new_dir);
+}
+
+// Row activated handler
+void fm_on_row_activated(GtkTreeView *tree_view, GtkTreePath *path, GtkTreeViewColumn *column, FileManager *fm)
+
+{
+    GtkTreeIter iter;
+    if (!gtk_tree_model_get_iter(GTK_TREE_MODEL(fm->main_store), &iter, path))
+        return;
+
+    gchar *full_path;
+    gtk_tree_model_get(GTK_TREE_MODEL(fm->main_store), &iter, 4, &full_path, -1);
+
+    if (full_path) {
+        if (g_file_test(full_path, G_FILE_TEST_IS_DIR)) {
+            fm_open_location(fm, full_path);
+        } else {
+            // Call external open function from browser.c
+            browser_open_file(fm, full_path);
+        }
+        g_free(full_path);
+    }
+}
+
+// Create new folder
+static void fm_new_folder(FileManager *fm)
+
+{
+    gchar *name = show_input_dialog(GTK_WINDOW(fm->window), "New Folder", "Enter folder name:");
+    if (name && strlen(name) > 0) {
+        gchar *current_path = g_file_get_path(fm->current_dir);
+        gchar *new_path = g_build_filename(current_path, name, NULL);
+        
+        if (mkdir(new_path, 0755) == 0) {
+            fm_refresh(fm);
+        }
+        
+        g_free(new_path);
+        g_free(current_path);
+        g_free(name);
+    }
+}
+
+// Create new file
+static void fm_new_file(FileManager *fm)
+
+{
+    gchar *name = show_input_dialog(GTK_WINDOW(fm->window), "New File", "Enter file name:");
+    if (name && strlen(name) > 0) {
+        gchar *current_path = g_file_get_path(fm->current_dir);
+        gchar *new_path = g_build_filename(current_path, name, NULL);
+        
+        FILE *f = fopen(new_path, "w");
+        if (f) {
+            fclose(f);
+            fm_refresh(fm);
+        }
+        
+        g_free(new_path);
+        g_free(current_path);
+        g_free(name);
+    }
+}
+
 // Context menu for main view
-static void fm_show_context_menu(FileManager *fm, GdkEventButton *event, const gchar *selected_path)
+static void fm_show_context_menu(FileManager *fm, GdkEventButton *event, const gchar *selected_path, gboolean is_directory)
+
 {
     GtkWidget *menu = gtk_menu_new();
     GtkWidget *item;
 
-    // Open
-    item = gtk_menu_item_new_with_label("Open");
-    g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_open_file), (gpointer)selected_path);
+    if (selected_path) {
+        // File/Directory specific options
+        item = gtk_menu_item_new_with_label("Open");
+        g_signal_connect_swapped(item, "activate", G_CALLBACK(browser_open_file), fm);
+        g_object_set_data_full(G_OBJECT(item), "path", g_strdup(selected_path), g_free);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+
+        item = gtk_menu_item_new_with_label("Cut");
+        g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_cut_file), fm);
+        g_object_set_data_full(G_OBJECT(item), "path", g_strdup(selected_path), g_free);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+
+        item = gtk_menu_item_new_with_label("Copy");
+        g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_copy_file), (gpointer)selected_path);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+
+        item = gtk_menu_item_new_with_label("Rename");
+        g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_new_folder), fm); // Placeholder
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+
+        item = gtk_menu_item_new_with_label("Delete");
+        g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_move_to_trash), (gpointer)selected_path);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
+
+        item = gtk_menu_item_new_with_label("Properties");
+        g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_show_properties), (gpointer)selected_path);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+    }
+
+    // Always show these options (for empty space or as additional options)
+    if (!selected_path) {
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
+    }
+
+    item = gtk_menu_item_new_with_label("New Folder");
+    g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_new_folder), fm);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 
-    // Cut
-    item = gtk_menu_item_new_with_label("Cut");
-    g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_cut_file), fm);
-    g_object_set_data_full(G_OBJECT(item), "path", g_strdup(selected_path), g_free);
+    item = gtk_menu_item_new_with_label("New File");
+    g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_new_file), fm);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 
-    // Copy
-    item = gtk_menu_item_new_with_label("Copy");
-    g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_copy_file), (gpointer)selected_path);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
-
-    // Paste
     if (clipboard_path) {
+        if (!selected_path) {
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
+        }
+        
         item = gtk_menu_item_new_with_label("Paste");
         g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_paste_file), fm);
         gchar *current_dir_path = g_file_get_path(fm->current_dir);
@@ -219,40 +575,16 @@ static void fm_show_context_menu(FileManager *fm, GdkEventButton *event, const g
         gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
     }
 
-    // Move to
-    item = gtk_menu_item_new_with_label("Move to...");
-    g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_move_to), fm);
-    g_object_set_data_full(G_OBJECT(item), "source", g_strdup(selected_path), g_free);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
-
-    // Copy to
-    item = gtk_menu_item_new_with_label("Copy to...");
-    g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_copy_to), fm);
-    g_object_set_data_full(G_OBJECT(item), "source", g_strdup(selected_path), g_free);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
-
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
 
-    // Move to Trash
-    item = gtk_menu_item_new_with_label("Move to Trash");
-    g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_move_to_trash), (gpointer)selected_path);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
-
-    // Delete Permanently
-    item = gtk_menu_item_new_with_label("Delete Permanently");
-    g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_delete_permanently), (gpointer)selected_path);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
-
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
-
-    // Open in Terminal
     item = gtk_menu_item_new_with_label("Open in Terminal");
-    g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_open_in_terminal), (gpointer)selected_path);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
-
-    // Properties
-    item = gtk_menu_item_new_with_label("Properties");
-    g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_show_properties), (gpointer)selected_path);
+    if (selected_path) {
+        g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_open_in_terminal), (gpointer)selected_path);
+    } else {
+        gchar *current_path = g_file_get_path(fm->current_dir);
+        g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_open_in_terminal), (gpointer)current_path);
+        g_free(current_path);
+    }
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 
     gtk_widget_show_all(menu);
@@ -261,6 +593,7 @@ static void fm_show_context_menu(FileManager *fm, GdkEventButton *event, const g
 
 // Context menu trigger on right-click
 static gboolean on_main_tree_button_press(GtkWidget *widget, GdkEventButton *event, FileManager *fm)
+
 {
     if (event->type == GDK_BUTTON_PRESS && event->button == 3) {
         GtkTreePath *path;
@@ -268,31 +601,27 @@ static gboolean on_main_tree_button_press(GtkWidget *widget, GdkEventButton *eve
             gtk_tree_view_set_cursor(GTK_TREE_VIEW(widget), path, NULL, FALSE);
             GtkTreeIter iter;
             if (gtk_tree_model_get_iter(GTK_TREE_MODEL(fm->main_store), &iter, path)) {
-                gchar *name;
-                gtk_tree_model_get(GTK_TREE_MODEL(fm->main_store), &iter, 0, &name, -1);
-                gchar *current_dir_path = g_file_get_path(fm->current_dir);
-                gchar *full_path = g_build_filename(current_dir_path, name, NULL);
-                fm_show_context_menu(fm, event, full_path);
-                g_free(name);
+                gchar *full_path;
+                gchar *type_str;
+                gtk_tree_model_get(GTK_TREE_MODEL(fm->main_store), &iter, 2, &type_str, 4, &full_path, -1);
+                gboolean is_dir = (g_strcmp0(type_str, "Folder") == 0);
+                fm_show_context_menu(fm, event, full_path, is_dir);
                 g_free(full_path);
-                g_free(current_dir_path);
+                g_free(type_str);
             }
             gtk_tree_path_free(path);
-            return TRUE;
+        } else {
+            // Click on empty space
+            fm_show_context_menu(fm, event, NULL, FALSE);
         }
+        return TRUE;
     }
     return FALSE;
 }
 
-// Action implementations
-static void fm_open_file(const gchar *path)
-{
-    GFile *file = g_file_new_for_path(path);
-    g_app_info_launch_default_for_uri(g_file_get_uri(file), NULL, NULL);
-    g_object_unref(file);
-}
-
+// Action 
 static void fm_cut_file(FileManager *fm, const gchar *path)
+
 {
     if (clipboard_path)
         g_free(clipboard_path);
@@ -302,6 +631,7 @@ static void fm_cut_file(FileManager *fm, const gchar *path)
 }
 
 static void fm_copy_file(const gchar *path)
+
 {
     if (clipboard_path)
         g_free(clipboard_path);
@@ -310,6 +640,7 @@ static void fm_copy_file(const gchar *path)
 }
 
 static void fm_paste_file(FileManager *fm, const gchar *dest_dir)
+
 {
     if (!clipboard_path) return;
 
@@ -346,6 +677,7 @@ static void fm_paste_file(FileManager *fm, const gchar *dest_dir)
 }
 
 static void fm_move_to_trash(const gchar *path)
+
 {
     GFile *file = g_file_new_for_path(path);
     GError *error = NULL;
@@ -357,6 +689,7 @@ static void fm_move_to_trash(const gchar *path)
 }
 
 static void fm_delete_permanently(const gchar *path)
+
 {
     GFile *file = g_file_new_for_path(path);
     GError *error = NULL;
@@ -367,15 +700,14 @@ static void fm_delete_permanently(const gchar *path)
     g_object_unref(file);
 }
 
-// Fixed: Now launches the LIDE terminal application
+// Open in terminal
 static void fm_open_in_terminal(const gchar *path)
+
 {
     gchar *dir = g_path_get_dirname(path);
     
-    // Launch the LIDE terminal application
     pid_t pid = fork();
     if (pid == 0) {
-        // Child process - change to the directory and launch terminal
         execl("./blackline-terminal", "blackline-terminal", NULL);
         exit(0);
     }
@@ -383,7 +715,9 @@ static void fm_open_in_terminal(const gchar *path)
     g_free(dir);
 }
 
+// Show properties
 static void fm_show_properties(const gchar *path)
+
 {
     GFile *file = g_file_new_for_path(path);
     GFileInfo *info = g_file_query_info(file, "standard::*,time::*", G_FILE_QUERY_INFO_NONE, NULL, NULL);
@@ -397,7 +731,7 @@ static void fm_show_properties(const gchar *path)
     const gchar *type = g_file_info_get_content_type(info);
     GDateTime *modified = g_file_info_get_modification_date_time(info);
 
-    gchar *size_str = g_format_size(size);
+    gchar *size_str = format_size(size);
     gchar *modified_str = modified ? g_date_time_format(modified, "%Y-%m-%d %H:%M:%S") : g_strdup("Unknown");
 
     GtkWidget *dialog = gtk_message_dialog_new(NULL, GTK_DIALOG_MODAL, GTK_MESSAGE_INFO, GTK_BUTTONS_OK,
@@ -412,72 +746,114 @@ static void fm_show_properties(const gchar *path)
     g_object_unref(file);
 }
 
-static void fm_move_to(FileManager *fm, const gchar *source)
+// Navigation helpers
+void fm_go_home(FileManager *fm)
+
 {
-    GtkWidget *chooser = gtk_file_chooser_dialog_new("Select Destination",
-                                                      GTK_WINDOW(fm->window),
-                                                      GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
-                                                      "_Cancel", GTK_RESPONSE_CANCEL,
-                                                      "_Select", GTK_RESPONSE_ACCEPT,
-                                                      NULL);
-    if (gtk_dialog_run(GTK_DIALOG(chooser)) == GTK_RESPONSE_ACCEPT) {
-        gchar *dest_dir = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
-        GFile *src = g_file_new_for_path(source);
-        GFile *dest = g_file_new_for_path(dest_dir);
-        GFile *dest_file = g_file_get_child(dest, g_path_get_basename(source));
-
-        GError *error = NULL;
-        if (!g_file_move(src, dest_file, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, &error)) {
-            g_printerr("Move failed: %s\n", error->message);
-            g_error_free(error);
-        } else {
-            gtk_label_set_text(GTK_LABEL(fm->status_label), "Moved successfully");
-        }
-
-        g_object_unref(src);
-        g_object_unref(dest);
-        g_object_unref(dest_file);
-        g_free(dest_dir);
-
-        fm_refresh(fm);
-    }
-    gtk_widget_destroy(chooser);
+    const gchar *home = g_get_home_dir();
+    fm_open_location(fm, home);
 }
 
-static void fm_copy_to(FileManager *fm, const gchar *source)
+void fm_go_up(FileManager *fm)
+
 {
-    GtkWidget *chooser = gtk_file_chooser_dialog_new("Select Destination",
-                                                      GTK_WINDOW(fm->window),
-                                                      GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
-                                                      "_Cancel", GTK_RESPONSE_CANCEL,
-                                                      "_Select", GTK_RESPONSE_ACCEPT,
-                                                      NULL);
-    if (gtk_dialog_run(GTK_DIALOG(chooser)) == GTK_RESPONSE_ACCEPT) {
-        gchar *dest_dir = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
-        GFile *src = g_file_new_for_path(source);
-        GFile *dest = g_file_new_for_path(dest_dir);
-        GFile *dest_file = g_file_get_child(dest, g_path_get_basename(source));
-
-        GError *error = NULL;
-        if (!g_file_copy(src, dest_file, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, &error)) {
-            g_printerr("Copy failed: %s\n", error->message);
-            g_error_free(error);
-        } else {
-            gtk_label_set_text(GTK_LABEL(fm->status_label), "Copied successfully");
-        }
-
-        g_object_unref(src);
-        g_object_unref(dest);
-        g_object_unref(dest_file);
-        g_free(dest_dir);
-
-        fm_refresh(fm);
+    if (!fm->current_dir) return;
+    
+    GFile *parent = g_file_get_parent(fm->current_dir);
+    if (parent) {
+        gchar *path = g_file_get_path(parent);
+        fm_open_location(fm, path);
+        g_free(path);
+        g_object_unref(parent);
     }
-    gtk_widget_destroy(chooser);
+}
+
+void fm_go_back(FileManager *fm)
+
+{
+    if (!current_history_pos || !current_history_pos->prev) return;
+    
+    current_history_pos = current_history_pos->prev;
+    HistoryEntry *entry = (HistoryEntry *)current_history_pos->data;
+    
+    if (fm->current_dir) {
+        g_object_unref(fm->current_dir);
+    }
+    fm->current_dir = g_object_ref(entry->location);
+    
+    gchar *path = g_file_get_path(fm->current_dir);
+    gtk_entry_set_text(GTK_ENTRY(fm->location_entry), path);
+    g_free(path);
+    
+    fm_load_directory_contents(fm);
+    
+    // Restore scroll position
+    if (entry->scroll_position) {
+        gtk_tree_view_scroll_to_cell(GTK_TREE_VIEW(fm->main_tree), entry->scroll_position, NULL, TRUE, 0.5, 0.0);
+    }
+    
+    fm_update_navigation_buttons(fm);
+}
+
+void fm_go_forward(FileManager *fm)
+
+{
+    if (!current_history_pos || !current_history_pos->next) return;
+    
+    current_history_pos = current_history_pos->next;
+    HistoryEntry *entry = (HistoryEntry *)current_history_pos->data;
+    
+    if (fm->current_dir) {
+        g_object_unref(fm->current_dir);
+    }
+    fm->current_dir = g_object_ref(entry->location);
+    
+    gchar *path = g_file_get_path(fm->current_dir);
+    gtk_entry_set_text(GTK_ENTRY(fm->location_entry), path);
+    g_free(path);
+    
+    fm_load_directory_contents(fm);
+    
+    // Restore scroll position
+    if (entry->scroll_position) {
+        gtk_tree_view_scroll_to_cell(GTK_TREE_VIEW(fm->main_tree), entry->scroll_position, NULL, TRUE, 0.5, 0.0);
+    }
+    
+    fm_update_navigation_buttons(fm);
+}
+
+void fm_refresh(FileManager *fm)
+
+{
+    if (!fm->current_dir) return;
+    gchar *path = g_file_get_path(fm->current_dir);
+    fm_open_location(fm, path);
+    g_free(path);
+}
+
+void fm_on_location_activate(FileManager *fm)
+
+{
+    const gchar *text = gtk_entry_get_text(GTK_ENTRY(fm->location_entry));
+    if (text && *text) {
+        fm_open_location(fm, text);
+    }
+}
+
+// Update status
+void fm_update_status(FileManager *fm)
+
+{
+    if (fm->current_dir) {
+        gchar *path = g_file_get_path(fm->current_dir);
+        gtk_label_set_text(GTK_LABEL(fm->status_label), path);
+        g_free(path);
+    }
 }
 
 // Main activation
 static void activate(GtkApplication *app, gpointer user_data)
+
 {
     FileManager *fm = g_new(FileManager, 1);
     fm->history = NULL;
@@ -607,7 +983,8 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(main_scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_paned_pack2(GTK_PANED(hpaned), main_scroll, TRUE, TRUE);
 
-    fm->main_store = gtk_tree_store_new(4, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+    // Tree store with 5 columns: name, size, type, modified, full_path (hidden)
+    fm->main_store = gtk_tree_store_new(5, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
     fm->main_tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(fm->main_store));
     gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(fm->main_tree), TRUE);
 
@@ -640,15 +1017,18 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_label_set_xalign(GTK_LABEL(fm->status_label), 0);
     gtk_box_pack_start(GTK_BOX(vbox), fm->status_label, FALSE, FALSE, 2);
 
+    // Initialize navigation buttons state
+    fm_update_navigation_buttons(fm);
+
     // Start at home
-    const gchar *home = g_get_home_dir();
-    fm_open_location(fm, home);
+    fm_go_home(fm);
 
     gtk_widget_show_all(fm->window);
     g_object_set_data_full(G_OBJECT(fm->window), "fm", fm, g_free);
 }
 
 int main(int argc, char **argv)
+
 {
     GtkApplication *app = gtk_application_new("org.blackline.filemanager", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);
