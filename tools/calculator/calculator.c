@@ -499,10 +499,10 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_css_provider_load_from_data(provider,
         "window { background-color: #000000; color: #ffffff; }\n"
         "label { color: #ffffff; }\n"
-        "button { background-color: #1a1a1a; color: #00ff88; border: 1px solid #00ff88; }\n"
+        "button { background-color: #1a1a1a; color: #6d567e; border: 1px solid #6d567e; }\n"
         "button:hover { background-color: #333333; }\n"
-        "#title-bar { background-color: #000000; border-bottom: 2px solid #00ff88; }\n"
-        "frame { border: 2px solid #00ff88; }\n"
+        "#title-bar { background-color: #000000; border-bottom: 2px solid #6d567e; }\n"
+        "frame { border: 2px solid #6d567e; }\n"
         "frame > label { background-color: #1a1a1a; padding: 10px; font-size: 24px; }\n",
         -1, NULL);
     
