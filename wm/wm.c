@@ -386,18 +386,48 @@ static Pixmap create_solid_wallpaper(Display *d, int screen, Window root)
 static void load_wallpaper(Display *d, int screen, Window root)
 
 {
-    char *home = getenv("HOME");
     char path[1024];
     int found = 0;
     
-    // First try user's LIDE directory
-    if (home) {
-        snprintf(path, sizeof(path), "%s/Desktop/LIDE/images/logo.png", home);
-        if (access(path, R_OK) == 0) {
-            wallpaper_pixmap = load_wallpaper_imlib2(d, screen, root, path);
+    // Try multiple paths in order of preference
+    const char *search_paths[] = {
+        "./images/logo.png",              // Current working directory
+        "./images/wal1.png",              // Alternative wallpaper
+        "images/logo.png",                // Relative from current dir
+        "images/wal1.png",                // Alternative relative
+    };
+    
+    // Try each search path
+    for (int i = 0; i < sizeof(search_paths) / sizeof(search_paths[0]); i++) {
+        if (access(search_paths[i], R_OK) == 0) {
+            wallpaper_pixmap = load_wallpaper_imlib2(d, screen, root, search_paths[i]);
             if (wallpaper_pixmap != None) {
-                printf("Loaded wallpaper from %s\n", path);
+                printf("Loaded wallpaper from %s\n", search_paths[i]);
                 found = 1;
+                break;
+            }
+        }
+    }
+    
+    // Try user's home directory as fallback
+    if (!found) {
+        char *home = getenv("HOME");
+        if (home) {
+            const char *home_paths[] = {
+                "%s/Desktop/LIDE/images/logo.png",
+                "%s/.config/LIDE/images/logo.png",
+            };
+            
+            for (int i = 0; i < sizeof(home_paths) / sizeof(home_paths[0]); i++) {
+                snprintf(path, sizeof(path), home_paths[i], home);
+                if (access(path, R_OK) == 0) {
+                    wallpaper_pixmap = load_wallpaper_imlib2(d, screen, root, path);
+                    if (wallpaper_pixmap != None) {
+                        printf("Loaded wallpaper from %s\n", path);
+                        found = 1;
+                        break;
+                    }
+                }
             }
         }
     }
