@@ -1,142 +1,104 @@
-#include <gtk/gtk.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
+#include <glib.h>
 
+// Network stats structure
 typedef struct {
     unsigned long long rx_bytes;
     unsigned long long tx_bytes;
-    unsigned long long rx_old;
-    unsigned long long tx_old;
-    char interface[16];
-} NetStats;
+    double upload_speed;
+    double download_speed;
+    time_t last_update;
+} NetworkStats;
 
-static NetStats net_stats = {0};
-static guint timeout_id = 0;
+static NetworkStats stats = {0};
+static int initialized = 0;
 
-// Get active network interface (non-loopback)
-static const char* get_active_interface(void)
+// Read network stats from /proc/net/dev
+static int read_network_stats(unsigned long long *rx, unsigned long long *tx)
 {
-    static char interface[16] = "";
     FILE *fp = fopen("/proc/net/dev", "r");
-    if (!fp) return "eth0";
-    
+    if (!fp) return -1;
+
     char line[256];
+    unsigned long long total_rx = 0, total_tx = 0;
+
     // Skip first two header lines
     fgets(line, sizeof(line), fp);
     fgets(line, sizeof(line), fp);
-    
-    while (fgets(line, sizeof(line), fp)) {
-        char iface[16];
-        sscanf(line, "%s", iface);
-        // Remove trailing colon
-        char *colon = strchr(iface, ':');
-        if (colon) *colon = '\0';
-        
-        // Skip loopback
-        if (strcmp(iface, "lo") != 0) {
-            strcpy(interface, iface);
-            break;
-        }
-    }
-    fclose(fp);
-    
-    return (interface[0] != '\0') ? interface : "eth0";
-}
 
-// Read network stats
-static void read_net_stats(NetStats *stats)
-{
-    FILE *fp = fopen("/proc/net/dev", "r");
-    if (!fp) return;
-    
-    char line[256];
-    // Skip first two header lines
-    fgets(line, sizeof(line), fp);
-    fgets(line, sizeof(line), fp);
-    
     while (fgets(line, sizeof(line), fp)) {
-        char iface[16];
-        unsigned long long rx, tx;
-        
-        // Parse interface name and stats
-        sscanf(line, "%s %llu %*d %*d %*d %*d %*d %*d %*d %llu", 
-               iface, &rx, &tx);
-        
-        // Remove trailing colon from interface name
-        char *colon = strchr(iface, ':');
-        if (colon) *colon = '\0';
-        
-        // Store stats for the active interface
-        if (strcmp(iface, stats->interface) == 0) {
-            stats->rx_bytes = rx;
-            stats->tx_bytes = tx;
-            break;
+        char iface[32];
+        unsigned long long r_bytes, r_packets, r_errs, r_drop, r_fifo, r_frame, r_compressed, r_multicast;
+        unsigned long long t_bytes, t_packets, t_errs, t_drop, t_fifo, t_colls, t_carrier, t_compressed;
+
+        sscanf(line, "%31s %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu",
+               iface, &r_bytes, &r_packets, &r_errs, &r_drop, &r_fifo, &r_frame, &r_compressed, &r_multicast,
+               &t_bytes, &t_packets, &t_errs, &t_drop, &t_fifo, &t_colls, &t_carrier, &t_compressed);
+
+        // Skip loopback interface
+        if (strcmp(iface, "lo:") != 0) {
+            total_rx += r_bytes;
+            total_tx += t_bytes;
         }
     }
+
     fclose(fp);
+
+    *rx = total_rx;
+    *tx = total_tx;
+    return 0;
 }
 
 // Initialize network stats
 void network_stats_init(void)
 {
-    strcpy(net_stats.interface, get_active_interface());
-    read_net_stats(&net_stats);
-    net_stats.rx_old = net_stats.rx_bytes;
-    net_stats.tx_old = net_stats.tx_bytes;
-    printf("Network monitor initialized on interface: %s\n", net_stats.interface);
+    read_network_stats(&stats.rx_bytes, &stats.tx_bytes);
+    stats.upload_speed = 0;
+    stats.download_speed = 0;
+    stats.last_update = time(NULL);
+    initialized = 1;
 }
 
-// Get download speed (incoming) in KB/s
-double get_download_speed(void)
+// Update network stats (calculate speeds)
+void network_stats_update(void)
 {
-    read_net_stats(&net_stats);
-    unsigned long long rx_new = net_stats.rx_bytes;
-    double speed = (double)(rx_new - net_stats.rx_old) / 1024.0; // KB/s
-    net_stats.rx_old = rx_new;
-    return speed;
-}
+    if (!initialized) return;
 
-// Get upload speed (outgoing) in KB/s
-double get_upload_speed(void)
-{
-    read_net_stats(&net_stats);
-    unsigned long long tx_new = net_stats.tx_bytes;
-    double speed = (double)(tx_new - net_stats.tx_old) / 1024.0; // KB/s
-    net_stats.tx_old = tx_new;
-    return speed;
-}
+    unsigned long long new_rx, new_tx;
+    if (read_network_stats(&new_rx, &new_tx) == 0) {
+        time_t now = time(NULL);
+        double elapsed = difftime(now, stats.last_update);
 
-// Update network stats (call this periodically)
-gboolean update_network_stats(gpointer user_data)
-{
-    (void)user_data;
-    read_net_stats(&net_stats);
-    return G_SOURCE_CONTINUE;
-}
+        if (elapsed > 0 && stats.last_update > 0) {
+            // Calculate speeds in bytes per second
+            stats.download_speed = (new_rx - stats.rx_bytes) / elapsed;
+            stats.upload_speed = (new_tx - stats.tx_bytes) / elapsed;
+        }
 
-// Format speed with appropriate unit
-const char* format_speed(double speed_kb)
-{
-    static char buffer[32];
-    if (speed_kb < 0) speed_kb = 0;
-    
-    if (speed_kb < 1024) {
-        snprintf(buffer, sizeof(buffer), "%.1f KB/s", speed_kb);
-    } else if (speed_kb < 1024 * 1024) {
-        snprintf(buffer, sizeof(buffer), "%.1f MB/s", speed_kb / 1024.0);
-    } else {
-        snprintf(buffer, sizeof(buffer), "%.1f GB/s", speed_kb / (1024.0 * 1024.0));
+        stats.rx_bytes = new_rx;
+        stats.tx_bytes = new_tx;
+        stats.last_update = now;
     }
-    return buffer;
 }
 
-// Clean up
+// Get upload speed (KB/s)
+double network_stats_get_upload(void)
+{
+    return stats.upload_speed / 1024.0; // Convert to KB/s
+}
+
+// Get download speed (KB/s)
+double network_stats_get_download(void)
+{
+    return stats.download_speed / 1024.0; // Convert to KB/s
+}
+
+// Cleanup network stats
 void network_stats_cleanup(void)
 {
-    if (timeout_id > 0) {
-        g_source_remove(timeout_id);
-        timeout_id = 0;
-    }
+    initialized = 0;
 }

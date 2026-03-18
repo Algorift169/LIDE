@@ -31,7 +31,9 @@
                 "/usr/include/webkitgtk-4.1/webkit2",
                 "/usr/include/libsoup-3.0",
                 "/usr/include/X11",
-                "/usr/include/Imlib2"
+                "/usr/include/Imlib2",
+
+                "/usr/include/libnm"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
