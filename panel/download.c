@@ -1,4 +1,4 @@
-#include <gtk/gtk.h>
+#include "download.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,13 +6,11 @@
 
 typedef struct {
     unsigned long long rx_bytes;
-    unsigned long long tx_bytes;
     unsigned long long rx_old;
-    unsigned long long tx_old;
     char interface[16];
-} NetStats;
+} DownloadStats;
 
-static NetStats net_stats = {0};
+static DownloadStats download_stats = {0};
 static guint timeout_id = 0;
 
 // Get active network interface (non-loopback)
@@ -45,8 +43,8 @@ static const char* get_active_interface(void)
     return (interface[0] != '\0') ? interface : "eth0";
 }
 
-// Read network stats
-static void read_net_stats(NetStats *stats)
+// Read download stats (rx_bytes only)
+static void read_download_stats(DownloadStats *stats)
 {
     FILE *fp = fopen("/proc/net/dev", "r");
     if (!fp) return;
@@ -61,7 +59,6 @@ static void read_net_stats(NetStats *stats)
         unsigned long long rx, tx;
         
         // Parse interface name and stats
-        // Format: face: rx_bytes ... tx_bytes
         sscanf(line, "%s %llu %*d %*d %*d %*d %*d %*d %*d %llu", 
                iface, &rx, &tx);
         
@@ -69,56 +66,44 @@ static void read_net_stats(NetStats *stats)
         char *colon = strchr(iface, ':');
         if (colon) *colon = '\0';
         
-        // Store stats for the active interface
+        // Store rx stats for the active interface
         if (strcmp(iface, stats->interface) == 0) {
             stats->rx_bytes = rx;
-            stats->tx_bytes = tx;
             break;
         }
     }
     fclose(fp);
 }
 
-// Initialize network stats
+// Initialize download stats
 void download_init(void)
 {
-    strcpy(net_stats.interface, get_active_interface());
-    read_net_stats(&net_stats);
-    net_stats.rx_old = net_stats.rx_bytes;
-    net_stats.tx_old = net_stats.tx_bytes;
-    printf("Download monitor initialized on interface: %s\n", net_stats.interface);
+    strcpy(download_stats.interface, get_active_interface());
+    read_download_stats(&download_stats);
+    download_stats.rx_old = download_stats.rx_bytes;
+    printf("Download monitor initialized on interface: %s\n", download_stats.interface);
 }
 
 // Get download speed only (incoming data) in KB/s
-double get_download_speed_only(void)
+double get_download_speed(void)
 {
-    read_net_stats(&net_stats);
-    unsigned long long rx_new = net_stats.rx_bytes;
-    double speed = (double)(rx_new - net_stats.rx_old) / 1024.0; // KB/s
-    net_stats.rx_old = rx_new;
+    read_download_stats(&download_stats);
+    unsigned long long rx_new = download_stats.rx_bytes;
+    double speed = (double)(rx_new - download_stats.rx_old) / 1024.0; // KB/s
+    download_stats.rx_old = rx_new;
     return speed;
 }
 
-// Get upload speed only (outgoing data) in KB/s
-double get_upload_speed_only(void)
-{
-    read_net_stats(&net_stats);
-    unsigned long long tx_new = net_stats.tx_bytes;
-    double speed = (double)(tx_new - net_stats.tx_old) / 1024.0; // KB/s
-    net_stats.tx_old = tx_new;
-    return speed;
-}
-
-// Update network stats (call this periodically)
-gboolean update_network_stats_download(gpointer user_data)
+// Update download stats (call this periodically)
+gboolean update_download_stats(gpointer user_data)
 {
     (void)user_data;
-    read_net_stats(&net_stats);
+    read_download_stats(&download_stats);
     return G_SOURCE_CONTINUE;
 }
 
 // Format speed with appropriate unit
-const char* format_download_speed(double speed_kb)
+static const char* format_speed(double speed_kb)
 {
     static char buffer[32];
     if (speed_kb < 0) speed_kb = 0;
@@ -136,15 +121,8 @@ const char* format_download_speed(double speed_kb)
 // Get download speed as formatted string
 const char* get_download_speed_formatted(void)
 {
-    double speed = get_download_speed_only();
-    return format_download_speed(speed);
-}
-
-// Get upload speed as formatted string
-const char* get_upload_speed_formatted(void)
-{
-    double speed = get_upload_speed_only();
-    return format_download_speed(speed);
+    double speed = get_download_speed();
+    return format_speed(speed);
 }
 
 // Clean up

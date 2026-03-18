@@ -6,12 +6,15 @@
 #include <sys/wait.h>
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
-#include <ifaddrs.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <string.h>
 #include "tools/minimized_container.h"
 #include "network_stats.h"
-#include "network_manager.h"
+#include "connection_details.h"
+#include "internet_settings.h"
+#include "wifi_list.h"
+#include "wifi_connect.h"
+#include "upload.h"
+#include "download.h"
 
 // Define HISTORY_SIZE before using it
 #define HISTORY_SIZE 60
@@ -26,7 +29,7 @@ int mem_history_index = 0;
 #include "../tools/system-monitor/cpu.c"
 #include "../tools/system-monitor/memory.c"
 
-static pid_t tools_pid = 0;  // Store the PID of the launched tools container
+static pid_t tools_pid = 0;
 
 // Global stat variables - renamed to avoid conflicts with monitor.h
 static double panel_cpu_percent = 0.0;
@@ -35,14 +38,199 @@ static guint64 panel_mem_available = 0;
 static guint64 panel_mem_used = 0;
 static int panel_mem_percent = 0;
 
-// CPU history for smooth display - renamed to avoid conflicts
+// CPU history for smooth display
 static float panel_cpu_history[5] = {0};
 static int panel_cpu_history_index = 0;
 
-// Function prototypes
-static int get_battery_percentage(void);
-static const char* get_internet_status(void);
-static void format_speed(double speed, char *buffer, size_t size);
+// Battery and Network status
+static int battery_percent = -1;
+static gboolean battery_charging = FALSE;
+static gboolean is_wifi_connected = FALSE;
+static gboolean is_internet_connected = FALSE;
+static gchar *wifi_ssid = NULL;
+
+// Forward declarations for cleanup functions
+void wifi_list_cleanup(void);
+void wifi_connect_cleanup(void);
+void internet_settings_cleanup(void);
+
+// Forward declarations for network window
+static GtkWidget *network_window = NULL;
+static void update_network_window_display(GtkWidget *vbox);
+
+// ====================
+// BATTERY FUNCTIONS
+// ====================
+
+static int get_battery_percent(void)
+{
+    FILE *fp;
+    int battery = -1;
+    
+    fp = fopen("/sys/class/power_supply/BAT0/capacity", "r");
+    if (fp == NULL) {
+        fp = fopen("/sys/class/power_supply/BAT1/capacity", "r");
+    }
+    
+    if (fp != NULL) {
+        if (fscanf(fp, "%d", &battery) != 1) {
+            battery = -1;
+        }
+        fclose(fp);
+    }
+    
+    if (battery < 0) battery = -1;
+    if (battery > 100) battery = 100;
+    
+    return battery;
+}
+
+static gboolean check_battery_charging(void)
+{
+    FILE *fp;
+    char status[64] = {0};
+    
+    fp = fopen("/sys/class/power_supply/BAT0/status", "r");
+    if (fp == NULL) {
+        fp = fopen("/sys/class/power_supply/BAT1/status", "r");
+    }
+    
+    if (fp != NULL) {
+        if (fgets(status, sizeof(status), fp)) {
+            fclose(fp);
+            return (strstr(status, "Charging") != NULL || strstr(status, "Full") != NULL);
+        }
+        fclose(fp);
+    }
+    
+    return FALSE;
+}
+
+// ====================
+// NETWORK FUNCTIONS
+// ====================
+
+static void check_internet_connectivity(void)
+{
+    int ret = system("ping -c 1 -W 1 8.8.8.8 >/dev/null 2>&1");
+    is_internet_connected = (ret == 0);
+}
+
+static void check_wifi_status(void)
+{
+    FILE *fp = popen("nmcli -t -f NAME,TYPE connection show --active 2>/dev/null | grep wifi | cut -d: -f1", "r");
+    if (fp != NULL) {
+        char ssid[256] = {0};
+        if (fgets(ssid, sizeof(ssid), fp) != NULL) {
+            size_t len = strlen(ssid);
+            if (len > 0 && ssid[len-1] == '\n') {
+                ssid[len-1] = '\0';
+            }
+            is_wifi_connected = (strlen(ssid) > 0);
+            if (wifi_ssid != NULL) g_free(wifi_ssid);
+            wifi_ssid = (strlen(ssid) > 0) ? g_strdup(ssid) : NULL;
+        }
+        pclose(fp);
+    }
+}
+
+// Simple WiFi toggle for the network window
+static void toggle_wifi_simple(GtkWidget *widget, gpointer data)
+{
+    (void)widget;
+    (void)data;
+    system("nmcli radio wifi off 2>/dev/null || nmcli radio wifi on 2>/dev/null &");
+    
+    // Give it a moment to toggle, then update display
+    g_usleep(500000); // 500ms
+    if (network_window != NULL) {
+        GtkWidget *vbox = g_object_get_data(G_OBJECT(network_window), "vbox");
+        if (vbox) update_network_window_display(vbox);
+    }
+}
+
+// Get brightness using xrandr
+static int get_brightness(void)
+{
+    FILE *fp = popen("xrandr --verbose | grep -i 'brightness' | head -1 | awk '{print $2}' | sed 's/\\.//'", "r");
+    int brightness = 100;
+    if (fp) {
+        char buf[16] = {0};
+        if (fgets(buf, sizeof(buf), fp)) {
+            brightness = atoi(buf);
+            if (brightness < 1 || brightness > 100) brightness = 100;
+        }
+        pclose(fp);
+    }
+    return brightness;
+}
+
+// Set brightness using xrandr
+static void set_brightness(int level)
+{
+    if (level < 10) level = 10;
+    if (level > 100) level = 100;
+    float brightness = level / 100.0f;
+    gchar *cmd = g_strdup_printf("xrandr --output $(xrandr | grep ' connected' | head -1 | awk '{print $1}') --brightness %.2f 2>/dev/null &", brightness);
+    system(cmd);
+    g_free(cmd);
+}
+
+// Brightness slider callback
+static void on_brightness_changed(GtkScale *scale, gpointer user_data)
+{
+    (void)user_data;
+    int brightness = (int)gtk_range_get_value(GTK_RANGE(scale));
+    set_brightness(brightness);
+}
+
+// Callback for View Connection Details button
+static void on_view_connection_details(GtkButton *btn, gpointer data)
+{
+    (void)data;
+    GtkWidget *toplevel = gtk_widget_get_toplevel(GTK_WIDGET(btn));
+    show_connection_details(toplevel);
+}
+
+// Callback for Ethernet Settings button
+static void on_ethernet_settings(GtkButton *btn, gpointer data)
+{
+    (void)data;
+    GtkWidget *toplevel = gtk_widget_get_toplevel(GTK_WIDGET(btn));
+    show_internet_settings(toplevel);
+}
+
+// Callback for Refresh Networks button
+static void on_refresh_networks(GtkButton *btn, gpointer data)
+{
+    (void)btn;
+    (void)data;
+    system("nmcli device wifi rescan 2>/dev/null &");
+    
+    // Show notification
+    GtkWidget *toplevel = gtk_widget_get_toplevel(GTK_WIDGET(btn));
+    GtkWidget *notif = gtk_message_dialog_new(
+        GTK_WINDOW(toplevel),
+        GTK_DIALOG_MODAL,
+        GTK_MESSAGE_INFO,
+        GTK_BUTTONS_OK,
+        "Scanning Networks"
+    );
+    gtk_message_dialog_format_secondary_text(
+        GTK_MESSAGE_DIALOG(notif),
+        "WiFi networks are being rescanned.\nPlease wait a moment."
+    );
+    gtk_dialog_run(GTK_DIALOG(notif));
+    gtk_widget_destroy(notif);
+}
+
+// Callback for View All Networks button
+static void on_view_all_networks(GtkButton *btn, gpointer data)
+{
+    (void)data;
+    GtkWidget *toplevel = gtk_widget_get_toplevel(GTK_WIDGET(btn));
+    show_wifi_list(toplevel);
+}
 
 // Wrapper functions to avoid parameter issues
 static void panel_update_cpu_usage(void)
@@ -63,18 +251,6 @@ static void panel_update_mem_usage(void)
         panel_mem_percent = (panel_mem_used * 100) / panel_mem_total;
     } else {
         panel_mem_percent = 0;
-    }
-}
-
-// Format speed for display
-static void format_speed(double speed, char *buffer, size_t size)
-{
-    if (speed < 1024) {
-        snprintf(buffer, size, "%.0f B/s", speed);
-    } else if (speed < 1024 * 1024) {
-        snprintf(buffer, size, "%.1f KB/s", speed / 1024);
-    } else {
-        snprintf(buffer, size, "%.1f MB/s", speed / (1024 * 1024));
     }
 }
 
@@ -110,6 +286,7 @@ static Window find_window_by_pid(Display *display, pid_t pid)
     for (unsigned long i = 0; i < num_items; i++) {
         Window win = windows[i];
         
+        // Get the PID property of this window
         unsigned char *pid_data = NULL;
         unsigned long pid_items;
         if (XGetWindowProperty(display, win, net_wm_pid, 0, 1, False, XA_CARDINAL,
@@ -132,16 +309,261 @@ static Window find_window_by_pid(Display *display, pid_t pid)
     return result;
 }
 
+static void update_network_window_display(GtkWidget *vbox)
+{
+    // Refresh network status
+    check_internet_connectivity();
+    check_wifi_status();
+    
+    // Find and update labels in the vbox
+    GList *children = gtk_container_get_children(GTK_CONTAINER(vbox));
+    for (GList *l = children; l != NULL; l = l->next) {
+        GtkWidget *child = GTK_WIDGET(l->data);
+        if (GTK_IS_LABEL(child)) {
+            const gchar *name = gtk_widget_get_name(child);
+            if (name == NULL) continue;
+            
+            if (g_strcmp0(name, "internet-label") == 0) {
+                gchar *text = g_strdup_printf(
+                    "🌐 Internet: %s",
+                    is_internet_connected ? "🟢 Online" : "🔴 Offline"
+                );
+                gtk_label_set_text(GTK_LABEL(child), text);
+                g_free(text);
+            } else if (g_strcmp0(name, "wifi-label") == 0) {
+                gchar *text = g_strdup_printf(
+                    "📡 WiFi: %s %s",
+                    is_wifi_connected ? "🟢 Connected" : "🔴 Disconnected",
+                    (wifi_ssid && is_wifi_connected) ? wifi_ssid : ""
+                );
+                gtk_label_set_text(GTK_LABEL(child), text);
+                g_free(text);
+            }
+        } else if (GTK_IS_BUTTON(child)) {
+            const gchar *name = gtk_widget_get_name(child);
+            if (name && g_strcmp0(name, "wifi-toggle-btn") == 0) {
+                // Update WiFi toggle button text based on WiFi state
+                const gchar *label = is_wifi_connected ? "🟢 Turn Off WiFi" : "🔴 Turn On WiFi";
+                gtk_button_set_label(GTK_BUTTON(child), label);
+            }
+        }
+    }
+    g_list_free(children);
+}
+
+static gboolean network_window_update_timer(gpointer user_data)
+{
+    if (network_window != NULL && gtk_widget_get_visible(network_window)) {
+        update_network_window_display(GTK_WIDGET(user_data));
+        return G_SOURCE_CONTINUE;
+    } else if (network_window == NULL) {
+        return G_SOURCE_REMOVE;
+    }
+    return G_SOURCE_CONTINUE;
+}
+
+static void on_network_window_destroy(GtkWidget *widget, gpointer data)
+{
+    (void)widget;
+    (void)data;
+    network_window = NULL;
+}
+
+static void apply_network_window_css(GtkWidget *window)
+{
+    GtkCssProvider *provider = gtk_css_provider_new();
+    gtk_css_provider_load_from_data(provider,
+        "window { background-color: #0b0f14; color: #ffffff; }"
+        "button { background-color: #1a1f26; color: #a92d5a; border: 1px solid #a92d5a; padding: 10px 15px; margin: 2px; font-weight: bold; border-radius: 4px; }"
+        "button:hover { background-color: #252d36; color: #472e57; border: 1px solid #472e57; }"
+        "label { color: #a92d5a; font-size: 11px; font-weight: 500; }"
+        "frame { border: 1px solid #a92d5a; border-radius: 4px; }"
+        "frame > label { color: #a92d5a; }"
+        "scrolledwindow { border: 1px solid #a92d5a; }"
+        "scale { padding: 8px; }"
+        "scale trough { border-radius: 4px; background-color: #1a1f26; border: 1px solid #a92d5a; }"
+        "scale highlight { background-color: #a92d5a; }",
+        -1, NULL);
+    
+    // Apply CSS only to this specific window
+    gtk_style_context_add_provider(
+        gtk_widget_get_style_context(window),
+        GTK_STYLE_PROVIDER(provider),
+        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    
+    g_object_unref(provider);
+}
+
+static void launch_network_tab(GtkButton *button, gpointer data)
+{
+    (void)button;
+    (void)data;
+    
+    // If window already exists, just show it
+    if (network_window != NULL) {
+        gtk_window_present(GTK_WINDOW(network_window));
+        return;
+    }
+    
+    // Create new network status window
+    network_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title(GTK_WINDOW(network_window), "Settings");
+    gtk_window_set_default_size(GTK_WINDOW(network_window), 350, 500);
+    gtk_window_set_decorated(GTK_WINDOW(network_window), TRUE);
+    gtk_window_set_type_hint(GTK_WINDOW(network_window), GDK_WINDOW_TYPE_HINT_DIALOG);
+    gtk_window_set_keep_above(GTK_WINDOW(network_window), TRUE);
+    gtk_window_set_modal(GTK_WINDOW(network_window), FALSE);
+    gtk_window_set_transient_for(GTK_WINDOW(network_window), NULL);
+    
+    // Position at top-right corner (below network button)
+    GdkDisplay *gdisplay = gdk_display_get_default();
+    GdkMonitor *monitor = gdk_display_get_primary_monitor(gdisplay);
+    GdkRectangle geom;
+    gdk_monitor_get_geometry(monitor, &geom);
+    gtk_window_move(GTK_WINDOW(network_window), geom.width - 350, geom.y + 40);
+    
+    g_signal_connect(network_window, "destroy", G_CALLBACK(on_network_window_destroy), NULL);
+    
+    // Apply CSS only to this window
+    apply_network_window_css(network_window);
+    
+    // Main scrollable container
+    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    gtk_container_add(GTK_CONTAINER(network_window), scroll);
+    
+    // Main vertical box inside scroll
+    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 15);
+    gtk_container_set_border_width(GTK_CONTAINER(vbox), 15);
+    gtk_container_add(GTK_CONTAINER(scroll), vbox);
+    
+    // Store vbox reference for updates
+    g_object_set_data(G_OBJECT(network_window), "vbox", vbox);
+    
+    // ============ INTERNET SECTION ============
+    GtkWidget *inet_title = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(inet_title), "<b>🌐 Internet</b>");
+    gtk_label_set_xalign(GTK_LABEL(inet_title), 0.0);
+    gtk_box_pack_start(GTK_BOX(vbox), inet_title, FALSE, FALSE, 0);
+    
+    // Internet status
+    GtkWidget *inet_status = gtk_label_new("🌐 Internet: Loading...");
+    gtk_widget_set_name(inet_status, "internet-label");
+    gtk_label_set_xalign(GTK_LABEL(inet_status), 0.0);
+    gtk_box_pack_start(GTK_BOX(vbox), inet_status, FALSE, FALSE, 0);
+    
+    // Internet management frame
+    GtkWidget *inet_frame = gtk_frame_new("Connection Management");
+    gtk_box_pack_start(GTK_BOX(vbox), inet_frame, FALSE, FALSE, 0);
+    
+    GtkWidget *inet_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    gtk_container_set_border_width(GTK_CONTAINER(inet_vbox), 10);
+    gtk_container_add(GTK_CONTAINER(inet_frame), inet_vbox);
+    
+    // Connection info button
+    GtkWidget *conn_btn = gtk_button_new_with_label("📊 View Connection Details");
+    g_signal_connect(conn_btn, "clicked", G_CALLBACK(on_view_connection_details), NULL);
+    gtk_box_pack_start(GTK_BOX(inet_vbox), conn_btn, FALSE, FALSE, 0);
+    
+    // Ethernet button
+    GtkWidget *eth_btn = gtk_button_new_with_label("🔗 Ethernet Settings");
+    g_signal_connect(eth_btn, "clicked", G_CALLBACK(on_ethernet_settings), NULL);
+    gtk_box_pack_start(GTK_BOX(inet_vbox), eth_btn, FALSE, FALSE, 0);
+    
+    // ============ WiFi SECTION ============
+    GtkWidget *wifi_sep = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+    gtk_box_pack_start(GTK_BOX(vbox), wifi_sep, FALSE, FALSE, 0);
+    
+    GtkWidget *wifi_title = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(wifi_title), "<b>📡 WiFi Networks</b>");
+    gtk_label_set_xalign(GTK_LABEL(wifi_title), 0.0);
+    gtk_box_pack_start(GTK_BOX(vbox), wifi_title, FALSE, FALSE, 0);
+    
+    // Current WiFi status
+    GtkWidget *current_wifi = gtk_label_new("📡 WiFi: Loading...");
+    gtk_widget_set_name(current_wifi, "wifi-label");
+    gtk_label_set_xalign(GTK_LABEL(current_wifi), 0.0);
+    gtk_box_pack_start(GTK_BOX(vbox), current_wifi, FALSE, FALSE, 0);
+    
+    // WiFi toggle
+    GtkWidget *wifi_toggle = gtk_button_new_with_label("🔴 Turn Off WiFi");
+    gtk_widget_set_name(wifi_toggle, "wifi-toggle-btn");
+    g_signal_connect(wifi_toggle, "clicked", G_CALLBACK(toggle_wifi_simple), NULL);
+    gtk_box_pack_start(GTK_BOX(vbox), wifi_toggle, FALSE, FALSE, 0);
+    
+    // WiFi networks frame
+    GtkWidget *networks_frame = gtk_frame_new("Available Networks");
+    gtk_box_pack_start(GTK_BOX(vbox), networks_frame, TRUE, TRUE, 0);
+    
+    // Scrolled window for network list
+    GtkWidget *net_scroll = gtk_scrolled_window_new(NULL, NULL);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(net_scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(net_scroll), 150);
+    gtk_container_add(GTK_CONTAINER(networks_frame), net_scroll);
+    
+    // Use the wifi_list module to build the network list
+    GtkWidget *net_list = build_wifi_network_list();
+    gtk_container_add(GTK_CONTAINER(net_scroll), net_list);
+    gtk_widget_set_name(net_list, "wifi-list");
+    
+    // Refresh networks button
+    GtkWidget *refresh_btn = gtk_button_new_with_label("🔄 Refresh Networks");
+    g_signal_connect(refresh_btn, "clicked", G_CALLBACK(on_refresh_networks), NULL);
+    gtk_box_pack_start(GTK_BOX(vbox), refresh_btn, FALSE, FALSE, 0);
+    
+    // View all networks button
+    GtkWidget *view_all_btn = gtk_button_new_with_label("📡 View All Networks");
+    g_signal_connect(view_all_btn, "clicked", G_CALLBACK(on_view_all_networks), NULL);
+    gtk_box_pack_start(GTK_BOX(vbox), view_all_btn, FALSE, FALSE, 0);
+    
+    // ============ BRIGHTNESS SECTION ============
+    GtkWidget *bright_sep = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+    gtk_box_pack_start(GTK_BOX(vbox), bright_sep, FALSE, FALSE, 0);
+    
+    GtkWidget *bright_title = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(bright_title), "<b>☀️  Brightness</b>");
+    gtk_label_set_xalign(GTK_LABEL(bright_title), 0.0);
+    gtk_box_pack_start(GTK_BOX(vbox), bright_title, FALSE, FALSE, 0);
+    
+    // Brightness slider
+    int current_brightness = get_brightness();
+    GtkWidget *brightness_scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 10, 100, 5);
+    gtk_range_set_value(GTK_RANGE(brightness_scale), current_brightness);
+    gtk_scale_set_draw_value(GTK_SCALE(brightness_scale), TRUE);
+    gtk_scale_set_value_pos(GTK_SCALE(brightness_scale), GTK_POS_RIGHT);
+    g_signal_connect(brightness_scale, "value-changed", G_CALLBACK(on_brightness_changed), NULL);
+    gtk_box_pack_start(GTK_BOX(vbox), brightness_scale, FALSE, FALSE, 0);
+    
+    // ============ FOOTER ============
+    GtkWidget *footer_sep = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+    gtk_box_pack_start(GTK_BOX(vbox), footer_sep, FALSE, FALSE, 0);
+    
+    // Close button
+    GtkWidget *close_btn = gtk_button_new_with_label("Close");
+    g_signal_connect_swapped(close_btn, "clicked", G_CALLBACK(gtk_widget_destroy), network_window);
+    gtk_box_pack_start(GTK_BOX(vbox), close_btn, FALSE, FALSE, 0);
+    
+    // Initial update
+    update_network_window_display(vbox);
+    
+    // Start timer for updates
+    g_timeout_add(2000, network_window_update_timer, vbox);
+    
+    gtk_widget_show_all(network_window);
+}
+
 static void launch_tools(GtkButton *button, gpointer data)
 {
     (void)button;
     (void)data;
     
+    // check if the window still exists
     if (tools_pid > 0) {
         Display *display = XOpenDisplay(NULL);
         if (display) {
             Window win = find_window_by_pid(display, tools_pid);
             if (win != None) {
+                // Window exists – raise it
                 XRaiseWindow(display, win);
                 XMapRaised(display, win);
                 XFlush(display);
@@ -150,14 +572,18 @@ static void launch_tools(GtkButton *button, gpointer data)
             }
             XCloseDisplay(display);
         }
+        // If we get here, the window is gone – reset PID
         tools_pid = 0;
     }
     
+    // Launch new tools container
     pid_t pid = fork();
     if (pid == 0) {
+        // Child process
         execl("./blackline-tools", "blackline-tools", NULL);
         exit(0);
     } else if (pid > 0) {
+        // Parent – store the PID
         tools_pid = pid;
     }
 }
@@ -168,6 +594,21 @@ static void do_nothing(GtkButton *button, gpointer data)
     (void)data;
 }
 
+// Format network speed for display
+static const char* format_speed(double speed_bytes)
+{
+    static char buffer[64];
+    double speed = speed_bytes;
+    if (speed < 1024) {
+        snprintf(buffer, sizeof(buffer), "%.0f B/s", speed);
+    } else if (speed < 1024 * 1024) {
+        snprintf(buffer, sizeof(buffer), "%.1f KB/s", speed / 1024.0);
+    } else {
+        snprintf(buffer, sizeof(buffer), "%.1f MB/s", speed / (1024.0 * 1024.0));
+    }
+    return buffer;
+}
+
 // Update all system stats
 static gboolean update_system_stats(gpointer user_data)
 {
@@ -176,8 +617,9 @@ static gboolean update_system_stats(gpointer user_data)
     GtkWidget *upload_label = GTK_WIDGET(g_object_get_data(G_OBJECT(cpu_label), "upload-label"));
     GtkWidget *download_label = GTK_WIDGET(g_object_get_data(G_OBJECT(cpu_label), "download-label"));
     GtkWidget *battery_label = GTK_WIDGET(g_object_get_data(G_OBJECT(cpu_label), "battery-label"));
+    GtkWidget *network_btn = GTK_WIDGET(g_object_get_data(G_OBJECT(cpu_label), "network-btn"));
     
-    if (!cpu_label || !mem_label || !upload_label || !download_label) {
+    if (!cpu_label || !mem_label || !upload_label || !download_label || !battery_label || !network_btn) {
         return G_SOURCE_CONTINUE;
     }
     
@@ -211,23 +653,52 @@ static gboolean update_system_stats(gpointer user_data)
     
     // Update Network stats
     network_stats_update();
-    double upload_speed = network_stats_get_upload();
-    double download_speed = network_stats_get_download();
-    
-    char upload_text[32];
-    char download_text[32];
-    format_speed(upload_speed, upload_text, sizeof(upload_text));
-    format_speed(download_speed, download_text, sizeof(download_text));
-    
+    double upload_speed = network_stats_get_upload() * 1024.0;  // Convert KB/s to B/s
+    double download_speed = network_stats_get_download() * 1024.0;
+
+    char upload_text[64];
+    char download_text[64];
+
+    snprintf(upload_text, sizeof(upload_text), "↑ %s", format_speed(upload_speed));
+    snprintf(download_text, sizeof(download_text), "↓ %s", format_speed(download_speed));
+
     gtk_label_set_text(GTK_LABEL(upload_label), upload_text);
     gtk_label_set_text(GTK_LABEL(download_label), download_text);
     
-    // Update Battery percentage
-    if (battery_label) {
-        int battery = get_battery_percentage();
-        char battery_text[32];
-        snprintf(battery_text, sizeof(battery_text), "🔋 %d%%", battery);
-        gtk_label_set_text(GTK_LABEL(battery_label), battery_text);
+    // Update Battery (every 15 ticks = 30 seconds)
+    static int battery_counter = 0;
+    if (battery_counter++ % 15 == 0) {
+        battery_percent = get_battery_percent();
+        battery_charging = check_battery_charging();
+        
+        char battery_text[64];
+        if (battery_percent >= 0) {
+            const char *icon = "🔋";
+            if (battery_charging) {
+                icon = "🔌";
+            } else if (battery_percent <= 15) {
+                icon = "🪫";
+            }
+            snprintf(battery_text, sizeof(battery_text), "%s %d%%", icon, battery_percent);
+        } else {
+            snprintf(battery_text, sizeof(battery_text), "🔋 N/A");
+        }
+        gtk_button_set_label(GTK_BUTTON(battery_label), battery_text);
+    }
+    
+    // Update Network Status (every 5 ticks = 10 seconds)
+    static int network_counter = 0;
+    if (network_counter++ % 5 == 0) {
+        check_internet_connectivity();
+        check_wifi_status();
+        
+        char network_text[64];
+        if (is_internet_connected) {
+            snprintf(network_text, sizeof(network_text), "🌐 Online");
+        } else {
+            snprintf(network_text, sizeof(network_text), "📡 Offline");
+        }
+        gtk_button_set_label(GTK_BUTTON(network_btn), network_text);
     }
     
     return G_SOURCE_CONTINUE;
@@ -246,73 +717,25 @@ static gboolean update_clock(gpointer label)
     return G_SOURCE_CONTINUE;
 }
 
-// Get battery percentage
-static int get_battery_percentage(void)
+static void apply_panel_css(GtkWidget *window)
 {
-    FILE *fp;
-    int capacity = 0;
+    GtkCssProvider *provider = gtk_css_provider_new();
+    gtk_css_provider_load_from_data(provider,
+        "window { background-color: #0b0f14; color: #a92d5a; border-bottom: 1px solid #a92d5a; }"
+        "button { background-color: #1e2429; color: #a92d5a; border: 1px solid #a92d5a; padding: 2px 8px; margin: 2px; border-radius: 3px; }"
+        "button:hover { background-color: #2a323a; border: 1px solid #a92d5a; }"
+        "label { color: #a92d5a; padding: 0 4px; font-size: 11px; }"
+        "#stats-box { margin-right: 8px; }"
+        "#stats-box label { font-family: monospace; }",
+        -1, NULL);
     
-    fp = fopen("/sys/class/power_supply/BAT0/capacity", "r");
-    if (!fp) {
-        fp = fopen("/sys/class/power_supply/BAT1/capacity", "r");
-    }
+    // Apply CSS only to this panel window
+    gtk_style_context_add_provider(
+        gtk_widget_get_style_context(window),
+        GTK_STYLE_PROVIDER(provider),
+        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
     
-    if (fp) {
-        fscanf(fp, "%d", &capacity);
-        fclose(fp);
-    }
-    
-    return capacity;
-}
-
-// Lock screen callback
-static void on_lock_screen_clicked(GtkButton *button, gpointer data)
-{
-    (void)button;
-    (void)data;
-    system("xlock -mode blank &");
-}
-
-// Power off callback
-static void on_power_off_clicked(GtkButton *button, gpointer data)
-{
-    (void)button;
-    (void)data;
-    
-    GtkWidget *dialog = gtk_message_dialog_new(NULL,
-                                              GTK_DIALOG_MODAL,
-                                              GTK_MESSAGE_QUESTION,
-                                              GTK_BUTTONS_YES_NO,
-                                              "Power off the system?");
-    gtk_window_set_title(GTK_WINDOW(dialog), "Shutdown Confirmation");
-    
-    int response = gtk_dialog_run(GTK_DIALOG(dialog));
-    gtk_widget_destroy(dialog);
-    
-    if (response == GTK_RESPONSE_YES) {
-        system("shutdown -h now");
-    }
-}
-
-// Restart callback
-static void on_restart_clicked(GtkButton *button, gpointer data)
-{
-    (void)button;
-    (void)data;
-    
-    GtkWidget *dialog = gtk_message_dialog_new(NULL,
-                                              GTK_DIALOG_MODAL,
-                                              GTK_MESSAGE_QUESTION,
-                                              GTK_BUTTONS_YES_NO,
-                                              "Restart the system?");
-    gtk_window_set_title(GTK_WINDOW(dialog), "Restart Confirmation");
-    
-    int response = gtk_dialog_run(GTK_DIALOG(dialog));
-    gtk_widget_destroy(dialog);
-    
-    if (response == GTK_RESPONSE_YES) {
-        system("shutdown -r now");
-    }
+    g_object_unref(provider);
 }
 
 static void activate(GtkApplication *app, gpointer user_data)
@@ -326,15 +749,15 @@ static void activate(GtkApplication *app, gpointer user_data)
     // Initialize network stats
     network_stats_init();
     
-    // Initialize network manager
-    NetworkManager *nm = network_manager_new();
-    
     GtkWidget *window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(window), "BlackLine Panel");
     gtk_window_set_default_size(GTK_WINDOW(window), -1, 35);
     gtk_window_set_decorated(GTK_WINDOW(window), FALSE);
     gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
     gtk_window_set_type_hint(GTK_WINDOW(window), GDK_WINDOW_TYPE_HINT_DOCK);
+    
+    // Apply CSS only to the panel window
+    apply_panel_css(window);
     
     // Full width
     GdkDisplay *gdisplay = gdk_display_get_default();
@@ -344,141 +767,95 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_window_set_default_size(GTK_WINDOW(window), geom.width, 35);
     gtk_window_move(GTK_WINDOW(window), 0, 0);
     
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+    gtk_container_set_border_width(GTK_CONTAINER(box), 2);
     gtk_container_add(GTK_CONTAINER(window), box);
+    
+    // Left section with buttons
+    GtkWidget *left_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+    gtk_box_pack_start(GTK_BOX(box), left_box, FALSE, FALSE, 0);
     
     // BlackLine button
     GtkWidget *btn1 = gtk_button_new_with_label("BlackLine");
     g_signal_connect(btn1, "clicked", G_CALLBACK(do_nothing), NULL);
-    gtk_box_pack_start(GTK_BOX(box), btn1, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(left_box), btn1, FALSE, FALSE, 2);
     
     // Tools button
     GtkWidget *btn2 = gtk_button_new_with_label("Tools");
     g_signal_connect(btn2, "clicked", G_CALLBACK(launch_tools), NULL);
-    gtk_box_pack_start(GTK_BOX(box), btn2, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(left_box), btn2, FALSE, FALSE, 2);
     
-    // Minimized Apps button
+    // Minimized Apps button (📌)
     GtkWidget *min_btn = minimized_container_get_toggle_button();
-    gtk_box_pack_start(GTK_BOX(box), min_btn, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(left_box), min_btn, FALSE, FALSE, 2);
     
+    // Center spacer
     GtkWidget *spacer = gtk_label_new(NULL);
     gtk_box_pack_start(GTK_BOX(box), spacer, TRUE, TRUE, 0);
     
     // System stats container (right side)
-    GtkWidget *stats_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    GtkWidget *stats_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
     gtk_widget_set_name(stats_box, "stats-box");
-    gtk_box_pack_end(GTK_BOX(box), stats_box, FALSE, FALSE, 5);
+    gtk_box_pack_end(GTK_BOX(box), stats_box, FALSE, FALSE, 4);
     
     // CPU Label
     GtkWidget *cpu_label = gtk_label_new("CPU: 0.0%");
-    gtk_box_pack_start(GTK_BOX(stats_box), cpu_label, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(stats_box), cpu_label, FALSE, FALSE, 2);
     
     // Memory Label
     GtkWidget *mem_label = gtk_label_new("RAM: 0%");
-    gtk_box_pack_start(GTK_BOX(stats_box), mem_label, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(stats_box), mem_label, FALSE, FALSE, 2);
     
     // Separator
     GtkWidget *sep1 = gtk_label_new("|");
-    gtk_box_pack_start(GTK_BOX(stats_box), sep1, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(stats_box), sep1, FALSE, FALSE, 2);
     
     // Upload Label
-    GtkWidget *upload_label = gtk_label_new("↑ 0 B/s");
-    gtk_box_pack_start(GTK_BOX(stats_box), upload_label, FALSE, FALSE, 0);
+    GtkWidget *upload_label = gtk_label_new("↑ 0 KB/s");
+    gtk_box_pack_start(GTK_BOX(stats_box), upload_label, FALSE, FALSE, 2);
     
     // Download Label
-    GtkWidget *download_label = gtk_label_new("↓ 0 B/s");
-    gtk_box_pack_start(GTK_BOX(stats_box), download_label, FALSE, FALSE, 0);
+    GtkWidget *download_label = gtk_label_new("↓ 0 KB/s");
+    gtk_box_pack_start(GTK_BOX(stats_box), download_label, FALSE, FALSE, 2);
     
     // Separator
     GtkWidget *sep2 = gtk_label_new("|");
-    gtk_box_pack_start(GTK_BOX(stats_box), sep2, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(stats_box), sep2, FALSE, FALSE, 2);
+    
+    // Battery Label Button
+    GtkWidget *battery_label = gtk_button_new_with_label("🔋 0%");
+    gtk_button_set_relief(GTK_BUTTON(battery_label), GTK_RELIEF_NONE);
+    gtk_box_pack_start(GTK_BOX(stats_box), battery_label, FALSE, FALSE, 2);
+    
+    // Separator
+    GtkWidget *sep3 = gtk_label_new("|");
+    gtk_box_pack_start(GTK_BOX(stats_box), sep3, FALSE, FALSE, 2);
+    
+    // Network Status Button
+    GtkWidget *network_btn = gtk_button_new_with_label("🌐 Offline");
+    gtk_button_set_relief(GTK_BUTTON(network_btn), GTK_RELIEF_NONE);
+    g_signal_connect(network_btn, "clicked", G_CALLBACK(launch_network_tab), NULL);
+    gtk_box_pack_start(GTK_BOX(stats_box), network_btn, FALSE, FALSE, 2);
+    
+    // Separator
+    GtkWidget *sep4 = gtk_label_new("|");
+    gtk_box_pack_start(GTK_BOX(stats_box), sep4, FALSE, FALSE, 2);
     
     // Clock with date
     GtkWidget *clock = gtk_label_new(NULL);
     update_clock(clock);
-    gtk_box_pack_start(GTK_BOX(stats_box), clock, FALSE, FALSE, 0);
-    
-    // Separator
-    GtkWidget *sep3 = gtk_label_new("|");
-    gtk_box_pack_start(GTK_BOX(stats_box), sep3, FALSE, FALSE, 0);
-    
-    // Battery Label
-    GtkWidget *battery_label = gtk_label_new("🔋 0%");
-    gtk_box_pack_start(GTK_BOX(stats_box), battery_label, FALSE, FALSE, 0);
-    
-    // Network Manager Button
-    GtkWidget *network_btn = gtk_button_new();
-    GtkWidget *network_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-    
-    GtkWidget *network_icon = gtk_label_new(network_manager_get_status_icon(nm));
-    GtkWidget *network_text = gtk_label_new(network_manager_get_status_text(nm));
-    
-    gtk_box_pack_start(GTK_BOX(network_hbox), network_icon, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(network_hbox), network_text, FALSE, FALSE, 0);
-    gtk_container_add(GTK_CONTAINER(network_btn), network_hbox);
-    
-    // Connect click to show network popover
-    g_signal_connect_swapped(network_btn, "clicked", G_CALLBACK(network_manager_show_popover), nm);
-    
-    gtk_box_pack_start(GTK_BOX(stats_box), network_btn, FALSE, FALSE, 0);
-    
-    // Separator
-    GtkWidget *sep4 = gtk_label_new("|");
-    gtk_box_pack_start(GTK_BOX(stats_box), sep4, FALSE, FALSE, 0);
-    
-    // System Controls - Lock Screen Button
-    GtkWidget *lock_btn = gtk_button_new_with_label("🔒");
-    gtk_widget_set_tooltip_text(lock_btn, "Lock screen");
-    g_signal_connect(lock_btn, "clicked", G_CALLBACK(on_lock_screen_clicked), NULL);
-    gtk_box_pack_start(GTK_BOX(stats_box), lock_btn, FALSE, FALSE, 0);
-    
-    // Power Off Button
-    GtkWidget *poweroff_btn = gtk_button_new_with_label("⏻");
-    gtk_widget_set_tooltip_text(poweroff_btn, "Power off");
-    g_signal_connect(poweroff_btn, "clicked", G_CALLBACK(on_power_off_clicked), NULL);
-    gtk_box_pack_start(GTK_BOX(stats_box), poweroff_btn, FALSE, FALSE, 0);
-    
-    // Restart Button
-    GtkWidget *restart_btn = gtk_button_new_with_label("🔄");
-    gtk_widget_set_tooltip_text(restart_btn, "Restart");
-    g_signal_connect(restart_btn, "clicked", G_CALLBACK(on_restart_clicked), NULL);
-    gtk_box_pack_start(GTK_BOX(stats_box), restart_btn, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(stats_box), clock, FALSE, FALSE, 2);
     
     // Store references for stats update
     g_object_set_data(G_OBJECT(cpu_label), "mem-label", mem_label);
     g_object_set_data(G_OBJECT(cpu_label), "upload-label", upload_label);
     g_object_set_data(G_OBJECT(cpu_label), "download-label", download_label);
     g_object_set_data(G_OBJECT(cpu_label), "battery-label", battery_label);
-    
-    // Store network manager for cleanup
-    g_object_set_data_full(G_OBJECT(window), "network-manager", nm, 
-                          (GDestroyNotify)network_manager_cleanup);
+    g_object_set_data(G_OBJECT(cpu_label), "network-btn", network_btn);
     
     // Update timers
     g_timeout_add_seconds(1, update_clock, clock);
-    g_timeout_add(2000, update_system_stats, cpu_label);
-    
-    // Update network status periodically
-    g_timeout_add(2000, (GSourceFunc)network_manager_refresh, nm);
-    
-    // Apply CSS styling
-    GtkCssProvider *provider = gtk_css_provider_new();
-    gtk_css_provider_load_from_data(provider,
-        "window { background-color: #0b0f14; color: #ffffff; border-bottom: 1px solid #00ff88; }"
-        "button { background-color: #1e2429; color: #00ff88; border: none; padding: 2px 8px; margin: 2px; }"
-        "button:hover { background-color: #2a323a; }"
-        "label { color: #00ff88; padding: 0 2px; font-size: 11px; }"
-        "#stats-box label { font-family: monospace; }"
-        "#network-status-icon { font-size: 14px; }"
-        "popover { background-color: #1e2429; }"
-        "popover label { color: #ffffff; }"
-        "popover button { background-color: #2d2d2d; color: #00ff88; }"
-        "popover button:hover { background-color: #3d3d3d; }",
-        -1, NULL);
-    
-    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
-        GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-    g_object_unref(provider);
+    g_timeout_add(2000, update_system_stats, cpu_label);  // Update every 2 seconds
     
     gtk_widget_show_all(window);
 }
@@ -490,7 +867,14 @@ int main(int argc, char **argv)
     int status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
     
+    // Cleanup all modules
     network_stats_cleanup();
+    if (wifi_ssid != NULL) {
+        g_free(wifi_ssid);
+    }
+    wifi_list_cleanup();
+    wifi_connect_cleanup();
+    internet_settings_cleanup();
     
     return status;
 }

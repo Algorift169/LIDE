@@ -8,6 +8,16 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+// Clock update function
 gboolean update_clock(gpointer label);
+
+// Battery functions
+int get_battery_percent(void);
+gboolean check_battery_charging(void);
+
+// Network functions
+void check_internet_connectivity(void);
+void check_wifi_status(void);
+void launch_network_tab(GtkButton *button, gpointer data);
 
 #endif

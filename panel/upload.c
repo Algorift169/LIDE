@@ -1,4 +1,4 @@
-#include <gtk/gtk.h>
+#include "upload.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -103,7 +103,7 @@ gboolean update_upload_stats(gpointer user_data)
 }
 
 // Format speed with appropriate unit
-const char* format_upload_speed(double speed_kb)
+static const char* format_speed(double speed_kb)
 {
     static char buffer[32];
     if (speed_kb < 0) speed_kb = 0;
@@ -122,7 +122,7 @@ const char* format_upload_speed(double speed_kb)
 const char* get_upload_speed_formatted(void)
 {
     double speed = get_upload_speed();
-    return format_upload_speed(speed);
+    return format_speed(speed);
 }
 
 // Clean up

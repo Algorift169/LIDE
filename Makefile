@@ -57,142 +57,135 @@ all: blackline-wm blackline-panel blackline-launcher blackline-tools blackline-b
 blackline-wm: wm/wm.c
 	$(CC) $(CFLAGS) -o $@ $< $(X11_LIBS) $(IMLIB2_LIBS)
 
-# Panel with system stats - using network_stats.c and network_manager.c
-blackline-panel: panel/panel.c tools/minimized_container.c panel/network_stats.c panel/network_manager.c
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(NM_CFLAGS) -o $@ $^ $(GTK_LIBS) $(X11_LIBS) $(NM_LIBS)
+# Panel with all features - WiFi, network stats, clock, connection details, etc.
+PANEL_SOURCES = panel/panel.c \
+                panel/network_stats.c \
+                tools/minimized_container.c \
+                panel/connection_details.c \
+                panel/internet_settings.c \
+                panel/wifi_list.c \
+                panel/wifi_connect.c \
+                panel/clock.c \
+                panel/network_manager.c \
+                panel/upload.c \
+                panel/download.c
+
+PANEL_HEADERS = panel/panel.h \
+                panel/network_stats.h \
+                panel/network_manager.h \
+                panel/wifi_list.h \
+                panel/wifi_connect.h \
+                panel/internet_settings.h \
+                panel/connection_details.h \
+                panel/upload.h \
+                panel/download.h \
+                tools/minimized_container.h
+
+blackline-panel: $(PANEL_SOURCES) $(PANEL_HEADERS)
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(NM_CFLAGS) -o $@ $(PANEL_SOURCES) $(GTK_LIBS) $(X11_LIBS) $(NM_LIBS)
 
 # Launcher
-blackline-launcher: launcher/launcher.c
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $< $(GTK_LIBS)
+LAUNCHER_SOURCES = launcher/launcher.c launcher/search.c
+LAUNCHER_HEADERS = launcher/launcher.h
 
-# Tools Container - NO ANIMATIONS (removed animation.c dependency)
-blackline-tools: tools/tools_container.c tools/viewMode.c
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ tools/tools_container.c tools/viewMode.c $(GTK_LIBS) $(X11_LIBS) $(MATH_LIBS)
+blackline-launcher: $(LAUNCHER_SOURCES) $(LAUNCHER_HEADERS)
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $(LAUNCHER_SOURCES) $(GTK_LIBS)
+
+# Tools Container - NO ANIMATIONS
+TOOLS_SOURCES = tools/tools_container.c tools/viewMode.c
+TOOLS_HEADERS = tools/viewMode.h tools/minimized_container.h
+
+blackline-tools: $(TOOLS_SOURCES) $(TOOLS_HEADERS)
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $(TOOLS_SOURCES) $(GTK_LIBS) $(X11_LIBS) $(MATH_LIBS)
 
 # Background
 blackline-background: tools/background.c
 	$(CC) $(CFLAGS) -o $@ $<
 
 # File Manager
-blackline-fm: tools/file-manager/fm.c tools/file-manager/browser.c
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ tools/file-manager/fm.c tools/file-manager/browser.c $(GTK_LIBS)
+FM_SOURCES = tools/file-manager/fm.c tools/file-manager/browser.c
+FM_HEADERS = tools/file-manager/fm.h
+
+blackline-fm: $(FM_SOURCES) $(FM_HEADERS)
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $(FM_SOURCES) $(GTK_LIBS)
 
 # Text Editor
-blackline-editor: tools/text_editor/editor.c tools/text_editor/edit.c
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ tools/text_editor/editor.c tools/text_editor/edit.c $(GTK_LIBS)
+EDITOR_SOURCES = tools/text_editor/editor.c tools/text_editor/edit.c
+EDITOR_HEADERS = tools/text_editor/edit.h tools/text_editor/text_editor.h
+
+blackline-editor: $(EDITOR_SOURCES) $(EDITOR_HEADERS)
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $(EDITOR_SOURCES) $(GTK_LIBS)
 
 # Calculator
-blackline-calculator: tools/calculator/calculator.c
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ tools/calculator/calculator.c $(GTK_LIBS) $(MATH_LIBS)
+CALCULATOR_SOURCES = tools/calculator/calculator.c
+CALCULATOR_HEADERS = tools/calculator/calculator.h
+
+blackline-calculator: $(CALCULATOR_SOURCES) $(CALCULATOR_HEADERS)
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $(CALCULATOR_SOURCES) $(GTK_LIBS) $(MATH_LIBS)
 
 # System Monitor
-blackline-system-monitor: tools/system-monitor/monitor.o tools/system-monitor/cpu.o \
-                          tools/system-monitor/memory.o tools/system-monitor/processes.o
-	$(CC) -o $@ $^ $(GTK_LIBS)
+SYSMON_SOURCES = tools/system-monitor/monitor.c \
+                 tools/system-monitor/cpu.c \
+                 tools/system-monitor/memory.c \
+                 tools/system-monitor/processes.c
+SYSMON_HEADERS = tools/system-monitor/monitor.h
 
-tools/system-monitor/monitor.o: tools/system-monitor/monitor.c tools/system-monitor/monitor.h
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
-
-tools/system-monitor/cpu.o: tools/system-monitor/cpu.c tools/system-monitor/monitor.h
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
-
-tools/system-monitor/memory.o: tools/system-monitor/memory.c tools/system-monitor/monitor.h
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
-
-tools/system-monitor/processes.o: tools/system-monitor/processes.c tools/system-monitor/monitor.h
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
-
-# View Mode
-tools/viewMode.o: tools/viewMode.c tools/viewMode.h
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
-
-# Panel network stats module
-panel/network_stats.o: panel/network_stats.c $(NETWORK_STATS_H)
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
-
-# Panel network manager module
-panel/network_manager.o: panel/network_manager.c
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(NM_CFLAGS) -c $< -o $@
+blackline-system-monitor: $(SYSMON_SOURCES) $(SYSMON_HEADERS)
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $(SYSMON_SOURCES) $(GTK_LIBS)
 
 # Terminal - only build if VTE is available
 ifeq ($(HAVE_VTE),yes)
-blackline-terminal: tools/terminal/terminal.o
-	$(CC) -o $@ $^ $(GTK_LIBS) $(VTE_LIBS)
+TERMINAL_SOURCES = tools/terminal/terminal.c
 
-tools/terminal/terminal.o: tools/terminal/terminal.c
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(VTE_CFLAGS) -c $< -o $@
+blackline-terminal: $(TERMINAL_SOURCES)
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(VTE_CFLAGS) -o $@ $(TERMINAL_SOURCES) $(GTK_LIBS) $(VTE_LIBS)
 else
 blackline-terminal:
 	@echo "Skipping terminal build (vte-2.91 not found)"
 endif
 
 # VoidFox Web Browser
-voidfox: tools/web-browser/voidfox.o tools/web-browser/browser.o tools/web-browser/tab.o \
-         tools/web-browser/app_menu.o tools/web-browser/bookmarks.o \
-         tools/web-browser/history.o tools/web-browser/downloads.o \
-         tools/web-browser/passwords.o tools/web-browser/extensions.o \
-         tools/web-browser/download-stats.o tools/web-browser/settings.o
-	$(CC) -o $@ $^ $(GTK_LIBS) $(WEBKIT_LIBS)
+BROWSER_SOURCES = tools/web-browser/voidfox.c \
+                  tools/web-browser/browser.c \
+                  tools/web-browser/tab.c \
+                  tools/web-browser/app_menu.c \
+                  tools/web-browser/bookmarks.c \
+                  tools/web-browser/history.c \
+                  tools/web-browser/downloads.c \
+                  tools/web-browser/passwords.c \
+                  tools/web-browser/extensions.c \
+                  tools/web-browser/download-stats.c \
+                  tools/web-browser/settings.c
+
+BROWSER_HEADERS = tools/web-browser/voidfox.h \
+                  tools/web-browser/app_menu.h \
+                  tools/web-browser/bookmarks.h \
+                  tools/web-browser/history.h \
+                  tools/web-browser/downloads.h \
+                  tools/web-browser/passwords.h \
+                  tools/web-browser/extensions.h \
+                  tools/web-browser/download-stats.h \
+                  tools/web-browser/settings.h \
+                  tools/web-browser/tab.h
+
+voidfox: $(BROWSER_SOURCES) $(BROWSER_HEADERS)
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(WEBKIT_CFLAGS) -o $@ $(BROWSER_SOURCES) $(GTK_LIBS) $(WEBKIT_LIBS)
 	@echo "Built VoidFox with $(WEBKIT_PKG)"
 
-tools/web-browser/voidfox.o: tools/web-browser/voidfox.c tools/web-browser/voidfox.h
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(WEBKIT_CFLAGS) -c $< -o $@
-
-tools/web-browser/browser.o: tools/web-browser/browser.c tools/web-browser/voidfox.h \
-                            tools/web-browser/app_menu.h tools/web-browser/bookmarks.h \
-                            tools/web-browser/history.h tools/web-browser/downloads.h \
-                            tools/web-browser/passwords.h tools/web-browser/extensions.h \
-                            tools/web-browser/download-stats.h tools/web-browser/settings.h
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(WEBKIT_CFLAGS) -c $< -o $@
-
-tools/web-browser/tab.o: tools/web-browser/tab.c tools/web-browser/voidfox.h
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(WEBKIT_CFLAGS) -c $< -o $@
-
-tools/web-browser/app_menu.o: tools/web-browser/app_menu.c tools/web-browser/app_menu.h \
-                             tools/web-browser/voidfox.h tools/web-browser/bookmarks.h \
-                             tools/web-browser/history.h tools/web-browser/downloads.h \
-                             tools/web-browser/passwords.h tools/web-browser/extensions.h
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(WEBKIT_CFLAGS) -c $< -o $@
-
-tools/web-browser/bookmarks.o: tools/web-browser/bookmarks.c tools/web-browser/bookmarks.h \
-                              tools/web-browser/voidfox.h
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(WEBKIT_CFLAGS) -c $< -o $@
-
-tools/web-browser/history.o: tools/web-browser/history.c tools/web-browser/history.h \
-                            tools/web-browser/voidfox.h
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(WEBKIT_CFLAGS) -c $< -o $@
-
-tools/web-browser/downloads.o: tools/web-browser/downloads.c tools/web-browser/downloads.h \
-                              tools/web-browser/voidfox.h
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(WEBKIT_CFLAGS) -c $< -o $@
-
-tools/web-browser/passwords.o: tools/web-browser/passwords.c tools/web-browser/passwords.h \
-                              tools/web-browser/voidfox.h
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(WEBKIT_CFLAGS) -c $< -o $@
-
-tools/web-browser/extensions.o: tools/web-browser/extensions.c tools/web-browser/extensions.h \
-                               tools/web-browser/voidfox.h
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(WEBKIT_CFLAGS) -c $< -o $@
-
-tools/web-browser/download-stats.o: tools/web-browser/download-stats.c \
-                                   tools/web-browser/download-stats.h \
-                                   tools/web-browser/downloads.h \
-                                   tools/web-browser/voidfox.h
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(WEBKIT_CFLAGS) -c $< -o $@
-
-tools/web-browser/settings.o: tools/web-browser/settings.c tools/web-browser/settings.h \
-                             tools/web-browser/voidfox.h tools/web-browser/history.h
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(WEBKIT_CFLAGS) -c $< -o $@
-
 # Firefox wrapper
-firefox-wrapper: $(FIREFOX_WRAPPER).c
+FIREFOX_SOURCES = tools/firefox/firefox-wrapper.c
+FIREFOX_HEADERS = tools/firefox/firefox.h
+
+firefox-wrapper: $(FIREFOX_SOURCES) $(FIREFOX_HEADERS)
 	mkdir -p tools/firefox
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $(FIREFOX_WRAPPER) $(FIREFOX_WRAPPER).c $(GTK_LIBS)
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $(FIREFOX_WRAPPER) $(FIREFOX_SOURCES) $(GTK_LIBS)
 	@echo "Built Firefox wrapper"
 
-# Individual object files
-%.o: %.c
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
+# Session manager (optional)
+SESSION_SOURCES = session/session.c
+
+blackline-session: $(SESSION_SOURCES)
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $(SESSION_SOURCES) $(GTK_LIBS) $(X11_LIBS)
 
 # Create network_stats.h if it doesn't exist
 $(NETWORK_STATS_H):
@@ -200,6 +193,8 @@ $(NETWORK_STATS_H):
 	@mkdir -p panel
 	@echo '#ifndef NETWORK_STATS_H' > $@
 	@echo '#define NETWORK_STATS_H' >> $@
+	@echo '' >> $@
+	@echo '#include <glib.h>' >> $@
 	@echo '' >> $@
 	@echo 'void network_stats_init(void);' >> $@
 	@echo 'void network_stats_update(void);' >> $@
@@ -216,13 +211,16 @@ blackline-panel: $(NETWORK_STATS_H)
 clean:
 	rm -f blackline-wm blackline-panel blackline-launcher blackline-tools blackline-background \
 	      blackline-fm blackline-editor blackline-calculator blackline-system-monitor \
-	      voidfox $(FIREFOX_WRAPPER) blackline-terminal
-	rm -f *.o tools/*.o panel/*.o tools/system-monitor/*.o tools/web-browser/*.o tools/terminal/*.o
+	      voidfox $(FIREFOX_WRAPPER) blackline-terminal blackline-session
+	rm -f *.o tools/*.o panel/*.o tools/system-monitor/*.o tools/web-browser/*.o \
+	      tools/terminal/*.o launcher/*.o session/*.o
 	rm -f ~/.config/blackline/tools_view_mode.conf
+	@echo "Clean complete!"
 
-# Clean all (including object files)
+# Clean all (including generated headers)
 distclean: clean
 	rm -f $(NETWORK_STATS_H)
+	rm -f panel/*.gch tools/*.gch
 	@echo "Removed generated header files"
 
 # Install all binaries
@@ -239,6 +237,7 @@ install: all
 	sudo cp voidfox /usr/local/bin/
 	sudo cp $(FIREFOX_WRAPPER) /usr/local/bin/lide-firefox
 	-test -f blackline-terminal && sudo cp blackline-terminal /usr/local/bin/
+	-test -f blackline-session && sudo cp blackline-session /usr/local/bin/
 	@echo "Installation complete!"
 
 # Uninstall all binaries
@@ -255,6 +254,7 @@ uninstall:
 	sudo rm -f /usr/local/bin/voidfox
 	sudo rm -f /usr/local/bin/lide-firefox
 	sudo rm -f /usr/local/bin/blackline-terminal
+	sudo rm -f /usr/local/bin/blackline-session
 	rm -f ~/.config/blackline/tools_view_mode.conf
 	@echo "Uninstallation complete!"
 
@@ -279,6 +279,21 @@ run-firefox: firefox-wrapper
 
 run-terminal: blackline-terminal
 	./blackline-terminal
+
+run-panel: blackline-panel
+	./blackline-panel
+
+run-launcher: blackline-launcher
+	./blackline-launcher
+
+run-tools: blackline-tools
+	./blackline-tools
+
+run-fm: blackline-fm
+	./blackline-fm
+
+run-session: blackline-session
+	./blackline-session
 
 # WebKit dependency check
 check-webkit:
@@ -352,7 +367,7 @@ help:
 	@echo "Available targets:"
 	@echo "  all                    - Build all components"
 	@echo "  blackline-wm           - Build window manager (with Imlib2 wallpaper support)"
-	@echo "  blackline-panel        - Build panel with system stats (CPU, RAM, Network)"
+	@echo "  blackline-panel        - Build panel with system stats, WiFi, network monitor"
 	@echo "  blackline-launcher     - Build application launcher"
 	@echo "  blackline-tools        - Build tools container with view mode"
 	@echo "  blackline-background   - Build background setter"
@@ -360,7 +375,8 @@ help:
 	@echo "  blackline-editor       - Build text editor"
 	@echo "  blackline-terminal     - Build terminal emulator"
 	@echo "  blackline-calculator   - Build calculator"
-	@echo "  blackline-system-monitor - Build system monitor"
+	@echo "  blackline-system-monitor - Build system monitor (CPU, Memory, Processes)"
+	@echo "  blackline-session      - Build session manager"
 	@echo "  voidfox                - Build VoidFox web browser"
 	@echo "  firefox-wrapper        - Build Firefox wrapper"
 	@echo "  clean                  - Remove all binaries and object files"
@@ -382,6 +398,11 @@ help:
 	@echo "  run-voidfox            - Run VoidFox web browser"
 	@echo "  run-firefox            - Run Firefox wrapper"
 	@echo "  run-terminal           - Run terminal emulator"
+	@echo "  run-panel              - Run panel (for testing)"
+	@echo "  run-launcher           - Run launcher (for testing)"
+	@echo "  run-tools              - Run tools container (for testing)"
+	@echo "  run-fm                 - Run file manager (for testing)"
+	@echo "  run-session            - Run session manager (for testing)"
 	@echo ""
 	@echo "Panel Features:"
 	@echo "  - CPU usage with smoothing"
@@ -389,6 +410,9 @@ help:
 	@echo "  - Upload/Download speeds (auto KB/s, MB/s, GB/s)"
 	@echo "  - Date and time display"
 	@echo "  - WiFi network scanning and connection"
+	@echo "  - Connection details with IP, MAC, interface info"
+	@echo "  - Internet settings and configuration"
+	@echo "  - Network stats monitoring"
 	@echo "  - Minimized apps container"
 	@echo ""
 	@echo "Window Manager Features:"
@@ -398,11 +422,24 @@ help:
 	@echo "  - Window dragging and resizing"
 	@echo "  - Maximize/unmaximize support"
 	@echo "  - Movable desktop tools (launchers)"
+	@echo "  - Keyboard bindings"
+	@echo "  - Layout management"
+	@echo "  - Debug mode support"
+	@echo ""
+	@echo "VoidFox Web Browser Features:"
+	@echo "  - Tabbed browsing"
+	@echo "  - Bookmarks manager"
+	@echo "  - History tracking"
+	@echo "  - Downloads manager with statistics"
+	@echo "  - Password manager"
+	@echo "  - Extensions support"
+	@echo "  - Settings configuration"
+	@echo "  - App menu with all options"
 	@echo ""
 	@echo "View Mode:"
 	@echo "  The tools container supports List/Grid view toggle"
 	@echo "  View preference is saved in ~/.config/blackline/tools_view_mode.conf"
 
 .PHONY: all clean distclean install uninstall run-editor run-wm run-calculator run-system-monitor \
-        run-voidfox run-firefox run-terminal check-webkit check-firefox check-vte check-imlib2 \
-        check-network check-all help
+        run-voidfox run-firefox run-terminal run-panel run-launcher run-tools run-fm run-session \
+        check-webkit check-firefox check-vte check-imlib2 check-network check-all help
