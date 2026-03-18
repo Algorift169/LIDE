@@ -58,6 +58,12 @@ void internet_settings_cleanup(void);
 static GtkWidget *network_window = NULL;
 static void update_network_window_display(GtkWidget *vbox);
 
+// Forward declaration for refresh function
+void refresh_wifi_network_list(GtkWidget *window);
+
+// Forward declaration for WiFi connection callback
+static void on_wifi_network_clicked(GtkButton *btn, gpointer data);
+
 // ====================
 // BATTERY FUNCTIONS
 // ====================
@@ -134,44 +140,366 @@ static void check_wifi_status(void)
     }
 }
 
+// Function to check if WiFi is enabled
+static gboolean is_wifi_enabled(void)
+{
+    FILE *fp = popen("nmcli radio wifi 2>/dev/null | tr -d '\\n'", "r");
+    if (!fp) return TRUE;
+    
+    char status[16] = {0};
+    if (fgets(status, sizeof(status), fp)) {
+        pclose(fp);
+        return (strcmp(status, "enabled") == 0);
+    }
+    pclose(fp);
+    return TRUE;
+}
+
 // Simple WiFi toggle for the network window
 static void toggle_wifi_simple(GtkWidget *widget, gpointer data)
 {
     (void)widget;
     (void)data;
-    system("nmcli radio wifi off 2>/dev/null || nmcli radio wifi on 2>/dev/null &");
     
-    // Give it a moment to toggle, then update display
-    g_usleep(500000); // 500ms
+    // Get current WiFi state
+    gboolean currently_enabled = is_wifi_enabled();
+    
+    // Toggle WiFi
+    if (currently_enabled) {
+        system("nmcli radio wifi off 2>/dev/null");
+    } else {
+        system("nmcli radio wifi on 2>/dev/null");
+        // Give it time to enable and scan
+        sleep(1);
+        system("nmcli device wifi rescan 2>/dev/null");
+    }
+    
+    // Update the button text if the network window is open
     if (network_window != NULL) {
         GtkWidget *vbox = g_object_get_data(G_OBJECT(network_window), "vbox");
-        if (vbox) update_network_window_display(vbox);
+        if (vbox) {
+            // Find and update the toggle button
+            GList *children = gtk_container_get_children(GTK_CONTAINER(vbox));
+            for (GList *l = children; l != NULL; l = l->next) {
+                GtkWidget *child = GTK_WIDGET(l->data);
+                const gchar *name = gtk_widget_get_name(child);
+                if (name && g_strcmp0(name, "wifi-toggle-btn") == 0) {
+                    // Update button text based on new state
+                    if (currently_enabled) {
+                        gtk_button_set_label(GTK_BUTTON(child), "🟢 Turn On WiFi");
+                    } else {
+                        gtk_button_set_label(GTK_BUTTON(child), "🔴 Turn Off WiFi");
+                    }
+                    break;
+                }
+            }
+            g_list_free(children);
+            
+            // Refresh the network list
+            refresh_wifi_network_list(network_window);
+        }
     }
 }
 
-// Get brightness using xrandr
+// Function to refresh the WiFi network list in the main window
+void refresh_wifi_network_list(GtkWidget *window)
+{
+    GtkWidget *vbox = g_object_get_data(G_OBJECT(window), "vbox");
+    if (!vbox) return;
+    
+    GList *children = gtk_container_get_children(GTK_CONTAINER(vbox));
+    for (GList *l = children; l != NULL; l = l->next) {
+        GtkWidget *child = GTK_WIDGET(l->data);
+        if (GTK_IS_FRAME(child)) {
+            GtkWidget *frame_child = gtk_bin_get_child(GTK_BIN(child));
+            if (frame_child && GTK_IS_SCROLLED_WINDOW(frame_child)) {
+                GtkWidget *scroll = frame_child;
+                GtkWidget *old_list = gtk_bin_get_child(GTK_BIN(scroll));
+                if (old_list) {
+                    gtk_widget_destroy(old_list);
+                }
+                
+                // Create new network list with connectable buttons
+                GtkWidget *new_list = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+                gtk_container_set_border_width(GTK_CONTAINER(new_list), 10);
+                
+                if (!is_wifi_enabled()) {
+                    GtkWidget *wifi_off = gtk_label_new("WiFi is disabled");
+                    gtk_box_pack_start(GTK_BOX(new_list), wifi_off, TRUE, TRUE, 0);
+                } else {
+                    // Get WiFi networks
+                    FILE *fp = popen("nmcli -t -f SSID,SIGNAL,SECURITY device wifi list --rescan yes 2>/dev/null", "r");
+                    if (fp) {
+                        char line[512];
+                        while (fgets(line, sizeof(line), fp)) {
+                            line[strcspn(line, "\n")] = 0;
+                            if (strlen(line) < 2) continue;
+                            
+                            char *ssid = strtok(line, ":");
+                            char *signal_str = strtok(NULL, ":");
+                            char *security = strtok(NULL, ":");
+                            
+                            if (!ssid || strcmp(ssid, "SSID") == 0 || strlen(ssid) == 0) continue;
+                            
+                            int signal = signal_str ? atoi(signal_str) : 0;
+                            
+                            // Determine signal icon
+                            const char *signal_icon = "🔴";
+                            if (signal >= 80) signal_icon = "🟢";
+                            else if (signal >= 60) signal_icon = "🟢";
+                            else if (signal >= 40) signal_icon = "🟡";
+                            else if (signal >= 20) signal_icon = "🟠";
+                            
+                            // Security icon
+                            const char *lock_icon = "";
+                            if (security && strlen(security) > 0 && strcmp(security, "--") != 0) {
+                                lock_icon = "🔒 ";
+                            }
+                            
+                            gchar *btn_label = g_strdup_printf("%s %s%s   %d%%", signal_icon, lock_icon, ssid, signal);
+                            GtkWidget *net_btn = gtk_button_new_with_label(btn_label);
+                            g_free(btn_label);
+                            
+                            // Store network info
+                            g_object_set_data_full(G_OBJECT(net_btn), "ssid", g_strdup(ssid), g_free);
+                            g_object_set_data_full(G_OBJECT(net_btn), "security", g_strdup(security ? security : ""), g_free);
+                            
+                            // Connect to callback
+                            g_signal_connect(net_btn, "clicked", G_CALLBACK(on_wifi_network_clicked), window);
+                            
+                            gtk_widget_set_margin_top(net_btn, 2);
+                            gtk_widget_set_margin_bottom(net_btn, 2);
+                            gtk_box_pack_start(GTK_BOX(new_list), net_btn, FALSE, FALSE, 0);
+                        }
+                        pclose(fp);
+                    }
+                }
+                
+                gtk_container_add(GTK_CONTAINER(scroll), new_list);
+                gtk_widget_show_all(window);
+                break;
+            }
+        }
+    }
+    g_list_free(children);
+}
+
+// Callback for WiFi network button clicks
+static void on_wifi_network_clicked(GtkButton *btn, gpointer data)
+{
+    GtkWidget *parent = GTK_WIDGET(data);
+    const char *ssid = g_object_get_data(G_OBJECT(btn), "ssid");
+    const char *security = g_object_get_data(G_OBJECT(btn), "security");
+    
+    if (!ssid) return;
+    
+    // Check if network is secured
+    gboolean secured = (security && strlen(security) > 0 && strcmp(security, "--") != 0);
+    
+    if (secured) {
+        // Show password dialog for secured networks
+        show_wifi_connect_dialog(parent, ssid);
+    } else {
+        // Connect directly to open networks
+        gchar *cmd = g_strdup_printf("nmcli device wifi connect '%s' 2>/dev/null", ssid);
+        int result = system(cmd);
+        g_free(cmd);
+        
+        // Show result
+        GtkWidget *status_dialog = gtk_message_dialog_new(
+            GTK_WINDOW(parent),
+            GTK_DIALOG_MODAL,
+            result == 0 ? GTK_MESSAGE_INFO : GTK_MESSAGE_ERROR,
+            GTK_BUTTONS_OK,
+            result == 0 ? "Connection Successful" : "Connection Failed"
+        );
+        
+        if (result == 0) {
+            gtk_message_dialog_format_secondary_text(
+                GTK_MESSAGE_DIALOG(status_dialog),
+                "Successfully connected to %s", ssid
+            );
+        } else {
+            gtk_message_dialog_format_secondary_text(
+                GTK_MESSAGE_DIALOG(status_dialog),
+                "Failed to connect to %s.\nPlease try again.", ssid
+            );
+        }
+        
+        gtk_dialog_run(GTK_DIALOG(status_dialog));
+        gtk_widget_destroy(status_dialog);
+    }
+    
+    // Refresh the network list
+    refresh_wifi_network_list(parent);
+}
+
+// ====================
+// BRIGHTNESS FUNCTIONS - Improved for system compatibility
+// ====================
+
+// Get brightness using multiple methods for compatibility
 static int get_brightness(void)
 {
-    FILE *fp = popen("xrandr --verbose | grep -i 'brightness' | head -1 | awk '{print $2}' | sed 's/\\.//'", "r");
-    int brightness = 100;
+    int brightness = 100; // Default value
+    
+    // Method 1: Try xbacklight first (most common)
+    FILE *fp = popen("xbacklight -get 2>/dev/null", "r");
     if (fp) {
         char buf[16] = {0};
         if (fgets(buf, sizeof(buf), fp)) {
-            brightness = atoi(buf);
-            if (brightness < 1 || brightness > 100) brightness = 100;
+            float val = atof(buf);
+            if (val > 0 && val <= 100) {
+                brightness = (int)val;
+                pclose(fp);
+                return brightness;
+            }
         }
         pclose(fp);
     }
+    
+    // Method 2: Try sysfs backlight interface
+    const char *backlight_paths[] = {
+        "/sys/class/backlight/intel_backlight/brightness",
+        "/sys/class/backlight/radeon_bl0/brightness",
+        "/sys/class/backlight/nvidia_backlight/brightness",
+        "/sys/class/backlight/acpi_video0/brightness",
+        "/sys/class/backlight/amdgpu_bl0/brightness",
+        NULL
+    };
+    
+    const char *max_paths[] = {
+        "/sys/class/backlight/intel_backlight/max_brightness",
+        "/sys/class/backlight/radeon_bl0/max_brightness",
+        "/sys/class/backlight/nvidia_backlight/max_brightness",
+        "/sys/class/backlight/acpi_video0/max_brightness",
+        "/sys/class/backlight/amdgpu_bl0/max_brightness",
+        NULL
+    };
+    
+    for (int i = 0; backlight_paths[i] != NULL; i++) {
+        FILE *f = fopen(backlight_paths[i], "r");
+        if (f) {
+            int current = 0;
+            if (fscanf(f, "%d", &current) == 1) {
+                fclose(f);
+                
+                // Get max brightness
+                FILE *fmax = fopen(max_paths[i], "r");
+                if (fmax) {
+                    int max_val = 0;
+                    if (fscanf(fmax, "%d", &max_val) == 1 && max_val > 0) {
+                        fclose(fmax);
+                        brightness = (current * 100) / max_val;
+                        return brightness;
+                    }
+                    fclose(fmax);
+                }
+            }
+            fclose(f);
+        }
+    }
+    
+    // Method 3: Try brightnessctl
+    fp = popen("brightnessctl g 2>/dev/null", "r");
+    if (fp) {
+        int current = 0;
+        if (fscanf(fp, "%d", &current) == 1) {
+            pclose(fp);
+            fp = popen("brightnessctl m 2>/dev/null", "r");
+            if (fp) {
+                int max = 0;
+                if (fscanf(fp, "%d", &max) == 1 && max > 0) {
+                    brightness = (current * 100) / max;
+                }
+                pclose(fp);
+                return brightness;
+            }
+        } else {
+            pclose(fp);
+        }
+    }
+    
+    // Method 4: Try xrandr as fallback
+    fp = popen("xrandr --verbose | grep -i 'brightness' | head -1 | awk '{print $2}' | sed 's/\\.//'", "r");
+    if (fp) {
+        char buf[16] = {0};
+        if (fgets(buf, sizeof(buf), fp)) {
+            int val = atoi(buf);
+            if (val >= 10 && val <= 100) {
+                brightness = val;
+            }
+        }
+        pclose(fp);
+    }
+    
     return brightness;
 }
 
-// Set brightness using xrandr
+// Set brightness using multiple methods
 static void set_brightness(int level)
 {
     if (level < 10) level = 10;
     if (level > 100) level = 100;
+    
+    // Method 1: Try xbacklight first
+    gchar *cmd = g_strdup_printf("xbacklight -set %d 2>/dev/null", level);
+    int result = system(cmd);
+    g_free(cmd);
+    
+    if (result == 0) return; // Success with xbacklight
+    
+    // Method 2: Try sysfs backlight interface
+    const char *backlight_paths[] = {
+        "/sys/class/backlight/intel_backlight/brightness",
+        "/sys/class/backlight/radeon_bl0/brightness",
+        "/sys/class/backlight/nvidia_backlight/brightness",
+        "/sys/class/backlight/acpi_video0/brightness",
+        "/sys/class/backlight/amdgpu_bl0/brightness",
+        NULL
+    };
+    
+    const char *max_paths[] = {
+        "/sys/class/backlight/intel_backlight/max_brightness",
+        "/sys/class/backlight/radeon_bl0/max_brightness",
+        "/sys/class/backlight/nvidia_backlight/max_brightness",
+        "/sys/class/backlight/acpi_video0/max_brightness",
+        "/sys/class/backlight/amdgpu_bl0/max_brightness",
+        NULL
+    };
+    
+    for (int i = 0; backlight_paths[i] != NULL; i++) {
+        FILE *fmax = fopen(max_paths[i], "r");
+        if (fmax) {
+            int max_val = 0;
+            if (fscanf(fmax, "%d", &max_val) == 1 && max_val > 0) {
+                fclose(fmax);
+                
+                int new_brightness = (level * max_val) / 100;
+                
+                // Write to brightness file
+                FILE *f = fopen(backlight_paths[i], "w");
+                if (f) {
+                    fprintf(f, "%d", new_brightness);
+                    fclose(f);
+                    return; // Success
+                }
+            } else {
+                fclose(fmax);
+            }
+        }
+    }
+    
+    // Method 3: Try brightnessctl
+    cmd = g_strdup_printf("brightnessctl s %d%% 2>/dev/null", level);
+    result = system(cmd);
+    g_free(cmd);
+    
+    if (result == 0) return;
+    
+    // Method 4: Try xrandr as fallback
     float brightness = level / 100.0f;
-    gchar *cmd = g_strdup_printf("xrandr --output $(xrandr | grep ' connected' | head -1 | awk '{print $1}') --brightness %.2f 2>/dev/null &", brightness);
+    cmd = g_strdup_printf("xrandr --output $(xrandr | grep ' connected' | head -1 | awk '{print $1}') --brightness %.2f 2>/dev/null &", brightness);
     system(cmd);
     g_free(cmd);
 }
@@ -206,22 +534,12 @@ static void on_refresh_networks(GtkButton *btn, gpointer data)
     (void)btn;
     (void)data;
     system("nmcli device wifi rescan 2>/dev/null &");
+    sleep(1);
     
-    // Show notification
-    GtkWidget *toplevel = gtk_widget_get_toplevel(GTK_WIDGET(btn));
-    GtkWidget *notif = gtk_message_dialog_new(
-        GTK_WINDOW(toplevel),
-        GTK_DIALOG_MODAL,
-        GTK_MESSAGE_INFO,
-        GTK_BUTTONS_OK,
-        "Scanning Networks"
-    );
-    gtk_message_dialog_format_secondary_text(
-        GTK_MESSAGE_DIALOG(notif),
-        "WiFi networks are being rescanned.\nPlease wait a moment."
-    );
-    gtk_dialog_run(GTK_DIALOG(notif));
-    gtk_widget_destroy(notif);
+    // Refresh the network list in the main window
+    if (network_window) {
+        refresh_wifi_network_list(network_window);
+    }
 }
 
 // Callback for View All Networks button
@@ -343,7 +661,7 @@ static void update_network_window_display(GtkWidget *vbox)
             const gchar *name = gtk_widget_get_name(child);
             if (name && g_strcmp0(name, "wifi-toggle-btn") == 0) {
                 // Update WiFi toggle button text based on WiFi state
-                const gchar *label = is_wifi_connected ? "🟢 Turn Off WiFi" : "🔴 Turn On WiFi";
+                const gchar *label = is_wifi_connected ? "🔴 Turn Off WiFi" : "🟢 Turn On WiFi";
                 gtk_button_set_label(GTK_BUTTON(child), label);
             }
         }
@@ -485,8 +803,9 @@ static void launch_network_tab(GtkButton *button, gpointer data)
     gtk_label_set_xalign(GTK_LABEL(current_wifi), 0.0);
     gtk_box_pack_start(GTK_BOX(vbox), current_wifi, FALSE, FALSE, 0);
     
-    // WiFi toggle
-    GtkWidget *wifi_toggle = gtk_button_new_with_label("🔴 Turn Off WiFi");
+    // WiFi toggle button with correct initial state
+    gboolean wifi_enabled = is_wifi_enabled();
+    GtkWidget *wifi_toggle = gtk_button_new_with_label(wifi_enabled ? "🔴 Turn Off WiFi" : "🟢 Turn On WiFi");
     gtk_widget_set_name(wifi_toggle, "wifi-toggle-btn");
     g_signal_connect(wifi_toggle, "clicked", G_CALLBACK(toggle_wifi_simple), NULL);
     gtk_box_pack_start(GTK_BOX(vbox), wifi_toggle, FALSE, FALSE, 0);
@@ -501,8 +820,62 @@ static void launch_network_tab(GtkButton *button, gpointer data)
     gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(net_scroll), 150);
     gtk_container_add(GTK_CONTAINER(networks_frame), net_scroll);
     
-    // Use the wifi_list module to build the network list
-    GtkWidget *net_list = build_wifi_network_list();
+    // Create connectable network list
+    GtkWidget *net_list = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+    gtk_container_set_border_width(GTK_CONTAINER(net_list), 10);
+    
+    if (!wifi_enabled) {
+        GtkWidget *wifi_off = gtk_label_new("WiFi is disabled");
+        gtk_box_pack_start(GTK_BOX(net_list), wifi_off, TRUE, TRUE, 0);
+    } else {
+        // Get WiFi networks
+        FILE *fp = popen("nmcli -t -f SSID,SIGNAL,SECURITY device wifi list --rescan yes 2>/dev/null", "r");
+        if (fp) {
+            char line[512];
+            while (fgets(line, sizeof(line), fp)) {
+                line[strcspn(line, "\n")] = 0;
+                if (strlen(line) < 2) continue;
+                
+                char *ssid = strtok(line, ":");
+                char *signal_str = strtok(NULL, ":");
+                char *security = strtok(NULL, ":");
+                
+                if (!ssid || strcmp(ssid, "SSID") == 0 || strlen(ssid) == 0) continue;
+                
+                int signal = signal_str ? atoi(signal_str) : 0;
+                
+                // Determine signal icon
+                const char *signal_icon = "🔴";
+                if (signal >= 80) signal_icon = "🟢";
+                else if (signal >= 60) signal_icon = "🟢";
+                else if (signal >= 40) signal_icon = "🟡";
+                else if (signal >= 20) signal_icon = "🟠";
+                
+                // Security icon
+                const char *lock_icon = "";
+                if (security && strlen(security) > 0 && strcmp(security, "--") != 0) {
+                    lock_icon = "🔒 ";
+                }
+                
+                gchar *btn_label = g_strdup_printf("%s %s%s   %d%%", signal_icon, lock_icon, ssid, signal);
+                GtkWidget *net_btn = gtk_button_new_with_label(btn_label);
+                g_free(btn_label);
+                
+                // Store network info
+                g_object_set_data_full(G_OBJECT(net_btn), "ssid", g_strdup(ssid), g_free);
+                g_object_set_data_full(G_OBJECT(net_btn), "security", g_strdup(security ? security : ""), g_free);
+                
+                // Connect to callback
+                g_signal_connect(net_btn, "clicked", G_CALLBACK(on_wifi_network_clicked), network_window);
+                
+                gtk_widget_set_margin_top(net_btn, 2);
+                gtk_widget_set_margin_bottom(net_btn, 2);
+                gtk_box_pack_start(GTK_BOX(net_list), net_btn, FALSE, FALSE, 0);
+            }
+            pclose(fp);
+        }
+    }
+    
     gtk_container_add(GTK_CONTAINER(net_scroll), net_list);
     gtk_widget_set_name(net_list, "wifi-list");
     
@@ -687,6 +1060,7 @@ static gboolean update_system_stats(gpointer user_data)
     }
     
     // Update Network Status (every 5 ticks = 10 seconds)
+    /*
     static int network_counter = 0;
     if (network_counter++ % 5 == 0) {
         check_internet_connectivity();
@@ -700,6 +1074,7 @@ static gboolean update_system_stats(gpointer user_data)
         }
         gtk_button_set_label(GTK_BUTTON(network_btn), network_text);
     }
+        */
     
     return G_SOURCE_CONTINUE;
 }
@@ -830,13 +1205,13 @@ static void activate(GtkApplication *app, gpointer user_data)
     // Separator
     GtkWidget *sep3 = gtk_label_new("|");
     gtk_box_pack_start(GTK_BOX(stats_box), sep3, FALSE, FALSE, 2);
-    
-    // Network Status Button
-    GtkWidget *network_btn = gtk_button_new_with_label("🌐 Offline");
+        
+    // Network Status Button with Gear icon
+    GtkWidget *network_btn = gtk_button_new_with_label("⚙️ Gear");
     gtk_button_set_relief(GTK_BUTTON(network_btn), GTK_RELIEF_NONE);
     g_signal_connect(network_btn, "clicked", G_CALLBACK(launch_network_tab), NULL);
     gtk_box_pack_start(GTK_BOX(stats_box), network_btn, FALSE, FALSE, 2);
-    
+
     // Separator
     GtkWidget *sep4 = gtk_label_new("|");
     gtk_box_pack_start(GTK_BOX(stats_box), sep4, FALSE, FALSE, 2);

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 // Forward declaration for callback
 static void on_show_password_toggled(GtkToggleButton *btn, gpointer entry);
@@ -14,12 +15,12 @@ static void apply_widget_css(GtkWidget *widget)
         wifi_connect_provider = gtk_css_provider_new();
         gtk_css_provider_load_from_data(wifi_connect_provider,
             "window { background-color: #0b0f14; color: #ffffff; }"
-            "button { background-color: #1a1f26; color: #00ff88; border: 1px solid #00ff88; padding: 10px 20px; margin: 5px; font-weight: bold; border-radius: 4px; }"
-            "button:hover { background-color: #252d36; color: #00ff00; border: 1px solid #00ff00; }"
-            "label { color: #00ff88; font-size: 11px; font-weight: 500; }"
-            "entry { background-color: #1a1f26; color: #00ff88; border: 1px solid #00ff88; padding: 8px; border-radius: 4px; }"
-            "checkbutton { color: #00ff88; }"
-            "checkbutton label { color: #00ff88; }",
+            "button { background-color: #1a1f26; color: #a92d5a; border: 1px solid #a92d5a; padding: 10px 20px; margin: 5px; font-weight: bold; border-radius: 4px; }"
+            "button:hover { background-color: #252d36; color: #472e57; border: 1px solid #472e57; }"
+            "label { color: #a92d5a; font-size: 11px; font-weight: 500; }"
+            "entry { background-color: #1a1f26; color: #a92d5a; border: 1px solid #a92d5a; padding: 8px; border-radius: 4px; }"
+            "checkbutton { color: #a92d5a; }"
+            "checkbutton label { color: #a92d5a; }",
             -1, NULL);
     }
     
@@ -29,9 +30,65 @@ static void apply_widget_css(GtkWidget *widget)
         GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 }
 
+// Check if network is secured
+static gboolean is_network_secured(const char *ssid)
+{
+    FILE *fp = popen("nmcli -t -f SSID,SECURITY device wifi list 2>/dev/null", "r");
+    if (!fp) return TRUE; // Assume secured if can't check
+    
+    char line[512];
+    gboolean secured = TRUE; // Default to secured
+    
+    while (fgets(line, sizeof(line), fp)) {
+        line[strcspn(line, "\n")] = 0;
+        char *colon = strchr(line, ':');
+        if (colon) {
+            *colon = '\0';
+            char *net_ssid = line;
+            char *security = colon + 1;
+            
+            if (strcmp(net_ssid, ssid) == 0) {
+                secured = (strlen(security) > 0 && strcmp(security, "--") != 0);
+                break;
+            }
+        }
+    }
+    pclose(fp);
+    return secured;
+}
+
 // WiFi connection dialog
 void show_wifi_connect_dialog(GtkWidget *parent_window, const char *ssid)
 {
+    // First check if network is secured
+    gboolean secured = is_network_secured(ssid);
+    
+    if (!secured) {
+        // Open network - connect directly
+        gchar *cmd = g_strdup_printf("nmcli device wifi connect '%s' 2>/dev/null", ssid);
+        system(cmd);
+        g_free(cmd);
+        
+        // Show success message
+        GtkWidget *success = gtk_message_dialog_new(
+            GTK_WINDOW(parent_window),
+            GTK_DIALOG_MODAL,
+            GTK_MESSAGE_INFO,
+            GTK_BUTTONS_OK,
+            "Connected to %s",
+            ssid
+        );
+        gtk_message_dialog_format_secondary_text(
+            GTK_MESSAGE_DIALOG(success),
+            "Successfully connected to the open network."
+        );
+        apply_widget_css(success);
+        gtk_dialog_run(GTK_DIALOG(success));
+        gtk_widget_destroy(success);
+        return;
+    }
+    
+    // Secured network - show password dialog
     GtkWidget *dialog = gtk_dialog_new_with_buttons(
         "Connect to WiFi",
         GTK_WINDOW(parent_window),
@@ -56,7 +113,7 @@ void show_wifi_connect_dialog(GtkWidget *parent_window, const char *ssid)
     
     // Title with SSID
     GtkWidget *title = gtk_label_new(NULL);
-    gchar *title_text = g_strdup_printf("<b>📡 Connect to WiFi Network</b>\n\n<big><b>%s</b></big>", ssid);
+    gchar *title_text = g_strdup_printf("<b>📡 Connect to WiFi Network</b>\n\n<big><b>%s</b></big>\n<small>This network is secured</small>", ssid);
     gtk_label_set_markup(GTK_LABEL(title), title_text);
     gtk_label_set_xalign(GTK_LABEL(title), 0.0);
     gtk_box_pack_start(GTK_BOX(vbox), title, FALSE, FALSE, 0);
@@ -97,25 +154,33 @@ void show_wifi_connect_dialog(GtkWidget *parent_window, const char *ssid)
         
         // Execute connection command
         if (password && strlen(password) > 0) {
-            gchar *cmd = g_strdup_printf("nmcli device wifi connect '%s' password '%s' %s 2>/dev/null &", 
+            gchar *cmd = g_strdup_printf("nmcli device wifi connect '%s' password '%s' %s 2>/dev/null", 
                                          ssid, password, 
                                          auto_conn ? "" : "temporary");
-            system(cmd);
+            int result = system(cmd);
             g_free(cmd);
             
-            // Show connection status
+            // Show result
             GtkWidget *status_dialog = gtk_message_dialog_new(
                 GTK_WINDOW(parent_window),
                 GTK_DIALOG_MODAL,
-                GTK_MESSAGE_INFO,
+                result == 0 ? GTK_MESSAGE_INFO : GTK_MESSAGE_ERROR,
                 GTK_BUTTONS_OK,
-                "Connecting to %s",
-                ssid
+                result == 0 ? "Connection Successful" : "Connection Failed"
             );
-            gtk_message_dialog_format_secondary_text(
-                GTK_MESSAGE_DIALOG(status_dialog),
-                "Attempting to connect to the WiFi network...\nThis may take a few seconds."
-            );
+            
+            if (result == 0) {
+                gtk_message_dialog_format_secondary_text(
+                    GTK_MESSAGE_DIALOG(status_dialog),
+                    "Successfully connected to %s", ssid
+                );
+            } else {
+                gtk_message_dialog_format_secondary_text(
+                    GTK_MESSAGE_DIALOG(status_dialog),
+                    "Failed to connect to %s.\nPlease check the password and try again.", ssid
+                );
+            }
+            
             apply_widget_css(status_dialog);
             gtk_dialog_run(GTK_DIALOG(status_dialog));
             gtk_widget_destroy(status_dialog);
@@ -134,7 +199,7 @@ static void on_show_password_toggled(GtkToggleButton *btn, gpointer entry)
 // Quick connect to WiFi (without password dialog)
 void wifi_quick_connect(const char *ssid)
 {
-    gchar *cmd = g_strdup_printf("nmcli device wifi connect '%s' 2>/dev/null &", ssid);
+    gchar *cmd = g_strdup_printf("nmcli device wifi connect '%s' 2>/dev/null", ssid);
     system(cmd);
     g_free(cmd);
 }
@@ -142,7 +207,7 @@ void wifi_quick_connect(const char *ssid)
 // Forget WiFi network
 void wifi_forget_network(const char *ssid)
 {
-    gchar *cmd = g_strdup_printf("nmcli connection delete '%s' 2>/dev/null &", ssid);
+    gchar *cmd = g_strdup_printf("nmcli connection delete '%s' 2>/dev/null", ssid);
     system(cmd);
     g_free(cmd);
 }
