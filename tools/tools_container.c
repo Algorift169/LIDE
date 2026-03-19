@@ -365,6 +365,43 @@ static gboolean launch_image_viewer_event(GtkWidget *widget, GdkEventButton *eve
     return TRUE;
 }
 
+// Settings tool launcher function
+static void launch_settings(GtkButton *button, gpointer window) 
+
+{
+    (void)button;
+    (void)window;
+    
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Child process
+        execl("./blackline-settings", "blackline-settings", NULL);
+        exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools window
+        close_tools_window();
+    }
+}
+
+static gboolean launch_settings_event(GtkWidget *widget, GdkEventButton *event, gpointer window)
+
+{
+    (void)widget;
+    (void)event;
+    (void)window;
+    
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Child process
+        execl("./blackline-settings", "blackline-settings", NULL);
+        exit(0);
+    } else if (pid > 0) {
+        // Parent process - close tools window
+        close_tools_window();
+    }
+    return TRUE;
+}
+
 // Minimize button handler - simple minimize
 static void on_minimize_clicked(GtkButton *button, gpointer window) 
 {
@@ -379,15 +416,15 @@ static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *
     return FALSE;
 }
 
-// Tool definitions for view mode
-// Tool definitions for view mode
+
 static ToolItem tools[] = {
     {"File Manager", "📁", launch_file_manager, launch_file_manager_event, NULL},
     {"Text Editor", "📝", launch_text_editor, launch_text_editor_event, NULL},
     {"Terminal", "$", launch_terminal, launch_terminal_event, NULL},
     {"Calculator", "🧮", launch_calculator, launch_calculator_event, NULL},
     {"System Monitor", "📊", launch_system_monitor, launch_system_monitor_event, NULL},
-    {"Image Viewer", "🖼️", launch_image_viewer, launch_image_viewer_event, NULL},  // New tool
+    {"Settings", "⚙️", launch_settings, launch_settings_event, NULL},  // Add this line
+    {"Image Viewer", "🖼️", launch_image_viewer, launch_image_viewer_event, NULL},
     {"VoidFox", "🌐", launch_web_browser, launch_web_browser_event, NULL},
     {"Firefox", "🦊", launch_firefox_wrapper, launch_firefox_wrapper_event, NULL}
 };
