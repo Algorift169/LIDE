@@ -1,4 +1,5 @@
 #include "fm.h"
+#include "../image-viewer/image-viewer.h"
 #include <time.h>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -20,6 +21,35 @@ static gchar *format_time(GDateTime *dt)
 
 {
     return g_date_time_format(dt, "%Y-%m-%d %H:%M");
+}
+
+// Check if file is an image based on extension
+static gboolean is_image_file(const gchar *filename) 
+
+{
+    const gchar *ext = strrchr(filename, '.');
+    if (!ext) return FALSE;
+    
+    // Common image file extensions
+    const gchar *image_extensions[] = {
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp",
+        ".tiff", ".tif", ".ico", ".svg", ".svgz",
+        ".psd", ".xcf", ".jp2", ".j2k", ".jpf", ".jpx",
+        ".jpm", ".mj2", ".heif", ".heic", ".raw",
+        ".dng", ".cr2", ".crw", ".nef", ".nrw",
+        ".raf", ".rw2", ".orf", ".dcs", ".dcr",
+        ".arw", ".mos", ".ptx", ".pef", ".exif",
+        ".jfif", ".ppm", ".pgm", ".pbm", ".pnm",
+        ".qoi", ".pcx", ".cur", ".ani", NULL
+    };
+    
+    for (int i = 0; image_extensions[i] != NULL; i++) {
+        if (g_str_has_suffix(filename, image_extensions[i])) {
+            return TRUE;
+        }
+    }
+    
+    return FALSE;
 }
 
 // Check if file is a text file based on extension
@@ -68,8 +98,11 @@ static void open_file_with_app(GtkWindow *parent, const gchar *path)
 {
     (void)parent; // Unused parameter
     
-    // Check if it's a text file
-    if (is_text_file(path)) {
+    // Check if it's an image file
+    if (is_image_file(path)) {
+        // Use image viewer for image files
+        launch_image_viewer(path);
+    } else if (is_text_file(path)) {
         // Use BlackLine editor for text files - launch in background
         gchar *command = g_strdup_printf("blackline-editor \"%s\" &", path);
         system(command);

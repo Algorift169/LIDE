@@ -1069,6 +1069,7 @@ static gboolean on_draw_selection(GtkWidget *widget, cairo_t *cr, AppState *stat
 // ----------------------------------------------------------------------
 // Main window creation
 static void activate(GtkApplication *app, gpointer user_data) {
+    (void)user_data;  // Unused parameter
     AppState *state = g_new0(AppState, 1);
     state->window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(state->window), "BlackLine Image Viewer");
@@ -1247,17 +1248,47 @@ static void activate(GtkApplication *app, gpointer user_data) {
 
     gtk_widget_show_all(state->window);
 
-    // If a filename was passed via command line, open it
-    if (user_data) {
-        open_image(state, (const char*)user_data);
-    } else {
-        // Show welcome message
-        guint context_id = gtk_statusbar_get_context_id(GTK_STATUSBAR(state->statusbar), "image_info");
-        gtk_statusbar_push(GTK_STATUSBAR(state->statusbar), context_id, 
-                          "Open an image using File → Open or the Open button");
-    }
+    // Show welcome message (files are opened via the "open" signal)
+    guint context_id = gtk_statusbar_get_context_id(GTK_STATUSBAR(state->statusbar), "image_info");
+    gtk_statusbar_push(GTK_STATUSBAR(state->statusbar), context_id, 
+                      "Open an image using File → Open or the Open button");
 
     g_object_set_data_full(G_OBJECT(state->window), "app-state", state, g_free);
+}
+
+// Open signal handler for when files are passed as arguments
+static void on_open(GtkApplication *app, GFile **files, gint n_files, const gchar *hint, gpointer user_data) {
+    (void)hint;  // Unused
+    (void)user_data;  // Unused
+    
+    if (n_files <= 0) return;
+    
+    // Get the active window or create one
+    GtkWindow *window = gtk_application_get_active_window(app);
+    if (!window) {
+        // No active window, activate first
+        g_signal_emit_by_name(app, "activate");
+        window = gtk_application_get_active_window(app);
+    }
+    
+    if (!window) return;
+    
+    // Get the app state
+    AppState *state = (AppState *)g_object_get_data(G_OBJECT(window), "app-state");
+    if (!state) return;
+    
+    // Open the first file
+    gchar *path = g_file_get_path(files[0]);
+    if (path) {
+        open_image(state, path);
+        g_free(path);
+    }
+}
+
+// Activate signal handler (when app starts with no files)
+static void on_activate(GtkApplication *app, gpointer user_data) {
+    (void)user_data;  // Unused
+    activate(app, NULL);
 }
 
 // ----------------------------------------------------------------------
@@ -1266,7 +1297,8 @@ int main(int argc, char **argv) {
     int status;
 
     app = gtk_application_new("org.blackline.imageviewer", G_APPLICATION_HANDLES_OPEN);
-    g_signal_connect(app, "activate", G_CALLBACK(activate), (argc > 1) ? argv[1] : NULL);
+    g_signal_connect(app, "activate", G_CALLBACK(on_activate), NULL);
+    g_signal_connect(app, "open", G_CALLBACK(on_open), NULL);
     status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
 

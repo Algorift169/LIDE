@@ -64,6 +64,7 @@ fi
 
 export DISPLAY=:${DISPLAY_NUM}
 export GDK_BACKEND=x11  # Force X11 backend
+export PATH=.:$PATH  # Add current directory to PATH for easy access to binaries
 
 # Verify X connection
 echo "Verifying X connection..."

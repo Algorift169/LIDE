@@ -107,8 +107,8 @@ blackline-background: tools/background.c
 	$(CC) $(CFLAGS) -o $@ $<
 
 # File Manager
-FM_SOURCES = tools/file-manager/fm.c tools/file-manager/browser.c
-FM_HEADERS = tools/file-manager/fm.h
+FM_SOURCES = tools/file-manager/fm.c tools/file-manager/browser.c tools/image-viewer/image-viewer-launcher.c
+FM_HEADERS = tools/file-manager/fm.h tools/image-viewer/image-viewer.h
 
 blackline-fm: $(FM_SOURCES) $(FM_HEADERS)
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $(FM_SOURCES) $(GTK_LIBS)
