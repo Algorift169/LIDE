@@ -19,6 +19,9 @@
 // Define HISTORY_SIZE before using it
 #define HISTORY_SIZE 60
 
+// Include monitor.h for CpuData and MemData definitions
+#include "../tools/system-monitor/monitor.h"
+
 // Define the global variables expected by the system monitor code
 double cpu_history[HISTORY_SIZE] = {0};
 int cpu_history_index = 0;
@@ -37,6 +40,10 @@ static guint64 panel_mem_total = 0;
 static guint64 panel_mem_available = 0;
 static guint64 panel_mem_used = 0;
 static int panel_mem_percent = 0;
+
+// PERSISTENT CPU DATA - must be static to track previous values across calls
+// This is critical for accurate CPU percentage calculation
+static CpuData panel_cpu_data = {0};
 
 // CPU history for smooth display
 static float panel_cpu_history[5] = {0};
@@ -553,9 +560,9 @@ static void on_view_all_networks(GtkButton *btn, gpointer data)
 // Wrapper functions to avoid parameter issues
 static void panel_update_cpu_usage(void)
 {
-    CpuData cpu;
-    update_cpu_usage(&cpu);
-    panel_cpu_percent = cpu.usage;
+    // Use persistent CPU data structure to properly track deltas across calls
+    update_cpu_usage(&panel_cpu_data);
+    panel_cpu_percent = panel_cpu_data.usage;
 }
 
 static void panel_update_mem_usage(void)
