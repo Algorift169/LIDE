@@ -4,6 +4,7 @@
 #include "resolution.h"
 
 GtkWidget *display_settings_tab_new(void)
+
 {
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(vbox), 10);

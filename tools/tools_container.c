@@ -25,7 +25,7 @@ typedef struct {
     GtkWidget *view_button;
 } ViewToggleData;
 
-// Launch functions - close tools window after launching
+// Launch functions 
 static void close_tools_window(void)
 {
     if (main_window) {
@@ -411,20 +411,23 @@ static void on_minimize_clicked(GtkButton *button, gpointer window)
 
 // Window state change handler for restore
 static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *event, gpointer data) 
+
 {
     (void)data;
     return FALSE;
 }
 
 
-static ToolItem tools[] = {
+static ToolItem tools[] = 
+
+{
     {"File Manager", "📁", launch_file_manager, launch_file_manager_event, NULL},
     {"Text Editor", "📝", launch_text_editor, launch_text_editor_event, NULL},
     {"Terminal", "$", launch_terminal, launch_terminal_event, NULL},
     {"Calculator", "🧮", launch_calculator, launch_calculator_event, NULL},
     {"System Monitor", "📊", launch_system_monitor, launch_system_monitor_event, NULL},
     {"Settings", "⚙️", launch_settings, launch_settings_event, NULL},  // Add this line
-    {"Image Viewer", "🖼️", launch_image_viewer, launch_image_viewer_event, NULL},
+    {"Image", "🖼️", launch_image_viewer, launch_image_viewer_event, NULL},
     {"VoidFox", "🌐", launch_web_browser, launch_web_browser_event, NULL},
     {"Firefox", "🦊", launch_firefox_wrapper, launch_firefox_wrapper_event, NULL}
 };
@@ -435,6 +438,7 @@ static int num_tools = sizeof(tools) / sizeof(tools[0]);  // KEEP ONLY THIS ONE
 // static int num_tools = sizeof(tools) / sizeof(tools[0]);
 
 static void on_close_clicked(GtkButton *button, gpointer window) 
+
 {
     (void)button;
     gtk_window_close(GTK_WINDOW(window));
@@ -490,8 +494,9 @@ static void on_window_realized(GtkWidget *window, gpointer data)
     }
 }
 
-// View toggle callback - NO ANIMATION, just switch
+// View toggle callback 
 static void on_view_toggle_clicked(GtkButton *button, gpointer user_data) 
+
 {
     ViewToggleData *data = (ViewToggleData *)user_data;
     
@@ -555,20 +560,20 @@ static void activate(GtkApplication *app, gpointer user_data)
     main_window = window;  // Store global reference for close function
     gtk_window_set_title(GTK_WINDOW(window), "BlackLine Tools");
     
-    // Load saved view mode - this loads from file
+    // Load saved view mode 
     view_mode_load();
     
-    // Get the saved mode (now properly loaded)
+    // Get the saved mode 
     ViewMode saved_mode = view_mode_get_current();
     
-    // Debug print to verify mode is loaded correctly
+    //debug output
     if (saved_mode == VIEW_MODE_LIST) {
         g_print("Tools container starting in LIST mode\n");
     } else {
         g_print("Tools container starting in GRID mode\n");
     }
     
-    // Set window size based on mode - same height for both
+    // Set window size based on mode 
     if (saved_mode == VIEW_MODE_LIST) {
         gtk_window_set_default_size(GTK_WINDOW(window), 300, 400);
     } else {
@@ -620,7 +625,7 @@ static void activate(GtkApplication *app, gpointer user_data)
         gtk_button_set_label(GTK_BUTTON(view_btn), "🔲 Grid");
     }
     
-    // Create a scrolled window to contain the tools container (for BOTH list and grid views)
+    // Create a scrolled window to contain the tools container 
     GtkWidget *scrolled_window = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled_window),
                                    GTK_POLICY_NEVER,     // Horizontal scrollbar never
@@ -663,18 +668,18 @@ static void activate(GtkApplication *app, gpointer user_data)
     // css
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
-        "window { background-color: #0b0f14; color: #ffffff; border: 1px solid #00ff88; }"
-        "button { background-color: #1e2429; color: #00ff88; border: none; }"
+        "window { background-color: #0b0f14; color: #ffffff; border: 1px solid #62316b; }"
+        "button { background-color: #1e2429; color: #62316b; border: none; }"
         "button:hover { background-color: #2a323a; }"
         "button:active { background-color: #2a323a; }"
         "label { color: #ffffff; }"
-        "entry { background-color: #1e2429; color: #ffffff; border: 1px solid #00ff88; }"
+        "entry { background-color: #1e2429; color: #ffffff; border: 1px solid #62316b; }"
         "entry:focus { border-color: #44ffaa; box-shadow: 0 0 10px rgba(0, 255, 136, 0.5); }"
         "scrolledwindow { border: none; background-color: #0b0f14; }"
         "scrollbar { background-color: #1e2429; }"
-        "scrollbar slider { background-color: #00ff88; border-radius: 4px; min-width: 8px; min-height: 8px; }"
-        "scrollbar slider:hover { background-color: #33ffaa; }"
-        "scrollbar slider:active { background-color: #00cc66; }"
+        "scrollbar slider { background-color: #62316b; border-radius: 4px; min-width: 8px; min-height: 8px; }"
+        "scrollbar slider:hover { background-color: #62316b; }"
+        "scrollbar slider:active { background-color: #62316b; }"
         "scrollbar trough { background-color: #2a323a; border-radius: 4px; }",
         -1, NULL);
         
@@ -682,7 +687,7 @@ static void activate(GtkApplication *app, gpointer user_data)
         GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
     g_object_unref(provider);
     
-    // Show all widgets - no fade animation
+    // Show all widgets 
     gtk_widget_show_all(window);
 }
 
@@ -714,7 +719,7 @@ static Window find_existing_instance(Display *dpy)
             }
         }
         
-        // Window exists but is unmapped - delete the stale atom
+        // Window exists but is unmapped 
         XDeleteProperty(dpy, root, atom);
         XFlush(dpy);
     } else {
@@ -725,6 +730,7 @@ static Window find_existing_instance(Display *dpy)
 }
 
 static void raise_window(Display *dpy, Window win) 
+
 {
     XRaiseWindow(dpy, win);
     XMapRaised(dpy, win);

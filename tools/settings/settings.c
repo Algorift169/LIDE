@@ -8,7 +8,7 @@
 #include <X11/Xatom.h>
 #include "display/displaySettings.h"
 
-// REMOVE these conflicting global variables
+
 // static int is_dragging = 0;
 // static int drag_start_x, drag_start_y;
 // static int window_start_x, window_start_y;
@@ -27,19 +27,20 @@ typedef struct {
     int drag_start_y;
     int window_start_x;
     int window_start_y;
-    gboolean is_resizing;      // Not used in settings, but keeping for compatibility
-    int resize_edge;           // Not used in settings
+    gboolean is_resizing;      
 } AppState;
 
 // ----------------------------------------------------------------------
 // Window control functions
 static void on_minimize_clicked(GtkButton *button, gpointer window) 
+
 {
     (void)button;
     gtk_window_iconify(GTK_WINDOW(window));
 }
 
 static void on_maximize_clicked(GtkButton *button, gpointer window) 
+
 {
     (void)button;
     if (gdk_window_get_state(gtk_widget_get_window(GTK_WIDGET(window))) & GDK_WINDOW_STATE_MAXIMIZED) {
@@ -50,14 +51,16 @@ static void on_maximize_clicked(GtkButton *button, gpointer window)
 }
 
 static void on_close_clicked(GtkButton *button, gpointer window) 
+
 {
     (void)button;
     gtk_window_close(GTK_WINDOW(window));
 }
 
 // ----------------------------------------------------------------------
-// Dragging handlers - EXACT pattern from system monitor
+// Dragging handlers 
 static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data)
+
 {
     AppState *state = (AppState *)data;
 
@@ -77,6 +80,7 @@ static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpoint
 }
 
 static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer data)
+
 {
     AppState *state = (AppState *)data;
 
@@ -88,6 +92,7 @@ static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpoi
 }
 
 static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer data)
+
 {
     AppState *state = (AppState *)data;
 
@@ -106,6 +111,7 @@ static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoin
 // ----------------------------------------------------------------------
 // Window state change handler
 static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *event, gpointer data) 
+
 {
     (void)data;
     return FALSE;
@@ -114,6 +120,7 @@ static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *
 // ----------------------------------------------------------------------
 // Window destroy handler
 static void on_window_destroy(GtkWidget *widget, gpointer data) 
+
 {
     (void)widget;
     (void)data;
@@ -125,14 +132,13 @@ static void on_window_destroy(GtkWidget *widget, gpointer data)
 }
 
 // ----------------------------------------------------------------------
-// Create custom titlebar with buttons only (no drag handlers)
+// Create custom titlebar with buttons 
 static GtkWidget *create_custom_titlebar(const char *title, AppState *state)
+
 {
     GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     gtk_widget_set_size_request(header, -1, 30);
     gtk_widget_set_name(header, "custom-titlebar");
-    
-    // NO DRAG HANDLERS HERE - they're on the window now
     
     // Title label
     GtkWidget *title_label = gtk_label_new(NULL);
@@ -167,8 +173,9 @@ static GtkWidget *create_custom_titlebar(const char *title, AppState *state)
 }
 
 // ----------------------------------------------------------------------
-// Placeholder functions for other tabs (unchanged)
+// Placeholder functions for other tabs 
 static GtkWidget *mouse_tab_new(void)
+
 {
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(box), 20);
@@ -180,6 +187,7 @@ static GtkWidget *mouse_tab_new(void)
 }
 
 static GtkWidget *network_tab_new(void)
+
 {
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(box), 20);
@@ -191,6 +199,7 @@ static GtkWidget *network_tab_new(void)
 }
 
 static GtkWidget *sound_tab_new(void)
+
 {
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(box), 20);
@@ -202,6 +211,7 @@ static GtkWidget *sound_tab_new(void)
 }
 
 static GtkWidget *power_tab_new(void)
+
 {
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(box), 20);
@@ -213,6 +223,7 @@ static GtkWidget *power_tab_new(void)
 }
 
 static GtkWidget *privacy_tab_new(void)
+
 {
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(box), 20);
@@ -224,6 +235,7 @@ static GtkWidget *privacy_tab_new(void)
 }
 
 static GtkWidget *search_tab_new(void)
+
 {
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(box), 20);
@@ -235,6 +247,7 @@ static GtkWidget *search_tab_new(void)
 }
 
 static GtkWidget *wifi_tab_new(void)
+
 {
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(box), 20);
@@ -246,6 +259,7 @@ static GtkWidget *wifi_tab_new(void)
 }
 
 static GtkWidget *bluetooth_tab_new(void)
+
 {
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(box), 20);
@@ -259,6 +273,7 @@ static GtkWidget *bluetooth_tab_new(void)
 // ----------------------------------------------------------------------
 // Main window creation
 static void activate(GtkApplication *app, gpointer user_data)
+
 {
     (void)user_data;
     
@@ -275,12 +290,12 @@ static void activate(GtkApplication *app, gpointer user_data)
     // Remove default titlebar
     gtk_window_set_decorated(GTK_WINDOW(state->window), FALSE);
     
-    // Enable events on the window for dragging - EXACTLY like system monitor
+    // Enable events on the window for dragging 
     gtk_widget_add_events(state->window, GDK_BUTTON_PRESS_MASK |
                                           GDK_BUTTON_RELEASE_MASK |
                                           GDK_POINTER_MOTION_MASK);
     
-    // Connect drag handlers to the WINDOW itself, not the titlebar
+    // Connect drag handlers to the WINDOW
     g_signal_connect(state->window, "button-press-event", G_CALLBACK(on_button_press), state);
     g_signal_connect(state->window, "button-release-event", G_CALLBACK(on_button_release), state);
     g_signal_connect(state->window, "motion-notify-event", G_CALLBACK(on_motion_notify), state);
@@ -292,7 +307,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_container_add(GTK_CONTAINER(state->window), vbox);
     
-    // Custom titlebar with buttons only (no drag handlers)
+    // Custom titlebar with buttons only 
     GtkWidget *titlebar = create_custom_titlebar("<b>Settings</b>", state);
     gtk_box_pack_start(GTK_BOX(vbox), titlebar, FALSE, FALSE, 0);
     
@@ -354,7 +369,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     // Connect destroy signal
     g_signal_connect(state->window, "destroy", G_CALLBACK(on_window_destroy), NULL);
     
-    // Apply dark theme CSS with titlebar styling
+    // CSS
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
         "window { background-color: #0b0f14; color: #ffffff; }"
@@ -383,6 +398,7 @@ static void activate(GtkApplication *app, gpointer user_data)
 
 // ----------------------------------------------------------------------
 int main(int argc, char **argv)
+
 {
     GtkApplication *app = gtk_application_new("org.blackline.settings",
                                                G_APPLICATION_DEFAULT_FLAGS);
