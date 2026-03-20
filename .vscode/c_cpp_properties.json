@@ -1,42 +1,17 @@
 {
-    "configurations": [
-        {
-            "name": "Linux",
-            "includePath": [
-                "${workspaceFolder}/**",
-                "/usr/include/gtk-3.0",
-                "/usr/include/glib-2.0",
-                "/usr/lib/x86_64-linux-gnu/glib-2.0/include",
-                "/usr/include/pango-1.0",
-                "/usr/include/cairo",
-                "/usr/include/gdk-pixbuf-2.0",
-                "/usr/include/atk-1.0",
-                "/usr/include/at-spi2-atk/2.0",
-                "/usr/include/at-spi-2.0",
-                "/usr/include/dbus-1.0",
-                "/usr/lib/x86_64-linux-gnu/dbus-1.0/include",
-                "/usr/include/fribidi",
-                "/usr/include/harfbuzz",
-                "/usr/include/freetype2",
-                "/usr/include/libpng16",
-                "/usr/include/gio-unix-2.0",
-                "/usr/include/libmount",
-                "/usr/include/blkid",
-                "/usr/include/sysprof-6",
-                "/usr/include/linux",
-                "/usr/include/X11",
-                "/usr/include/Imlib2",
-                "/usr/include/NetworkManager",
-                "/usr/include/webkitgtk-4.1",
-                "/usr/include/libsoup-3.0",
-                "/usr/include/vte-2.91"
-            ],
-            "defines": [],
-            "compilerPath": "/usr/bin/gcc",
-            "cStandard": "gnu17",
-            "intelliSenseMode": "linux-gcc-x64",
-            "configurationProvider": "ms-vscode.makefile-tools"
-        }
-    ],
-    "version": 4
+  "configurations": [
+    {
+      "name": "linux-gcc-x64",
+      "includePath": [
+        "${workspaceFolder}/**"
+      ],
+      "defines": [],
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "${default}",
+      "intelliSenseMode": "linux-gcc-x64",
+      "configurationProvider": "ms-vscode.makefile-tools",
+      "cppStandard": "${default}"
+    }
+  ],
+  "version": 4
 }
