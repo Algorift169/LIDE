@@ -3,6 +3,24 @@
 #include <unistd.h>
 #include <string.h>
 
+/**
+ * Main entry point for the wallpaper setter utility.
+ *
+ * Attempts to set a wallpaper image using feh. If the image file is not
+ * found, falls back to a solid color background via xsetroot.
+ *
+ * @return 0 on success, non-zero on system command failure (not checked).
+ *
+ * Workflow:
+ * - Checks for existence of the wallpaper file at ./LIDE/images/wal1.png.
+ * - If present, executes feh with --bg-scale to set the wallpaper.
+ * - Regardless of feh success, also sets a solid color via xsetroot as a
+ *   fallback or to ensure consistent color scheme.
+ * - If the wallpaper file is missing, sets only the solid color.
+ *
+ * Side effects: Executes external commands (feh, xsetroot) via system().
+ * No error handling for subprocess failures.
+ */
 int main() 
 
 {

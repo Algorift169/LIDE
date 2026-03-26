@@ -7,18 +7,29 @@
 
 static GList *passwords = NULL;
 
-// Forward declarations
+/* Forward declarations */
 static void copy_to_clipboard(GtkButton *button);
 static void show_add_password_dialog(GtkButton *button, BrowserWindow *browser);
 static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser);
 
-// Show/hide password visibility
+/**
+ * Toggles password visibility in an entry widget.
+ *
+ * @param toggle The check button that was toggled.
+ * @param entry  The GtkEntry widget containing the password.
+ */
 static void on_show_password_toggle(GtkToggleButton *toggle, GtkEntry *entry)
 
 {
     gtk_entry_set_visibility(entry, gtk_toggle_button_get_active(toggle));
 }
 
+/**
+ * Copies password text to system clipboard.
+ * Changes button label to "✓" briefly as visual feedback.
+ *
+ * @param button The button that was clicked.
+ */
 static void copy_to_clipboard(GtkButton *button)
 
 {
@@ -27,12 +38,20 @@ static void copy_to_clipboard(GtkButton *button)
         GtkClipboard *clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
         gtk_clipboard_set_text(clipboard, text, -1);
         
-        // Show brief feedback
+        /* Show brief feedback */
         gtk_button_set_label(button, "✓");
         g_timeout_add_seconds(1, (GSourceFunc)gtk_button_set_label, button);
     }
 }
 
+/**
+ * Displays a dialog to add a new password entry.
+ *
+ * @param button  The button that was clicked (unused).
+ * @param browser BrowserWindow instance for parent window.
+ *
+ * @sideeffect Adds password to list and saves to file on confirmation.
+ */
 static void show_add_password_dialog(GtkButton *button, BrowserWindow *browser)
 
 {
@@ -95,7 +114,7 @@ static void show_add_password_dialog(GtkButton *button, BrowserWindow *browser)
             passwords = g_list_append(passwords, entry);
             save_passwords();
             
-            // Show success message
+            /* Show success message */
             GtkWidget *msg = gtk_message_dialog_new(GTK_WINDOW(browser->window),
                                                    GTK_DIALOG_MODAL,
                                                    GTK_MESSAGE_INFO,
@@ -109,6 +128,13 @@ static void show_add_password_dialog(GtkButton *button, BrowserWindow *browser)
     gtk_widget_destroy(dialog);
 }
 
+/**
+ * Callback for tab close button.
+ * Removes the specified tab from the notebook.
+ *
+ * @param button  The close button that was clicked.
+ * @param browser BrowserWindow instance.
+ */
 static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
 
 {
@@ -121,6 +147,14 @@ static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
     }
 }
 
+/**
+ * Creates and displays the saved passwords tab.
+ * Shows all stored credentials with options to show/hide and copy passwords.
+ *
+ * @param browser BrowserWindow instance.
+ *
+ * @sideeffect Adds a new tab to the notebook with password list.
+ */
 void show_passwords_tab(BrowserWindow *browser)
 
 {
@@ -177,14 +211,14 @@ void show_passwords_tab(BrowserWindow *browser)
         gtk_list_box_insert(GTK_LIST_BOX(listbox), row, -1);
     }
     
-    // Add password button
+    /* Add password button */
     GtkWidget *add_btn = gtk_button_new_with_label("Add Password");
     g_signal_connect(add_btn, "clicked", G_CALLBACK(show_add_password_dialog), browser);
     gtk_box_pack_start(GTK_BOX(tab_content), add_btn, FALSE, FALSE, 0);
     
     gtk_widget_show_all(tab_content);
     
-    // Create tab label with close button
+    /* Create tab label with close button */
     GtkWidget *tab_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     GtkWidget *tab_label = gtk_label_new("Passwords");
     GtkWidget *close_btn = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
@@ -202,6 +236,15 @@ void show_passwords_tab(BrowserWindow *browser)
     gtk_notebook_set_current_page(GTK_NOTEBOOK(browser->notebook), page_num);
 }
 
+/**
+ * Adds a password entry to the list.
+ *
+ * @param site     Website domain.
+ * @param username Username or email for the site.
+ * @param password Password for the site.
+ *
+ * @sideeffect Appends to global passwords list and saves to file.
+ */
 void add_password(const char *site, const char *username, const char *password)
 
 {
@@ -214,6 +257,12 @@ void add_password(const char *site, const char *username, const char *password)
     save_passwords();
 }
 
+/**
+ * Saves all passwords to disk.
+ * Format: site|username|password per line.
+ *
+ * @sideeffect Writes to PASSWORDS_FILE.
+ */
 void save_passwords(void)
 
 {
@@ -228,6 +277,13 @@ void save_passwords(void)
     fclose(f);
 }
 
+/**
+ * Loads passwords from disk.
+ * Reads PASSWORDS_FILE and populates the passwords list.
+ *
+ * @sideeffect Appends loaded passwords to global passwords list.
+ * @note Call during application initialization to restore saved credentials.
+ */
 void load_passwords(void)
 
 {

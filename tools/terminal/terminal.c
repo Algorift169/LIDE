@@ -6,21 +6,24 @@
 #include <unistd.h>
 #include "window_resize.h"
 
-// Terminal application data
+/**
+ * Terminal application state structure.
+ * Encapsulates all UI components and window state.
+ */
 typedef struct {
-    GtkWidget *window;
-    GtkWidget *notebook;
-    GtkWidget *title_bar;
+    GtkWidget *window;      /* Main application window */
+    GtkWidget *notebook;    /* Tab container for multiple terminals */
+    GtkWidget *title_bar;   /* Custom title bar widget */
 
-    // For dragging and resizing
-    int is_dragging;
-    int is_resizing;
-    int resize_edge;
-    int drag_start_x;
-    int drag_start_y;
+    /* Window manipulation state */
+    int is_dragging;        /* TRUE while user is dragging the window */
+    int is_resizing;        /* TRUE while user is resizing the window */
+    int resize_edge;        /* Which edge/corner is being resized (from window_resize.h) */
+    int drag_start_x;       /* Initial mouse X position for drag operation */
+    int drag_start_y;       /* Initial mouse Y position for drag operation */
 } Terminal;
 
-// Function prototypes
+/* Function prototypes */
 static void new_terminal_tab(const char *initial_directory, Terminal *term);
 static void spawn_callback(VteTerminal *terminal, GPid pid, GError *error, gpointer user_data);
 static void close_tab_callback(GtkButton *button, gpointer terminal);
@@ -32,7 +35,19 @@ static void on_maximize_clicked(GtkButton *button, gpointer window);
 static void on_close_clicked(GtkButton *button, gpointer window);
 static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *event, gpointer data);
 
-// Dragging handlers
+/* Dragging handlers */
+
+/**
+ * Callback for mouse button press on terminal window.
+ * Initiates window dragging or resizing based on cursor position.
+ *
+ * @param widget The window widget.
+ * @param event  Button event details.
+ * @param data   Terminal instance.
+ * @return       TRUE to stop event propagation.
+ *
+ * @sideeffect Sets is_dragging or is_resizing flags.
+ */
 static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data)
 
 {
@@ -40,7 +55,7 @@ static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpoint
 
     if (event->button == 1)
     {
-        // Check if cursor is on an edge (for resizing)
+        /* Check if cursor is on an edge (for resizing) */
         term->resize_edge = detect_resize_edge_absolute(GTK_WINDOW(term->window), event->x_root, event->y_root);
 
         if (term->resize_edge != RESIZE_NONE) {
@@ -57,6 +72,15 @@ static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpoint
     return FALSE;
 }
 
+/**
+ * Callback for mouse button release on terminal window.
+ * Terminates window dragging or resizing.
+ *
+ * @param widget The window widget.
+ * @param event  Button event details.
+ * @param data   Terminal instance.
+ * @return       TRUE to stop event propagation.
+ */
 static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer data)
 
 {
@@ -71,12 +95,21 @@ static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpoi
     return FALSE;
 }
 
+/**
+ * Callback for mouse motion on terminal window.
+ * Handles window dragging, resizing, and cursor updates.
+ *
+ * @param widget The window widget.
+ * @param event  Motion event details.
+ * @param data   Terminal instance.
+ * @return       TRUE if event was handled.
+ */
 static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer data)
 
 {
     Terminal *term = (Terminal *)data;
 
-    // Update cursor for resize hints
+    /* Update cursor for resize hints when not actively dragging/resizing */
     if (!term->is_dragging && !term->is_resizing) {
         int resize_edge = detect_resize_edge_absolute(GTK_WINDOW(term->window), event->x_root, event->y_root);
         update_resize_cursor(widget, resize_edge);
@@ -96,7 +129,7 @@ static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoin
         term->drag_start_y = event->y_root;
         return TRUE;
     } else if (term->is_dragging) {
-        // Only drag from title bar
+        /* Only drag from title bar area */
         GtkAllocation title_alloc;
         gtk_widget_get_allocation(term->title_bar, &title_alloc);
         
@@ -120,7 +153,14 @@ static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoin
     return FALSE;
 }
 
-// Window control callbacks
+/* Window control callbacks */
+
+/**
+ * Callback for minimize button click.
+ *
+ * @param button The button that was clicked.
+ * @param window The window to minimize.
+ */
 static void on_minimize_clicked(GtkButton *button, gpointer window)
 
 {
@@ -128,6 +168,13 @@ static void on_minimize_clicked(GtkButton *button, gpointer window)
     gtk_window_iconify(GTK_WINDOW(window));
 }
 
+/**
+ * Callback for maximize/restore button click.
+ * Toggles between maximized and restored states.
+ *
+ * @param button The button that was clicked.
+ * @param window The window to maximize or restore.
+ */
 static void on_maximize_clicked(GtkButton *button, gpointer window)
 
 {
@@ -141,23 +188,37 @@ static void on_maximize_clicked(GtkButton *button, gpointer window)
     }
 }
 
-// Track window state changes to update maximize button
+/**
+ * Callback for window state changes.
+ * Updates the maximize button label when window is maximized or restored.
+ *
+ * @param window The window whose state changed.
+ * @param event  Window state event details.
+ * @param data   Maximize button widget.
+ * @return       FALSE to allow further processing.
+ */
 static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *event, gpointer data)
 
 {
     GtkButton *max_btn = GTK_BUTTON(data);
     
     if (event->new_window_state & GDK_WINDOW_STATE_MAXIMIZED) {
-        gtk_button_set_label(max_btn, "❐");
+        gtk_button_set_label(max_btn, "❐"); /* Restore symbol when maximized */
         gtk_widget_set_tooltip_text(GTK_WIDGET(max_btn), "Restore");
     } else {
-        gtk_button_set_label(max_btn, "□");
+        gtk_button_set_label(max_btn, "□"); /* Maximize symbol when normal */
         gtk_widget_set_tooltip_text(GTK_WIDGET(max_btn), "Maximize");
     }
     
     return FALSE;
 }
 
+/**
+ * Callback for close button click.
+ *
+ * @param button The button that was clicked.
+ * @param window The window to close.
+ */
 static void on_close_clicked(GtkButton *button, gpointer window)
 
 {
@@ -165,12 +226,19 @@ static void on_close_clicked(GtkButton *button, gpointer window)
     gtk_window_close(GTK_WINDOW(window));
 }
 
-// CSS 
+/* CSS styling */
+
+/**
+ * Applies custom CSS styling to the terminal application.
+ * Sets dark theme with green accent colors matching BlackLine aesthetic.
+ *
+ * @sideeffect Creates and applies CSS provider globally.
+ */
 static void apply_css(void) {
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
         "window { background-color: #0b0f14; color: #ffffff; "
-        "         border: 2px solid #00ff88; }"  // Added visible border around window
+        "         border: 2px solid #00ff88; }"  /* Visible border around window */
         "notebook { background-color: #0b0f14; }\n"
         "notebook tab { background-color: #1e2429; color: #ffffff; padding: 2px 5px; }\n"
         "notebook tab:checked { background-color: #00ff88; color: #0b0f14; }\n"
@@ -189,7 +257,15 @@ static void apply_css(void) {
     g_object_unref(provider);
 }
 
-// Spawn callback
+/**
+ * Callback for VTE terminal spawn operation completion.
+ * Handles spawn errors and logs warnings.
+ *
+ * @param terminal   The VTE terminal that spawned the process.
+ * @param pid        Process ID of the spawned shell.
+ * @param error      Error object if spawn failed.
+ * @param user_data  User data (unused).
+ */
 static void spawn_callback(VteTerminal *terminal, GPid pid, GError *error, gpointer user_data) 
 
 {
@@ -203,7 +279,13 @@ static void spawn_callback(VteTerminal *terminal, GPid pid, GError *error, gpoin
     }
 }
 
-// Close tab callback
+/**
+ * Callback for tab close button click.
+ * Removes the corresponding tab from the notebook.
+ *
+ * @param button The close button that was clicked.
+ * @param data   Terminal instance.
+ */
 static void close_tab_callback(GtkButton *button, gpointer data)
 
 {
@@ -217,22 +299,30 @@ static void close_tab_callback(GtkButton *button, gpointer data)
     }
 }
 
-// Create a new terminal tab
+/**
+ * Creates a new terminal tab.
+ * Initializes a VTE terminal, sets up colors, spawns a shell, and adds it to the notebook.
+ *
+ * @param initial_directory Starting directory for the shell (NULL for user home).
+ * @param term              Terminal instance.
+ *
+ * @sideeffect Creates and adds a new tab to the notebook.
+ */
 static void new_terminal_tab(const char *initial_directory, Terminal *term) 
 
 {
     GtkWidget *vte = vte_terminal_new();
     GtkWidget *scrolled_window;
 
-    // Set basic options
+    /* Set scrollback buffer size */
     vte_terminal_set_scrollback_lines(VTE_TERMINAL(vte), 10000);
 
-    // Set colors to match theme
-    GdkRGBA foreground = {0.0, 1.0, 0.53, 1.0}; // #00ff88
-    GdkRGBA background = {0.04, 0.06, 0.08, 1.0}; // #0b0f14
+    /* Set colors to match theme */
+    GdkRGBA foreground = {0.0, 1.0, 0.53, 1.0}; /* #00ff88 */
+    GdkRGBA background = {0.04, 0.06, 0.08, 1.0}; /* #0b0f14 */
     vte_terminal_set_colors(VTE_TERMINAL(vte), &foreground, &background, NULL, 0);
 
-    // Spawn the shell
+    /* Spawn the shell */
     const char *shell = vte_get_user_shell();
     if (!shell || *shell == '\0') shell = "/bin/bash";
 
@@ -250,7 +340,7 @@ static void new_terminal_tab(const char *initial_directory, Terminal *term)
         spawn_callback,
         NULL);
 
-    // Create scrolled window for the terminal
+    /* Create scrolled window for the terminal */
     scrolled_window = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled_window),
                                    GTK_POLICY_AUTOMATIC,
@@ -258,7 +348,7 @@ static void new_terminal_tab(const char *initial_directory, Terminal *term)
     gtk_container_add(GTK_CONTAINER(scrolled_window), vte);
     gtk_widget_show(vte);
 
-    // Create tab with close button
+    /* Create tab with close button */
     GtkWidget *tab_label_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     GtkWidget *tab_label = gtk_label_new("Terminal");
     GtkWidget *close_btn = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
@@ -270,17 +360,28 @@ static void new_terminal_tab(const char *initial_directory, Terminal *term)
     gtk_box_pack_start(GTK_BOX(tab_label_box), close_btn, FALSE, FALSE, 0);
     gtk_widget_show_all(tab_label_box);
 
-    // Add to notebook 
+    /* Add to notebook */
     int page_num = gtk_notebook_append_page(GTK_NOTEBOOK(term->notebook), scrolled_window, tab_label_box);
     gtk_notebook_set_current_page(GTK_NOTEBOOK(term->notebook), page_num);
     gtk_notebook_set_tab_reorderable(GTK_NOTEBOOK(term->notebook), scrolled_window, TRUE);
 
-    // Connect close button
+    /* Connect close button */
     g_object_set_data(G_OBJECT(close_btn), "tab", scrolled_window);
     g_signal_connect(close_btn, "clicked", G_CALLBACK(close_tab_callback), term);
 }
 
-// Window activate callback
+/* Window activate callback */
+
+/**
+ * Application activation callback.
+ * Creates and displays the terminal window with tab support.
+ *
+ * @param app        The GtkApplication instance.
+ * @param user_data  User data (unused).
+ *
+ * @sideeffect Creates terminal UI with VTE widget and tabbed interface.
+ * @sideeffect Starts initial terminal tab.
+ */
 static void activate(GtkApplication *app, gpointer user_data)
 
 {
@@ -297,17 +398,17 @@ static void activate(GtkApplication *app, gpointer user_data)
     GtkWidget *max_btn;
     GtkWidget *close_btn;
 
-    // Create main window
+    /* Create main window */
     GtkWidget *main_window = gtk_application_window_new(app);
     term->window = main_window;
     gtk_window_set_title(GTK_WINDOW(main_window), "Terminal");
     gtk_window_set_default_size(GTK_WINDOW(main_window), 800, 600);
     gtk_window_set_position(GTK_WINDOW(main_window), GTK_WIN_POS_CENTER);
     
-    // Set undecorated to allow custom resize handling
+    /* Remove default decorations to allow custom resize handling */
     gtk_window_set_decorated(GTK_WINDOW(main_window), FALSE);
 
-    // Enable events for dragging and resizing on the WINDOW itself
+    /* Enable events for dragging and resizing on the WINDOW itself */
     gtk_widget_add_events(main_window, GDK_BUTTON_PRESS_MASK |
                                        GDK_BUTTON_RELEASE_MASK |
                                        GDK_POINTER_MOTION_MASK |
@@ -319,16 +420,16 @@ static void activate(GtkApplication *app, gpointer user_data)
 
     apply_css();
 
-    // Main vertical box
+    /* Main vertical box */
     vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_container_add(GTK_CONTAINER(main_window), vbox);
 
-    // Custom title bar
+    /* Custom title bar */
     title_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     gtk_widget_set_name(title_bar, "title-bar");
     gtk_widget_set_size_request(title_bar, -1, 30);
     gtk_box_pack_start(GTK_BOX(vbox), title_bar, FALSE, FALSE, 0);
-    term->title_bar = title_bar; // Store for drag detection
+    term->title_bar = title_bar; /* Store for drag detection */
 
     title_label = gtk_label_new("Terminal");
     gtk_label_set_xalign(GTK_LABEL(title_label), 0.0);
@@ -337,33 +438,33 @@ static void activate(GtkApplication *app, gpointer user_data)
     window_buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
     gtk_box_pack_end(GTK_BOX(title_bar), window_buttons, FALSE, FALSE, 5);
 
-    // Minimize button
+    /* Minimize button */
     min_btn = gtk_button_new_with_label("─");
     gtk_widget_set_size_request(min_btn, 30, 25);
     g_signal_connect(min_btn, "clicked", G_CALLBACK(on_minimize_clicked), term->window);
     gtk_box_pack_start(GTK_BOX(window_buttons), min_btn, FALSE, FALSE, 0);
 
-    // Maximize button
+    /* Maximize button */
     max_btn = gtk_button_new_with_label("□");
     gtk_widget_set_size_request(max_btn, 30, 25);
     g_signal_connect(max_btn, "clicked", G_CALLBACK(on_maximize_clicked), term->window);
     g_signal_connect(main_window, "window-state-event", G_CALLBACK(on_window_state_changed), max_btn);
     gtk_box_pack_start(GTK_BOX(window_buttons), max_btn, FALSE, FALSE, 0);
 
-    // Close button
+    /* Close button */
     close_btn = gtk_button_new_with_label("✕");
     gtk_widget_set_size_request(close_btn, 30, 25);
     g_signal_connect(close_btn, "clicked", G_CALLBACK(on_close_clicked), term->window);
     gtk_box_pack_start(GTK_BOX(window_buttons), close_btn, FALSE, FALSE, 0);
 
-    // Notebook for tabs
+    /* Notebook for tabs */
     GtkWidget *notebook = gtk_notebook_new();
     term->notebook = notebook;
     gtk_notebook_set_scrollable(GTK_NOTEBOOK(notebook), TRUE);
     gtk_notebook_set_show_border(GTK_NOTEBOOK(notebook), FALSE);
     gtk_box_pack_start(GTK_BOX(vbox), notebook, TRUE, TRUE, 0);
 
-    // Create first tab
+    /* Create first tab */
     new_terminal_tab(NULL, term);
 
     gtk_window_set_resizable(GTK_WINDOW(main_window), TRUE);
@@ -371,6 +472,13 @@ static void activate(GtkApplication *app, gpointer user_data)
     g_object_set_data_full(G_OBJECT(main_window), "terminal", term, g_free);
 }
 
+/**
+ * Application entry point.
+ *
+ * @param argc Argument count from command line.
+ * @param argv Argument vector from command line.
+ * @return     Exit status from g_application_run().
+ */
 int main(int argc, char **argv) 
 
 {

@@ -3,6 +3,13 @@
 
 #include <gtk/gtk.h>
 
+/**
+ * Creates the resolution selection widget.
+ * Provides a combo box with common display resolutions.
+ *
+ * @return GtkWidget containing horizontally packed label and combo box.
+ *         Default selection is 1920x1080.
+ */
 GtkWidget *resolution_widget_new(void);
 
-#endif
+#endif /* RESOLUTION_H */

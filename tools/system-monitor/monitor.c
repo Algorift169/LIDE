@@ -1,7 +1,7 @@
 #include "monitor.h"
 #include "window_resize.h"
 
-// Data history for graphs 
+/* Data history for graphs */
 double cpu_history[HISTORY_SIZE] = {0};
 int cpu_history_index = 0;
 double mem_history[HISTORY_SIZE] = {0};
@@ -10,7 +10,19 @@ int mem_history_index = 0;
 static CpuData cpu_data = {0};
 static MemData mem_data = {0};
 
-// Dragging handlers
+/* Dragging handlers */
+
+/**
+ * Callback for mouse button press on monitor window.
+ * Initiates window dragging or resizing based on cursor position.
+ *
+ * @param widget The window widget.
+ * @param event  Button event details.
+ * @param data   Monitor instance.
+ * @return       TRUE to stop event propagation.
+ *
+ * @sideeffect Sets is_dragging or is_resizing flags.
+ */
 static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data)
 
 {
@@ -18,7 +30,7 @@ static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpoint
 
     if (event->button == 1)
     {
-        // Check if cursor is on an edge (for resizing)
+        /* Check if cursor is on an edge (for resizing) */
         mon->resize_edge = detect_resize_edge_absolute(GTK_WINDOW(mon->window), event->x_root, event->y_root);
 
         if (mon->resize_edge != RESIZE_NONE) {
@@ -35,6 +47,15 @@ static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpoint
     return FALSE;
 }
 
+/**
+ * Callback for mouse button release on monitor window.
+ * Terminates window dragging or resizing.
+ *
+ * @param widget The window widget.
+ * @param event  Button event details.
+ * @param data   Monitor instance.
+ * @return       TRUE to stop event propagation.
+ */
 static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer data)
 
 {
@@ -49,12 +70,21 @@ static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpoi
     return FALSE;
 }
 
+/**
+ * Callback for mouse motion on monitor window.
+ * Handles window dragging, resizing, and cursor updates.
+ *
+ * @param widget The window widget.
+ * @param event  Motion event details.
+ * @param data   Monitor instance.
+ * @return       TRUE if event was handled.
+ */
 static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer data)
 
 {
     Monitor *mon = (Monitor *)data;
 
-    // Update cursor for resize hints
+    /* Update cursor for resize hints when not actively dragging/resizing */
     if (!mon->is_dragging && !mon->is_resizing) {
         int resize_edge = detect_resize_edge_absolute(GTK_WINDOW(mon->window), event->x_root, event->y_root);
         update_resize_cursor(widget, resize_edge);
@@ -88,13 +118,27 @@ static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoin
     return FALSE;
 }
 
-// Window control callbacks
+/* Window control callbacks */
+
+/**
+ * Callback for minimize button click.
+ *
+ * @param button The button that was clicked.
+ * @param window The window to minimize.
+ */
 static void on_minimize_clicked(GtkButton *button, gpointer window)
 {
     (void)button;
     gtk_window_iconify(GTK_WINDOW(window));
 }
 
+/**
+ * Callback for maximize/restore button click.
+ * Toggles between maximized and restored states.
+ *
+ * @param button The button that was clicked.
+ * @param window The window to maximize or restore.
+ */
 static void on_maximize_clicked(GtkButton *button, gpointer window)
 {
     (void)button;
@@ -107,50 +151,76 @@ static void on_maximize_clicked(GtkButton *button, gpointer window)
     }
 }
 
-// Track window state changes to update maximize button
+/**
+ * Callback for window state changes.
+ * Updates the maximize button label when window is maximized or restored.
+ *
+ * @param window The window whose state changed.
+ * @param event  Window state event details.
+ * @param data   Maximize button widget.
+ * @return       FALSE to allow further processing.
+ */
 static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *event, gpointer data)
 {
     GtkButton *max_btn = GTK_BUTTON(data);
     
     if (event->new_window_state & GDK_WINDOW_STATE_MAXIMIZED) {
-        gtk_button_set_label(max_btn, "❐"); // Restore symbol when maximized
+        gtk_button_set_label(max_btn, "❐"); /* Restore symbol when maximized */
         gtk_widget_set_tooltip_text(GTK_WIDGET(max_btn), "Restore");
     } else {
-        gtk_button_set_label(max_btn, "□"); // Maximize symbol when normal
+        gtk_button_set_label(max_btn, "□"); /* Maximize symbol when normal */
         gtk_widget_set_tooltip_text(GTK_WIDGET(max_btn), "Maximize");
     }
     
     return FALSE;
 }
 
+/**
+ * Callback for close button click.
+ *
+ * @param button The button that was clicked.
+ * @param window The window to close.
+ */
 static void on_close_clicked(GtkButton *button, gpointer window)
 {
     (void)button;
     gtk_window_close(GTK_WINDOW(window));
 }
 
-// Update all data
+/**
+ * Timer callback for updating system statistics.
+ * Updates CPU and memory data, then redraws graphs.
+ *
+ * @param user_data Monitor instance.
+ * @return G_SOURCE_CONTINUE to keep timer active.
+ */
 static gboolean update_data(gpointer user_data) {
     Monitor *mon = user_data;
 
-    // CPU
+    /* CPU update */
     update_cpu_usage(&cpu_data);
     cpu_history[cpu_history_index] = cpu_data.usage;
     cpu_history_index = (cpu_history_index + 1) % HISTORY_SIZE;
 
-    // Memory
+    /* Memory update */
     update_mem_usage(&mem_data);
     mem_history[mem_history_index] = mem_data.percent;
     mem_history_index = (mem_history_index + 1) % HISTORY_SIZE;
 
-    // Redraw graphs
+    /* Redraw graphs */
     gtk_widget_queue_draw(mon->cpu_da);
     gtk_widget_queue_draw(mon->mem_da);
 
     return G_SOURCE_CONTINUE;
 }
 
-// Process list update (separate timer)
+/**
+ * Timer callback for updating process list.
+ * Clears and repopulates the process tree view.
+ *
+ * @param user_data GtkListStore containing process data.
+ * @return G_SOURCE_CONTINUE to keep timer active.
+ */
 static gboolean update_process_list(gpointer user_data) {
     GtkListStore *store = GTK_LIST_STORE(user_data);
     gtk_list_store_clear(store);
@@ -172,6 +242,16 @@ static gboolean update_process_list(gpointer user_data) {
     return G_SOURCE_CONTINUE;
 }
 
+/**
+ * Application activation callback.
+ * Creates and displays the system monitor window.
+ *
+ * @param app        The GtkApplication instance.
+ * @param user_data  User data (unused).
+ *
+ * @sideeffect Creates monitor UI with CPU graph, memory bar, and process list.
+ * @sideeffect Starts periodic update timers.
+ */
 static void activate(GtkApplication *app, gpointer user_data) {
     Monitor *mon = g_new(Monitor, 1);
     mon->is_dragging = 0;
@@ -184,7 +264,7 @@ static void activate(GtkApplication *app, gpointer user_data) {
     gtk_window_set_default_size(GTK_WINDOW(window), 800, 500);
     gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
 
-    // Enable events for dragging
+    /* Enable events for dragging */
     gtk_widget_add_events(window, GDK_BUTTON_PRESS_MASK |
                                    GDK_BUTTON_RELEASE_MASK |
                                    GDK_POINTER_MOTION_MASK);
@@ -192,11 +272,11 @@ static void activate(GtkApplication *app, gpointer user_data) {
     g_signal_connect(window, "button-release-event", G_CALLBACK(on_button_release), mon);
     g_signal_connect(window, "motion-notify-event", G_CALLBACK(on_motion_notify), mon);
 
-    // Main vertical box
+    /* Main vertical box */
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_container_add(GTK_CONTAINER(window), vbox);
 
-    // Custom title bar with controls
+    /* Custom title bar with controls */
     GtkWidget *title_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     gtk_widget_set_name(title_bar, "title-bar");
     gtk_widget_set_size_request(title_bar, -1, 30);
@@ -209,40 +289,40 @@ static void activate(GtkApplication *app, gpointer user_data) {
     GtkWidget *window_buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
     gtk_box_pack_end(GTK_BOX(title_bar), window_buttons, FALSE, FALSE, 5);
 
-    // Minimize button
+    /* Minimize button */
     GtkWidget *min_btn = gtk_button_new_with_label("─");
     gtk_widget_set_size_request(min_btn, 30, 25);
     g_signal_connect(min_btn, "clicked", G_CALLBACK(on_minimize_clicked), window);
     gtk_box_pack_start(GTK_BOX(window_buttons), min_btn, FALSE, FALSE, 0);
 
-    // Maximize button - store reference for state tracking
+    /* Maximize button - store reference for state tracking */
     GtkWidget *max_btn = gtk_button_new_with_label("□");
     gtk_widget_set_size_request(max_btn, 30, 25);
     g_signal_connect(max_btn, "clicked", G_CALLBACK(on_maximize_clicked), window);
-    // Connect window state changes to update button appearance
+    /* Connect window state changes to update button appearance */
     g_signal_connect(window, "window-state-event", G_CALLBACK(on_window_state_changed), max_btn);
     gtk_box_pack_start(GTK_BOX(window_buttons), max_btn, FALSE, FALSE, 0);
 
-    // Close button
+    /* Close button */
     GtkWidget *close_btn = gtk_button_new_with_label("✕");
     gtk_widget_set_size_request(close_btn, 30, 25);
     g_signal_connect(close_btn, "clicked", G_CALLBACK(on_close_clicked), window);
     gtk_box_pack_start(GTK_BOX(window_buttons), close_btn, FALSE, FALSE, 0);
 
-    // Separator
+    /* Separator */
     GtkWidget *sep = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_box_pack_start(GTK_BOX(vbox), sep, FALSE, FALSE, 0);
 
-    // Notebook for tabs (rest of the content)
+    /* Notebook for tabs */
     GtkWidget *notebook = gtk_notebook_new();
     gtk_box_pack_start(GTK_BOX(vbox), notebook, TRUE, TRUE, 5);
 
-    // --- System tab ---
+    /* --- System tab --- */
     GtkWidget *sys_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(sys_tab), 10);
     gtk_notebook_append_page(GTK_NOTEBOOK(notebook), sys_tab, gtk_label_new("System"));
 
-    // CPU graph
+    /* CPU graph */
     GtkWidget *cpu_frame = gtk_frame_new("CPU Usage");
     GtkWidget *cpu_da = gtk_drawing_area_new();
     mon->cpu_da = cpu_da;
@@ -251,7 +331,7 @@ static void activate(GtkApplication *app, gpointer user_data) {
     gtk_container_add(GTK_CONTAINER(cpu_frame), cpu_da);
     gtk_box_pack_start(GTK_BOX(sys_tab), cpu_frame, TRUE, TRUE, 0);
 
-    // Memory bar
+    /* Memory bar */
     GtkWidget *mem_frame = gtk_frame_new("Memory Usage");
     GtkWidget *mem_da = gtk_drawing_area_new();
     mon->mem_da = mem_da;
@@ -260,7 +340,7 @@ static void activate(GtkApplication *app, gpointer user_data) {
     gtk_container_add(GTK_CONTAINER(mem_frame), mem_da);
     gtk_box_pack_start(GTK_BOX(sys_tab), mem_frame, FALSE, FALSE, 0);
 
-    // Disk usage (root partition)
+    /* Disk usage (root partition) */
     struct statvfs stat;
     if (statvfs("/", &stat) == 0) {
         unsigned long total = stat.f_blocks * stat.f_frsize;
@@ -274,17 +354,17 @@ static void activate(GtkApplication *app, gpointer user_data) {
         gtk_box_pack_start(GTK_BOX(sys_tab), disk_label, FALSE, FALSE, 0);
     }
 
-    // --- Processes tab ---
+    /* --- Processes tab --- */
     GtkWidget *proc_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     gtk_container_set_border_width(GTK_CONTAINER(proc_tab), 5);
     gtk_notebook_append_page(GTK_NOTEBOOK(notebook), proc_tab, gtk_label_new("Processes"));
 
-    // Tree view for processes
+    /* Tree view for processes */
     GtkListStore *store = gtk_list_store_new(4, G_TYPE_INT, G_TYPE_STRING, G_TYPE_DOUBLE, G_TYPE_DOUBLE);
     GtkWidget *tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
     g_object_unref(store);
 
-    // Columns
+    /* Columns */
     GtkCellRenderer *renderer;
     GtkTreeViewColumn *column;
 
@@ -304,13 +384,13 @@ static void activate(GtkApplication *app, gpointer user_data) {
     column = gtk_tree_view_column_new_with_attributes("Memory %", renderer, "text", 3, NULL);
     gtk_tree_view_append_column(GTK_TREE_VIEW(tree), column);
 
-    // Scrolled window
+    /* Scrolled window for process list */
     GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_container_add(GTK_CONTAINER(scrolled), tree);
     gtk_box_pack_start(GTK_BOX(proc_tab), scrolled, TRUE, TRUE, 0);
 
-    //CSS
+    /* CSS styling */
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
         "window { background-color: #000000; color: #ffffff; }"
@@ -331,12 +411,19 @@ static void activate(GtkApplication *app, gpointer user_data) {
     gtk_window_set_resizable(GTK_WINDOW(window), TRUE);
     gtk_widget_show_all(window);
 
-    // Start update timers
+    /* Start update timers */
     g_timeout_add_seconds(2, update_data, mon);
     g_timeout_add_seconds(3, update_process_list, store);
     g_object_set_data_full(G_OBJECT(window), "monitor", mon, g_free);
 }
 
+/**
+ * Application entry point.
+ *
+ * @param argc Argument count from command line.
+ * @param argv Argument vector from command line.
+ * @return     Exit status from g_application_run().
+ */
 int main(int argc, char **argv) 
 
 {

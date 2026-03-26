@@ -1,5 +1,17 @@
 #include "wm.h"
 
+/**
+ * Create a synthetic titlebar window for a client window.
+ *
+ * @param client The client window ID (unused, kept for API consistency).
+ * @param width  Initial width of the titlebar in pixels.
+ * @return X11 window ID of the created titlebar.
+ *
+ * Creates a window with background color #0b0f14 and the current focused
+ * border color. The titlebar receives button events for window dragging.
+ * Initially mapped but not yet reparented; the caller must reparent both
+ * the titlebar and client window appropriately.
+ */
 Window create_titlebar(Window client, int width) 
 
 {
@@ -18,6 +30,20 @@ Window create_titlebar(Window client, int width)
     return titlebar;
 }
 
+/**
+ * Add a new window to the window manager's managed list.
+ *
+ * @param w X11 window ID to manage.
+ *
+ * Steps:
+ * - Retrieves current window attributes.
+ * - Creates a WindowNode structure.
+ * - Creates a titlebar window.
+ * - Reparents the client window into the titlebar frame.
+ * - Reparents the titlebar to the root window at the client's original position.
+ * - Adds the node to the global window list.
+ * - Sets the initial border color (unfocused).
+ */
 void add_window(Window w) 
 
 {
@@ -42,6 +68,14 @@ void add_window(Window w)
     set_border(w, 0);
 }
 
+/**
+ * Remove a window from the window manager's managed list.
+ *
+ * @param w X11 window ID to unmanage.
+ *
+ * Destroys the titlebar, frees the node, and updates focus if the
+ * removed window was focused. Does not destroy the client window itself.
+ */
 void remove_window(Window w) 
 
 {
@@ -68,6 +102,15 @@ void remove_window(Window w)
     }
 }
 
+/**
+ * Set input focus to a specific window.
+ *
+ * @param w X11 window ID to focus.
+ *
+ * Updates border colors for both the client and its titlebar,
+ * raises the window and its titlebar in the stacking order,
+ * and sets the X input focus. Does nothing if the window is already focused.
+ */
 void focus_window(Window w) 
 
 {
@@ -94,6 +137,15 @@ void focus_window(Window w)
     }
 }
 
+/**
+ * Set the border color and width for a client window and its titlebar.
+ *
+ * @param w       X11 window ID of the client.
+ * @param focused Non-zero for focused color, zero for unfocused.
+ *
+ * Updates both the client window border and the associated titlebar border.
+ * Border width is always BORDER_WIDTH.
+ */
 void set_border(Window w, int focused)
 
 {
@@ -111,6 +163,15 @@ void set_border(Window w, int focused)
     }
 }
 
+/**
+ * Handle button press events on windows.
+ *
+ * @param ev X11 button event.
+ *
+ * If the button press occurs on a titlebar, initiates window moving.
+ * If on a client window, sets focus and replays the event to the client.
+ * For other windows, passes the event through.
+ */
 void handle_button_press(XButtonEvent *ev)
 
 {
@@ -137,6 +198,14 @@ void handle_button_press(XButtonEvent *ev)
     XAllowEvents(state.display, ReplayPointer, CurrentTime);
 }
 
+/**
+ * Handle button release events to end window moving.
+ *
+ * @param ev X11 button event.
+ *
+ * Clears the is_moving flag on the titlebar if the button was released
+ * over a titlebar that was being dragged.
+ */
 void handle_button_release(XButtonEvent *ev)
 
 {
@@ -151,6 +220,15 @@ void handle_button_release(XButtonEvent *ev)
     }
 }
 
+/**
+ * Handle motion notify events for window dragging.
+ *
+ * @param ev X11 motion event.
+ *
+ * Updates window position when a move operation is in progress.
+ * Calculates the delta since the last motion event and moves the
+ * titlebar accordingly.
+ */
 void handle_motion_notify(XMotionEvent *ev) 
 
 {
@@ -174,6 +252,15 @@ void handle_motion_notify(XMotionEvent *ev)
     }
 }
 
+/**
+ * Handle configure request events from clients.
+ *
+ * @param ev X11 configure request event.
+ *
+ * Updates the internal window geometry and resizes the titlebar
+ * to match the client's new width. Passes the configure request
+ * through to the client window.
+ */
 void handle_configure_request(XConfigureRequestEvent *ev) 
 
 {
@@ -204,6 +291,12 @@ void handle_configure_request(XConfigureRequestEvent *ev)
     XConfigureWindow(state.display, ev->window, ev->value_mask, &changes);
 }
 
+/**
+ * Update border colors for all managed windows.
+ *
+ * Iterates through the window list and applies the correct border color
+ * based on whether each window is currently focused.
+ */
 void update_borders(void) 
 
 {

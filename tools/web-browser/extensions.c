@@ -1,8 +1,8 @@
 #include "extensions.h"
 
-// Define all available themes
+/* Define all available themes */
 static const BrowserTheme themes[] = {
-    // 1. VoidFox Dark (Default) - Dark terminal-like theme
+    /* 1. VoidFox Dark (Default) - Dark terminal-like theme */
     {
         .name = "VoidFox Dark",
         .description = "Dark terminal-like theme with bright green accents",
@@ -18,7 +18,7 @@ static const BrowserTheme themes[] = {
         .title_bar_border = "#00ff88",
         .bookmarks_bar_bg = "#1e2429"
     },
-    // 2. Light Mode - Clean light theme
+    /* 2. Light Mode - Clean light theme */
     {
         .name = "Light Mode",
         .description = "Clean light theme with neutral colors",
@@ -34,7 +34,7 @@ static const BrowserTheme themes[] = {
         .title_bar_border = "#888888",
         .bookmarks_bar_bg = "#d0d0d0"
     },
-    // 3. Cyberpunk - Vibrant cyan and magenta
+    /* 3. Cyberpunk - Vibrant cyan and magenta */
     {
         .name = "Cyberpunk",
         .description = "Vibrant cyberpunk theme with cyan and magenta",
@@ -50,7 +50,7 @@ static const BrowserTheme themes[] = {
         .title_bar_border = "#ff00ff",
         .bookmarks_bar_bg = "#1a1e3f"
     },
-    // 4. Midnight Blue - Deep blue theme
+    /* 4. Midnight Blue - Deep blue theme */
     {
         .name = "Midnight Blue",
         .description = "Deep blue theme with light blue accents",
@@ -66,7 +66,7 @@ static const BrowserTheme themes[] = {
         .title_bar_border = "#4a9eff",
         .bookmarks_bar_bg = "#1a2332"
     },
-    // 5. Forest Green - Nature-inspired green theme
+    /* 5. Forest Green - Nature-inspired green theme */
     {
         .name = "Forest Green",
         .description = "Nature-inspired green theme",
@@ -82,7 +82,7 @@ static const BrowserTheme themes[] = {
         .title_bar_border = "#52b788",
         .bookmarks_bar_bg = "#2d4a3f"
     },
-    // 6. Sunset Orange - Warm orange and red tones
+    /* 6. Sunset Orange - Warm orange and red tones */
     {
         .name = "Sunset Orange",
         .description = "Warm sunset theme with orange and amber",
@@ -98,7 +98,7 @@ static const BrowserTheme themes[] = {
         .title_bar_border = "#ff8c42",
         .bookmarks_bar_bg = "#4a2c29"
     },
-    // 7. Purple Noir - Deep purple with lavender accents
+    /* 7. Purple Noir - Deep purple with lavender accents */
     {
         .name = "Purple Noir",
         .description = "Deep purple theme with lavender accents",
@@ -114,7 +114,7 @@ static const BrowserTheme themes[] = {
         .title_bar_border = "#b19cd9",
         .bookmarks_bar_bg = "#2d1b4e"
     },
-    // 8. Nord - Popular Nord color scheme
+    /* 8. Nord - Popular Nord color scheme */
     {
         .name = "Nord",
         .description = "Arctic, north-bluish color scheme",
@@ -130,7 +130,7 @@ static const BrowserTheme themes[] = {
         .title_bar_border = "#81a1c1",
         .bookmarks_bar_bg = "#3b4252"
     },
-    // 9. Dracula - Popular Dracula theme
+    /* 9. Dracula - Popular Dracula theme */
     {
         .name = "Dracula",
         .description = "Dark theme inspired by Dracula color scheme",
@@ -146,7 +146,7 @@ static const BrowserTheme themes[] = {
         .title_bar_border = "#bd93f9",
         .bookmarks_bar_bg = "#44475a"
     },
-    // 10. Gruvbox Dark - Retro groove dark theme
+    /* 10. Gruvbox Dark - Retro groove dark theme */
     {
         .name = "Gruvbox Dark",
         .description = "Retro groove dark theme with warm colors",
@@ -162,7 +162,7 @@ static const BrowserTheme themes[] = {
         .title_bar_border = "#b8bb26",
         .bookmarks_bar_bg = "#3c3836"
     },
-    // 11. Solarized Dark - Popular Solarized dark theme
+    /* 11. Solarized Dark - Popular Solarized dark theme */
     {
         .name = "Solarized Dark",
         .description = "Precision colors for machines and people",
@@ -178,7 +178,7 @@ static const BrowserTheme themes[] = {
         .title_bar_border = "#268bd2",
         .bookmarks_bar_bg = "#073642"
     },
-    // 12. Ocean Blue - Fresh ocean blue theme
+    /* 12. Ocean Blue - Fresh ocean blue theme */
     {
         .name = "Ocean Blue",
         .description = "Fresh ocean blue theme with aqua accents",
@@ -198,7 +198,14 @@ static const BrowserTheme themes[] = {
 
 static const int num_themes = sizeof(themes) / sizeof(themes[0]);
 
-// Function to apply CSS for a theme
+/**
+ * Applies a theme to the browser by generating and loading CSS.
+ *
+ * @param browser BrowserWindow instance.
+ * @param theme   BrowserTheme to apply.
+ *
+ * @sideeffect Creates and applies CSS provider for the theme.
+ */
 void apply_theme(BrowserWindow *browser, const BrowserTheme *theme) {
     if (!browser || !theme) return;
 
@@ -233,7 +240,13 @@ void apply_theme(BrowserWindow *browser, const BrowserTheme *theme) {
     g_free(css);
 }
 
-// Callback when a theme button is clicked
+/**
+ * Callback for theme selection button click.
+ * Applies the selected theme to the browser.
+ *
+ * @param button    The button that was clicked.
+ * @param user_data BrowserWindow instance.
+ */
 static void on_theme_selected(GtkButton *button, gpointer user_data) {
     BrowserWindow *browser = (BrowserWindow *)user_data;
     const BrowserTheme *theme = (const BrowserTheme *)g_object_get_data(G_OBJECT(button), "theme-data");
@@ -244,6 +257,13 @@ static void on_theme_selected(GtkButton *button, gpointer user_data) {
     }
 }
 
+/**
+ * Callback for tab close button.
+ * Removes the specified tab from the notebook.
+ *
+ * @param button  The close button that was clicked.
+ * @param browser BrowserWindow instance.
+ */
 static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
 {
     GtkWidget *tab_child = g_object_get_data(G_OBJECT(button), "tab-child");
@@ -255,7 +275,13 @@ static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
     }
 }
 
-// Show themes tab with all available themes
+/**
+ * Displays the themes tab with all available browser themes.
+ *
+ * @param browser BrowserWindow instance.
+ *
+ * @sideeffect Adds a new tab to the notebook with theme selection UI.
+ */
 void show_themes_tab(BrowserWindow *browser) {
     GtkWidget *tab_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(tab_content), 15);
@@ -268,20 +294,20 @@ void show_themes_tab(BrowserWindow *browser) {
     gtk_label_set_markup(GTK_LABEL(subtitle), "<span size='11000'>Select a theme to customize your browser appearance</span>");
     gtk_box_pack_start(GTK_BOX(tab_content), subtitle, FALSE, FALSE, 0);
 
-    // Create scrolled window for themes
+    /* Create scrolled window for themes */
     GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
                                    GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
-    // Container for theme grid
+    /* Container for theme grid */
     GtkWidget *themes_container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(themes_container), 10);
 
-    // Add theme buttons in a grid
+    /* Add theme buttons in a list */
     for (int i = 0; i < num_themes; i++) {
         GtkWidget *theme_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
 
-        // Color preview
+        /* Color preview box */
         GtkWidget *color_preview = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
         gtk_widget_set_size_request(color_preview, 40, 40);
         GtkCssProvider *preview_provider = gtk_css_provider_new();
@@ -298,7 +324,7 @@ void show_themes_tab(BrowserWindow *browser) {
         g_object_unref(preview_provider);
         gtk_box_pack_start(GTK_BOX(theme_box), color_preview, FALSE, FALSE, 0);
 
-        // Theme info
+        /* Theme info box */
         GtkWidget *info_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
         GtkWidget *theme_name = gtk_label_new(NULL);
         gtk_label_set_markup(GTK_LABEL(theme_name),
@@ -312,7 +338,7 @@ void show_themes_tab(BrowserWindow *browser) {
         gtk_box_pack_start(GTK_BOX(info_box), theme_desc, FALSE, FALSE, 0);
         gtk_box_pack_start(GTK_BOX(theme_box), info_box, TRUE, TRUE, 0);
 
-        // Apply button
+        /* Apply button */
         GtkWidget *apply_btn = gtk_button_new_with_label("Apply");
         gtk_widget_set_size_request(apply_btn, 80, -1);
         g_object_set_data(G_OBJECT(apply_btn), "theme-data", (gpointer)&themes[i]);
@@ -321,7 +347,7 @@ void show_themes_tab(BrowserWindow *browser) {
 
         gtk_box_pack_start(GTK_BOX(themes_container), theme_box, FALSE, FALSE, 0);
 
-        // Add separator between themes
+        /* Add separator between themes */
         if (i < num_themes - 1) {
             GtkWidget *sep = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
             gtk_box_pack_start(GTK_BOX(themes_container), sep, FALSE, FALSE, 0);
@@ -335,7 +361,7 @@ void show_themes_tab(BrowserWindow *browser) {
 
     gtk_widget_show_all(tab_content);
 
-    // Create tab label with close button
+    /* Create tab label with close button */
     GtkWidget *tab_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     GtkWidget *tab_label = gtk_label_new("Themes");
     GtkWidget *close_btn = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
@@ -353,6 +379,14 @@ void show_themes_tab(BrowserWindow *browser) {
     gtk_notebook_set_current_page(GTK_NOTEBOOK(browser->notebook), page_num);
 }
 
+/**
+ * Displays the extensions tab.
+ * Currently shows a placeholder message as extension support is under development.
+ *
+ * @param browser BrowserWindow instance.
+ *
+ * @sideeffect Adds a new tab to the notebook with extensions information.
+ */
 void show_extensions_tab(BrowserWindow *browser)
 {
     GtkWidget *tab_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 20);
@@ -362,21 +396,21 @@ void show_extensions_tab(BrowserWindow *browser)
     gtk_label_set_markup(GTK_LABEL(title), "<span size='20000' weight='bold'>Extensions and Themes</span>");
     gtk_box_pack_start(GTK_BOX(tab_content), title, FALSE, FALSE, 0);
 
-    // No extensions installed message
+    /* No extensions installed message */
     GtkWidget *message = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(message),
         "<span size='12000'>No extensions installed</span>\n\n"
         "<span>Extension support coming soon!</span>");
     gtk_box_pack_start(GTK_BOX(tab_content), message, TRUE, TRUE, 0);
 
-    // Get more extensions button
+    /* Get more extensions button */
     GtkWidget *get_more_btn = gtk_button_new_with_label("Get more extensions");
     g_signal_connect_swapped(get_more_btn, "clicked", G_CALLBACK(load_url), browser);
     gtk_box_pack_start(GTK_BOX(tab_content), get_more_btn, FALSE, FALSE, 0);
 
     gtk_widget_show_all(tab_content);
 
-    // Create tab label with close button
+    /* Create tab label with close button */
     GtkWidget *tab_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     GtkWidget *tab_label = gtk_label_new("Extensions");
     GtkWidget *close_btn = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);

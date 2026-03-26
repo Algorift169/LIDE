@@ -11,18 +11,18 @@
 #include "text_editor.h"
 #include "window_resize.h"
 
-// Text buffer
+/* Text buffer */
 static GtkTextBuffer *buffer = NULL;
 static char *current_filename = NULL;
 static char *current_folder = NULL;
 
-// Dialog mode enum
+/* Dialog mode enumeration */
 typedef enum {
-    DIALOG_MODE_OPEN,
-    DIALOG_MODE_SAVE
+    DIALOG_MODE_OPEN,  /* File chooser for opening existing files */
+    DIALOG_MODE_SAVE   /* File chooser for saving to new location */
 } DialogMode;
 
-// Function prototypes
+/* Function prototypes */
 static void new_file(GtkButton *button, gpointer data);
 static void open_file(GtkButton *button, gpointer data);
 static void save_file(GtkButton *button, gpointer data);
@@ -35,7 +35,17 @@ static void on_home_clicked(GtkButton *button, gpointer dialog);
 static void on_dialog_response(GtkDialog *dialog, gint response_id, gpointer user_data);
 static void custom_file_dialog(GtkWidget *parent, DialogMode mode);
 
-// Dragging handlers
+/* Dragging handlers */
+
+/**
+ * Callback for mouse button press on editor window.
+ * Initiates window dragging or resizing based on cursor position.
+ *
+ * @param widget The window widget.
+ * @param event  Button event details.
+ * @param data   Editor instance.
+ * @return       TRUE to stop event propagation.
+ */
 static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data)
 
 {
@@ -43,7 +53,7 @@ static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpoint
 
     if (event->button == 1)
     {
-        // Check if cursor is on an edge (for resizing)
+        /* Check if cursor is on an edge (for resizing) */
         ed->resize_edge = detect_resize_edge_absolute(GTK_WINDOW(ed->window), event->x_root, event->y_root);
 
         if (ed->resize_edge != RESIZE_NONE) {
@@ -60,6 +70,15 @@ static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpoint
     return FALSE;
 }
 
+/**
+ * Callback for mouse button release on editor window.
+ * Terminates window dragging or resizing.
+ *
+ * @param widget The window widget.
+ * @param event  Button event details.
+ * @param data   Editor instance.
+ * @return       TRUE to stop event propagation.
+ */
 static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer data)
 
 {
@@ -74,12 +93,21 @@ static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpoi
     return FALSE;
 }
 
+/**
+ * Callback for mouse motion on editor window.
+ * Handles window dragging, resizing, and cursor updates.
+ *
+ * @param widget The window widget.
+ * @param event  Motion event details.
+ * @param data   Editor instance.
+ * @return       TRUE if event was handled.
+ */
 static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer data)
 
 {
     Editor *ed = (Editor *)data;
 
-    // Update cursor for resize hints
+    /* Update cursor for resize hints when not actively dragging/resizing */
     if (!ed->is_dragging && !ed->is_resizing) {
         int resize_edge = detect_resize_edge_absolute(GTK_WINDOW(ed->window), event->x_root, event->y_root);
         update_resize_cursor(widget, resize_edge);
@@ -113,13 +141,27 @@ static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoin
     return FALSE;
 }
 
-// Window control callbacks - FIXED maximize function
+/* Window control callbacks */
+
+/**
+ * Callback for minimize button click.
+ *
+ * @param button The button that was clicked.
+ * @param window The window to minimize.
+ */
 static void on_minimize_clicked(GtkButton *button, gpointer window)
 {
     (void)button;
     gtk_window_iconify(GTK_WINDOW(window));
 }
 
+/**
+ * Callback for maximize/restore button click.
+ * Toggles between maximized and restored states.
+ *
+ * @param button The button that was clicked.
+ * @param window The window to maximize or restore.
+ */
 static void on_maximize_clicked(GtkButton *button, gpointer window)
 {
     (void)button;
@@ -132,29 +174,50 @@ static void on_maximize_clicked(GtkButton *button, gpointer window)
     }
 }
 
-// Track window state changes to update maximize button
+/**
+ * Callback for window state changes.
+ * Updates the maximize button label when window is maximized or restored.
+ *
+ * @param window The window whose state changed.
+ * @param event  Window state event details.
+ * @param data   Maximize button widget.
+ * @return       FALSE to allow further processing.
+ */
 static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *event, gpointer data)
 {
     GtkButton *max_btn = GTK_BUTTON(data);
     
     if (event->new_window_state & GDK_WINDOW_STATE_MAXIMIZED) {
-        gtk_button_set_label(max_btn, "❐"); // Restore symbol when maximized
+        gtk_button_set_label(max_btn, "❐"); /* Restore symbol when maximized */
         gtk_widget_set_tooltip_text(GTK_WIDGET(max_btn), "Restore");
     } else {
-        gtk_button_set_label(max_btn, "□"); // Maximize symbol when normal
+        gtk_button_set_label(max_btn, "□"); /* Maximize symbol when normal */
         gtk_widget_set_tooltip_text(GTK_WIDGET(max_btn), "Maximize");
     }
     
     return FALSE;
 }
 
+/**
+ * Callback for close button click.
+ *
+ * @param button The button that was clicked.
+ * @param window The window to close.
+ */
 static void on_close_clicked(GtkButton *button, gpointer window)
 {
     (void)button;
     gtk_window_close(GTK_WINDOW(window));
 }
 
-// File operations
+/* File operations */
+
+/**
+ * Creates a new empty document.
+ *
+ * @param button The button that was clicked (unused).
+ * @param data   The parent window.
+ */
 static void new_file(GtkButton *button, gpointer data)
 
 {
@@ -168,7 +231,15 @@ static void new_file(GtkButton *button, gpointer data)
     gtk_window_set_title(GTK_WINDOW(window), "BlackLine Editor - Untitled");
 }
 
-// Directory navigation functions
+/* Directory navigation functions for file dialog */
+
+/**
+ * Callback for Up button in file dialog.
+ * Navigates to parent directory.
+ *
+ * @param button The button that was clicked.
+ * @param dialog The file dialog.
+ */
 static void on_up_clicked(GtkButton *button, gpointer dialog)
 
 {
@@ -178,23 +249,28 @@ static void on_up_clicked(GtkButton *button, gpointer dialog)
         g_free(current_folder);
         current_folder = parent;
         
-        // Get mode from dialog
+        /* Get mode from dialog */
         DialogMode mode = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(dialog), "dialog-mode"));
         
-        // Get the parent window
+        /* Get the parent window */
         GtkWindow *parent_win = gtk_window_get_transient_for(GTK_WINDOW(dialog));
         GtkWidget *parent_widget = GTK_WIDGET(parent_win);
         
-        // Destroy old dialog
+        /* Destroy old dialog and create new one with updated directory */
         gtk_widget_destroy(GTK_WIDGET(dialog));
-        
-        // Create new dialog with same mode
         custom_file_dialog(parent_widget, mode);
     } else {
         g_free(parent);
     }
 }
 
+/**
+ * Callback for Home button in file dialog.
+ * Navigates to user's home directory.
+ *
+ * @param button The button that was clicked.
+ * @param dialog The file dialog.
+ */
 static void on_home_clicked(GtkButton *button, gpointer dialog)
 
 {
@@ -203,20 +279,26 @@ static void on_home_clicked(GtkButton *button, gpointer dialog)
     g_free(current_folder);
     current_folder = g_strdup(home);
     
-    // Get mode from dialog
+    /* Get mode from dialog */
     DialogMode mode = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(dialog), "dialog-mode"));
     
-    // Get the parent window
+    /* Get the parent window */
     GtkWindow *parent_win = gtk_window_get_transient_for(GTK_WINDOW(dialog));
     GtkWidget *parent_widget = GTK_WIDGET(parent_win);
     
-    // Destroy old dialog
+    /* Destroy old dialog and create new one with home directory */
     gtk_widget_destroy(GTK_WIDGET(dialog));
-    
-    // Create new dialog with same mode
     custom_file_dialog(parent_widget, mode);
 }
 
+/**
+ * Callback for file list row activation in file dialog.
+ * Enters directory or selects file.
+ *
+ * @param listbox The GtkListBox containing files.
+ * @param row     The activated row.
+ * @param dialog  The file dialog.
+ */
 static void on_listbox_row_activated(GtkListBox *listbox, GtkListBoxRow *row, gpointer dialog)
 
 {
@@ -225,7 +307,7 @@ static void on_listbox_row_activated(GtkListBox *listbox, GtkListBoxRow *row, gp
     GtkWidget *label = gtk_bin_get_child(GTK_BIN(row_widget));
     const char *filename = gtk_label_get_text(GTK_LABEL(label));
     
-    // Skip [DIR] prefix if present
+    /* Skip [DIR] prefix if present */
     if (strncmp(filename, "[DIR] ", 6) == 0) {
         filename = filename + 6;
     }
@@ -233,26 +315,24 @@ static void on_listbox_row_activated(GtkListBox *listbox, GtkListBoxRow *row, gp
     gpointer is_dir_ptr = g_object_get_data(G_OBJECT(row_widget), "is_dir");
     int is_dir = GPOINTER_TO_INT(is_dir_ptr);
     
-    // Get mode from dialog
+    /* Get mode from dialog */
     DialogMode mode = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(dialog), "dialog-mode"));
     
     if (is_dir) {
-        // Enter directory
+        /* Enter directory */
         char *new_path = g_build_filename(current_folder, filename, NULL);
         g_free(current_folder);
         current_folder = new_path;
         
-        // Get the parent window
+        /* Get the parent window */
         GtkWindow *parent_win = gtk_window_get_transient_for(GTK_WINDOW(dialog));
         GtkWidget *parent_widget = GTK_WIDGET(parent_win);
         
-        // Destroy old dialog
+        /* Destroy old dialog and create new one with updated directory */
         gtk_widget_destroy(GTK_WIDGET(dialog));
-        
-        // Create new dialog with same mode
         custom_file_dialog(parent_widget, mode);
     } else {
-        // Select file - set entry text
+        /* Select file - set entry text */
         GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
         GList *children = gtk_container_get_children(GTK_CONTAINER(content));
         for (GList *c = children; c; c = c->next) {
@@ -264,11 +344,6 @@ static void on_listbox_row_activated(GtkListBox *listbox, GtkListBoxRow *row, gp
                         for (GList *nc = name_box_children; nc; nc = nc->next) {
                             if (GTK_IS_ENTRY(nc->data)) {
                                 gtk_entry_set_text(GTK_ENTRY(nc->data), filename);
-                                
-                                // eneo janina
-                                if (mode == DIALOG_MODE_OPEN) {
-                                    //JANINA KI KORmu
-                                }
                             }
                         }
                         g_list_free(name_box_children);
@@ -281,12 +356,19 @@ static void on_listbox_row_activated(GtkListBox *listbox, GtkListBoxRow *row, gp
     }
 }
 
+/**
+ * Callback for Open button in file dialog.
+ * Loads the selected file into the editor.
+ *
+ * @param button The button that was clicked.
+ * @param dialog The file dialog.
+ */
 static void on_open_clicked(GtkButton *button, gpointer dialog)
 
 {
     (void)button;
     
-    // Get filename from entry
+    /* Get filename from entry */
     GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
     char *filename = NULL;
     
@@ -313,7 +395,7 @@ static void on_open_clicked(GtkButton *button, gpointer dialog)
     if (filename && strlen(filename) > 0) {
         char *fullpath = g_build_filename(current_folder, filename, NULL);
         
-        // Read file
+        /* Read file contents */
         FILE *f = fopen(fullpath, "r");
         if (f) {
             fseek(f, 0, SEEK_END);
@@ -329,11 +411,11 @@ static void on_open_clicked(GtkButton *button, gpointer dialog)
             fclose(f);
             g_free(content);
             
-            // Update current filename
+            /* Update current filename */
             if (current_filename) g_free(current_filename);
             current_filename = fullpath;
             
-            // Update window title
+            /* Update window title */
             GtkWindow *parent_win = gtk_window_get_transient_for(GTK_WINDOW(dialog));
             if (parent_win) {
                 GtkWidget *window = GTK_WIDGET(parent_win);
@@ -351,12 +433,19 @@ static void on_open_clicked(GtkButton *button, gpointer dialog)
     gtk_widget_destroy(GTK_WIDGET(dialog));
 }
 
+/**
+ * Callback for Save button in file dialog.
+ * Saves the current document to the selected file.
+ *
+ * @param button The button that was clicked.
+ * @param dialog The file dialog.
+ */
 static void on_save_clicked(GtkButton *button, gpointer dialog)
 
 {
     (void)button;
     
-    // Get filename from entry
+    /* Get filename from entry */
     GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
     char *filename = NULL;
     
@@ -383,23 +472,23 @@ static void on_save_clicked(GtkButton *button, gpointer dialog)
     if (filename && strlen(filename) > 0) {
         char *fullpath = g_build_filename(current_folder, filename, NULL);
         
-        // Get text from buffer
+        /* Get text from buffer */
         GtkTextIter start, end;
         gtk_text_buffer_get_start_iter(buffer, &start);
         gtk_text_buffer_get_end_iter(buffer, &end);
         char *text = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
         
-        // Write file
+        /* Write file */
         FILE *f = fopen(fullpath, "w");
         if (f) {
             fprintf(f, "%s", text);
             fclose(f);
             
-            // Update current filename
+            /* Update current filename */
             if (current_filename) g_free(current_filename);
             current_filename = fullpath;
             
-            // Update window title
+            /* Update window title */
             GtkWindow *parent_win = gtk_window_get_transient_for(GTK_WINDOW(dialog));
             if (parent_win) {
                 GtkWidget *window = GTK_WIDGET(parent_win);
@@ -417,6 +506,13 @@ static void on_save_clicked(GtkButton *button, gpointer dialog)
     gtk_widget_destroy(GTK_WIDGET(dialog));
 }
 
+/**
+ * Callback for dialog response (close button or escape key).
+ *
+ * @param dialog      The dialog.
+ * @param response_id Response ID.
+ * @param user_data   User data (unused).
+ */
 static void on_dialog_response(GtkDialog *dialog, gint response_id, gpointer user_data)
 
 {
@@ -426,7 +522,12 @@ static void on_dialog_response(GtkDialog *dialog, gint response_id, gpointer use
     }
 }
 
-// Unified file dialog function
+/**
+ * Creates and displays a custom file dialog.
+ *
+ * @param parent Parent window for the dialog.
+ * @param mode   DIALOG_MODE_OPEN or DIALOG_MODE_SAVE.
+ */
 static void custom_file_dialog(GtkWidget *parent, DialogMode mode)
 
 {
@@ -449,7 +550,7 @@ static void custom_file_dialog(GtkWidget *parent, DialogMode mode)
         current_folder = g_strdup(home);
     }
     
-    // Create dialog with appropriate title
+    /* Create dialog with appropriate title */
     dialog = gtk_dialog_new();
     if (mode == DIALOG_MODE_OPEN) {
         gtk_window_set_title(GTK_WINDOW(dialog), "Open File");
@@ -462,7 +563,7 @@ static void custom_file_dialog(GtkWidget *parent, DialogMode mode)
     gtk_window_set_default_size(GTK_WINDOW(dialog), 450, 400);
     gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_CENTER_ON_PARENT);
     
-    // Store mode in dialog for later use
+    /* Store mode in dialog for later use */
     g_object_set_data(G_OBJECT(dialog), "dialog-mode", GINT_TO_POINTER(mode));
     
     content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
@@ -471,7 +572,7 @@ static void custom_file_dialog(GtkWidget *parent, DialogMode mode)
     gtk_container_set_border_width(GTK_CONTAINER(vbox), 10);
     gtk_box_pack_start(GTK_BOX(content), vbox, TRUE, TRUE, 0);
     
-    // Path bar
+    /* Path bar with navigation buttons */
     path_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
     gtk_box_pack_start(GTK_BOX(vbox), path_box, FALSE, FALSE, 0);
     
@@ -489,7 +590,7 @@ static void custom_file_dialog(GtkWidget *parent, DialogMode mode)
     gtk_label_set_ellipsize(GTK_LABEL(path_label), PANGO_ELLIPSIZE_START);
     gtk_box_pack_start(GTK_BOX(path_box), path_label, TRUE, TRUE, 5);
     
-    // File list
+    /* File list scrolled window */
     scrolled = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
                                    GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
@@ -499,14 +600,14 @@ static void custom_file_dialog(GtkWidget *parent, DialogMode mode)
     listbox = gtk_list_box_new();
     gtk_container_add(GTK_CONTAINER(scrolled), listbox);
     
-    // Populate file list
+    /* Populate file list */
     DIR *dir = opendir(current_folder);
     if (dir) {
         struct dirent *entry;
         while ((entry = readdir(dir)) != NULL) {
-            if (entry->d_name[0] == '.') continue; // Skip hidden files
+            if (entry->d_name[0] == '.') continue; /* Skip hidden files */
             
-            // Get file/directory info
+            /* Get file/directory info */
             char *fullpath = g_build_filename(current_folder, entry->d_name, NULL);
             struct stat st;
             if (stat(fullpath, &st) == 0) {
@@ -533,7 +634,7 @@ static void custom_file_dialog(GtkWidget *parent, DialogMode mode)
         closedir(dir);
     }
     
-    // File name entry
+    /* File name entry */
     GtkWidget *name_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     gtk_box_pack_start(GTK_BOX(vbox), name_box, FALSE, FALSE, 0);
     
@@ -543,7 +644,7 @@ static void custom_file_dialog(GtkWidget *parent, DialogMode mode)
     entry = gtk_entry_new();
     gtk_box_pack_start(GTK_BOX(name_box), entry, TRUE, TRUE, 0);
     
-    // Set default filename for save dialog
+    /* Set default filename for save dialog */
     if (mode == DIALOG_MODE_SAVE && current_filename) {
         char *basename = g_path_get_basename(current_filename);
         gtk_entry_set_text(GTK_ENTRY(entry), basename);
@@ -552,7 +653,7 @@ static void custom_file_dialog(GtkWidget *parent, DialogMode mode)
         gtk_entry_set_text(GTK_ENTRY(entry), "untitled.txt");
     }
     
-    // Buttons
+    /* Action buttons */
     button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     gtk_box_pack_start(GTK_BOX(vbox), button_box, FALSE, FALSE, 0);
     
@@ -569,15 +670,19 @@ static void custom_file_dialog(GtkWidget *parent, DialogMode mode)
     }
     gtk_box_pack_start(GTK_BOX(button_box), action_btn, TRUE, TRUE, 0);
     
-    // Handle row activation
+    /* Connect signals */
     g_signal_connect(listbox, "row-activated", G_CALLBACK(on_listbox_row_activated), dialog);
-    
-    // Handle dialog close
     g_signal_connect(dialog, "response", G_CALLBACK(on_dialog_response), NULL);
     
     gtk_widget_show_all(dialog);
 }
 
+/**
+ * Callback for Open button in toolbar.
+ *
+ * @param button The button that was clicked.
+ * @param data   The parent window.
+ */
 static void open_file(GtkButton *button, gpointer data)
 
 {
@@ -586,6 +691,12 @@ static void open_file(GtkButton *button, gpointer data)
     custom_file_dialog(window, DIALOG_MODE_OPEN);
 }
 
+/**
+ * Callback for Save button in toolbar.
+ *
+ * @param button The button that was clicked.
+ * @param data   The parent window.
+ */
 static void save_file(GtkButton *button, gpointer data)
 
 {
@@ -593,6 +704,7 @@ static void save_file(GtkButton *button, gpointer data)
     GtkWidget *window = GTK_WIDGET(data);
     
     if (current_filename) {
+        /* Save to existing file */
         GtkTextIter start, end;
         gtk_text_buffer_get_start_iter(buffer, &start);
         gtk_text_buffer_get_end_iter(buffer, &end);
@@ -605,10 +717,17 @@ static void save_file(GtkButton *button, gpointer data)
         }
         g_free(text);
     } else {
+        /* No filename yet - show save dialog */
         custom_file_dialog(window, DIALOG_MODE_SAVE);
     }
 }
 
+/**
+ * Callback for Save As button in toolbar.
+ *
+ * @param button The button that was clicked.
+ * @param data   The parent window.
+ */
 static void save_file_as(GtkButton *button, gpointer data)
 
 {
@@ -617,12 +736,22 @@ static void save_file_as(GtkButton *button, gpointer data)
     custom_file_dialog(window, DIALOG_MODE_SAVE);
 }
 
+/**
+ * Application activation callback.
+ * Creates and displays the text editor window.
+ *
+ * @param app        The GtkApplication instance.
+ * @param user_data  User data (unused).
+ *
+ * @sideeffect Creates editor UI with text view and toolbar.
+ * @sideeffect Initializes edit features and undo history.
+ */
 static void activate(GtkApplication *app, gpointer user_data)
 
 {
     (void)user_data;
 
-    // Create Editor struct
+    /* Create Editor struct */
     Editor *ed = g_new(Editor, 1);
     ed->current_file = NULL;
     ed->modified = FALSE;
@@ -641,7 +770,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     GtkWidget *edit_menu_btn;
     GtkWidget *edit_menu;
     GtkWidget *menu_item;
-    GtkWidget *max_btn;  // Store maximize button for state tracking
+    GtkWidget *max_btn;  /* Store maximize button for state tracking */
 
     window = gtk_application_window_new(app);
     ed->window = window;
@@ -649,7 +778,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_window_set_default_size(GTK_WINDOW(window), 800, 600);
     gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
 
-    // Enable events for dragging
+    /* Enable events for dragging */
     gtk_widget_add_events(window, GDK_BUTTON_PRESS_MASK |
                                    GDK_BUTTON_RELEASE_MASK |
                                    GDK_POINTER_MOTION_MASK);
@@ -657,11 +786,11 @@ static void activate(GtkApplication *app, gpointer user_data)
     g_signal_connect(window, "button-release-event", G_CALLBACK(on_button_release), ed);
     g_signal_connect(window, "motion-notify-event", G_CALLBACK(on_motion_notify), ed);
 
-    // Main vertical box
+    /* Main vertical box */
     vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_container_add(GTK_CONTAINER(window), vbox);
 
-    // Custom title bar with controls
+    /* Custom title bar with controls */
     GtkWidget *title_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     gtk_widget_set_name(title_bar, "title-bar");
     gtk_widget_set_size_request(title_bar, -1, 30);
@@ -674,35 +803,34 @@ static void activate(GtkApplication *app, gpointer user_data)
     GtkWidget *window_buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
     gtk_box_pack_end(GTK_BOX(title_bar), window_buttons, FALSE, FALSE, 5);
 
-    // Minimize button
+    /* Minimize button */
     GtkWidget *min_btn = gtk_button_new_with_label("─");
     gtk_widget_set_size_request(min_btn, 30, 25);
     g_signal_connect(min_btn, "clicked", G_CALLBACK(on_minimize_clicked), window);
     gtk_box_pack_start(GTK_BOX(window_buttons), min_btn, FALSE, FALSE, 0);
 
-    // Maximize button - store reference for state tracking
+    /* Maximize button - store reference for state tracking */
     max_btn = gtk_button_new_with_label("□");
     gtk_widget_set_size_request(max_btn, 30, 25);
     g_signal_connect(max_btn, "clicked", G_CALLBACK(on_maximize_clicked), window);
-    // Connect window state changes to update button appearance
     g_signal_connect(window, "window-state-event", G_CALLBACK(on_window_state_changed), max_btn);
     gtk_box_pack_start(GTK_BOX(window_buttons), max_btn, FALSE, FALSE, 0);
 
-    // Close button
+    /* Close button */
     GtkWidget *close_btn = gtk_button_new_with_label("✕");
     gtk_widget_set_size_request(close_btn, 30, 25);
     g_signal_connect(close_btn, "clicked", G_CALLBACK(on_close_clicked), window);
     gtk_box_pack_start(GTK_BOX(window_buttons), close_btn, FALSE, FALSE, 0);
 
-    // Separator
+    /* Separator */
     GtkWidget *sep = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_box_pack_start(GTK_BOX(vbox), sep, FALSE, FALSE, 0);
 
-    // Toolbar
+    /* Toolbar */
     toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
     gtk_box_pack_start(GTK_BOX(vbox), toolbar, FALSE, FALSE, 5);
 
-    // File operations buttons
+    /* File operations buttons */
     GtkWidget *new_btn = gtk_button_new_with_label("New");
     g_signal_connect(new_btn, "clicked", G_CALLBACK(new_file), window);
     gtk_box_pack_start(GTK_BOX(toolbar), new_btn, FALSE, FALSE, 0);
@@ -719,35 +847,35 @@ static void activate(GtkApplication *app, gpointer user_data)
     g_signal_connect(save_as_btn, "clicked", G_CALLBACK(save_file_as), window);
     gtk_box_pack_start(GTK_BOX(toolbar), save_as_btn, FALSE, FALSE, 0);
 
-    // Separator
+    /* Separator */
     GtkWidget *toolbar_sep = gtk_separator_new(GTK_ORIENTATION_VERTICAL);
     gtk_box_pack_start(GTK_BOX(toolbar), toolbar_sep, FALSE, FALSE, 5);
 
-    // Scrolled window for text view
+    /* Scrolled window for text view */
     scrolled = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
                                    GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_box_pack_start(GTK_BOX(vbox), scrolled, TRUE, TRUE, 5);
 
-    // Text view
+    /* Text view */
     text_view = gtk_text_view_new();
     ed->text_view = text_view;
     ed->buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view));
     buffer = ed->buffer;
     gtk_container_add(GTK_CONTAINER(scrolled), text_view);
 
-    // Initialize edit features
+    /* Initialize edit features */
     edit_init(buffer);
 
-    // Edit Menu Button
+    /* Edit Menu Button */
     edit_menu_btn = gtk_menu_button_new();
     gtk_button_set_label(GTK_BUTTON(edit_menu_btn), "Edit");
     gtk_box_pack_start(GTK_BOX(toolbar), edit_menu_btn, FALSE, FALSE, 0);
 
-    // Create edit menu
+    /* Create edit menu */
     edit_menu = gtk_menu_new();
 
-    // Undo/Redo section
+    /* Undo/Redo section */
     menu_item = gtk_menu_item_new_with_label("Undo");
     g_signal_connect(menu_item, "activate", G_CALLBACK(edit_undo), text_view);
     gtk_menu_shell_append(GTK_MENU_SHELL(edit_menu), menu_item);
@@ -759,7 +887,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     menu_item = gtk_separator_menu_item_new();
     gtk_menu_shell_append(GTK_MENU_SHELL(edit_menu), menu_item);
 
-    // Cut/Copy/Paste section
+    /* Cut/Copy/Paste section */
     menu_item = gtk_menu_item_new_with_label("Cut");
     g_signal_connect(menu_item, "activate", G_CALLBACK(edit_cut), text_view);
     gtk_menu_shell_append(GTK_MENU_SHELL(edit_menu), menu_item);
@@ -779,7 +907,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     menu_item = gtk_separator_menu_item_new();
     gtk_menu_shell_append(GTK_MENU_SHELL(edit_menu), menu_item);
 
-    // Select All
+    /* Select All */
     menu_item = gtk_menu_item_new_with_label("Select All");
     g_signal_connect(menu_item, "activate", G_CALLBACK(edit_select_all), text_view);
     gtk_menu_shell_append(GTK_MENU_SHELL(edit_menu), menu_item);
@@ -787,7 +915,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     menu_item = gtk_separator_menu_item_new();
     gtk_menu_shell_append(GTK_MENU_SHELL(edit_menu), menu_item);
 
-    // Find/Replace/Goto section
+    /* Find/Replace/Goto section */
     menu_item = gtk_menu_item_new_with_label("Find...");
     g_signal_connect(menu_item, "activate", G_CALLBACK(edit_find), text_view);
     gtk_menu_shell_append(GTK_MENU_SHELL(edit_menu), menu_item);
@@ -803,7 +931,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     menu_item = gtk_separator_menu_item_new();
     gtk_menu_shell_append(GTK_MENU_SHELL(edit_menu), menu_item);
 
-    // Text Transformation section
+    /* Text Transformation section */
     menu_item = gtk_menu_item_new_with_label("To Uppercase");
     g_signal_connect(menu_item, "activate", G_CALLBACK(edit_to_uppercase), text_view);
     gtk_menu_shell_append(GTK_MENU_SHELL(edit_menu), menu_item);
@@ -819,7 +947,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     menu_item = gtk_separator_menu_item_new();
     gtk_menu_shell_append(GTK_MENU_SHELL(edit_menu), menu_item);
 
-    // Line Operations section
+    /* Line Operations section */
     menu_item = gtk_menu_item_new_with_label("Toggle Comment");
     g_signal_connect(menu_item, "activate", G_CALLBACK(edit_toggle_comment), text_view);
     gtk_menu_shell_append(GTK_MENU_SHELL(edit_menu), menu_item);
@@ -851,7 +979,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     menu_item = gtk_separator_menu_item_new();
     gtk_menu_shell_append(GTK_MENU_SHELL(edit_menu), menu_item);
 
-    // Print section
+    /* Print section */
     menu_item = gtk_menu_item_new_with_label("Print...");
     g_signal_connect(menu_item, "activate", G_CALLBACK(edit_print), text_view);
     gtk_menu_shell_append(GTK_MENU_SHELL(edit_menu), menu_item);
@@ -859,12 +987,12 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_widget_show_all(edit_menu);
     gtk_menu_button_set_popup(GTK_MENU_BUTTON(edit_menu_btn), GTK_WIDGET(edit_menu));
 
-    // Print button to toolbar for quick access
+    /* Print button to toolbar for quick access */
     GtkWidget *print_btn = gtk_button_new_with_label("Print");
     g_signal_connect(print_btn, "clicked", G_CALLBACK(edit_print), text_view);
     gtk_box_pack_start(GTK_BOX(toolbar), print_btn, FALSE, FALSE, 0);
 
-    // CSS
+    /* CSS styling */
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
         "window { background-color: #000000; color: #ffffff; }\n"
@@ -893,6 +1021,13 @@ static void activate(GtkApplication *app, gpointer user_data)
     g_object_set_data_full(G_OBJECT(window), "editor", ed, g_free);
 }
 
+/**
+ * Application entry point.
+ *
+ * @param argc Argument count from command line.
+ * @param argv Argument vector from command line.
+ * @return     Exit status from g_application_run().
+ */
 int main(int argc, char **argv)
 
 {

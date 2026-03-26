@@ -14,14 +14,19 @@
 
 Settings settings;
 
-// Default values
+/* Default values */
 static const char *default_home_page = "about:blank";
 static const char *default_custom_search = "https://www.google.com/search?q=%s";
 static const char *default_download_dir = "Downloads";
 static const char *default_user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 static const char *default_font_family = "Sans";
 
-// Ensure config directory exists
+/**
+ * Ensures the configuration directory exists.
+ * Creates ~/.config/lide/voidfox with 0700 permissions.
+ *
+ * @sideeffect Creates directory if missing.
+ */
 static void ensure_config_dir(void)
 {
     char *path = g_build_filename(g_get_home_dir(), CONFIG_DIR, NULL);
@@ -29,25 +34,32 @@ static void ensure_config_dir(void)
     g_free(path);
 }
 
-// Get full path to settings file
+/**
+ * Gets the full path to the settings file.
+ *
+ * @return Newly allocated string containing the settings file path.
+ *         Caller must free with g_free().
+ */
 static char* get_settings_path(void)
 {
     return g_build_filename(g_get_home_dir(), CONFIG_DIR, SETTINGS_FILE, NULL);
 }
 
-// Initialize default settings
+/**
+ * Initializes settings with default values.
+ */
 static void init_default_settings(void)
 {
-    // General
+    /* General */
     settings.home_page = g_strdup(default_home_page);
     settings.startup_behavior = STARTUP_HOME_PAGE;
-    settings.startup_pages = NULL;   // not used unless STARTUP_SPECIFIC_PAGES
+    settings.startup_pages = NULL;   /* not used unless STARTUP_SPECIFIC_PAGES */
 
-    // Search
+    /* Search */
     settings.search_engine = SEARCH_GOOGLE;
     settings.custom_search_url = g_strdup(default_custom_search);
 
-    // Appearance
+    /* Appearance */
     settings.dark_mode = TRUE;
     settings.font_size = 12;
     settings.font_family = g_strdup(default_font_family);
@@ -57,7 +69,7 @@ static void init_default_settings(void)
     settings.show_status_bar = TRUE;
     settings.theme_color = 0;
 
-    // Privacy & Security
+    /* Privacy & Security */
     settings.enable_javascript = TRUE;
     settings.enable_cookies = TRUE;
     settings.enable_images = TRUE;
@@ -78,7 +90,7 @@ static void init_default_settings(void)
     settings.block_fingerprinting = FALSE;
     settings.blocked_sites = g_strdup("");
 
-    // Permissions
+    /* Permissions */
     settings.location_enabled = FALSE;
     settings.camera_enabled = FALSE;
     settings.microphone_enabled = FALSE;
@@ -88,17 +100,17 @@ static void init_default_settings(void)
     settings.usb_enabled = FALSE;
     settings.gyroscope_enabled = FALSE;
 
-    // Downloads
+    /* Downloads */
     settings.download_dir = g_strdup(default_download_dir);
     settings.ask_download_location = TRUE;
     settings.show_downloads_when_done = TRUE;
 
-    // Tabs & Windows
+    /* Tabs & Windows */
     settings.tab_behavior = TAB_BEHAVIOR_MAINTAIN;
     settings.restore_session_on_startup = FALSE;
     settings.enable_tab_groups = TRUE;
 
-    // Content Settings
+    /* Content Settings */
     settings.enable_sound = TRUE;
     settings.enable_autoplay_video = FALSE;
     settings.enable_autoplay_audio = FALSE;
@@ -106,46 +118,49 @@ static void init_default_settings(void)
     settings.block_ads = FALSE;
     settings.enable_reading_mode = TRUE;
 
-    // Accessibility
+    /* Accessibility */
     settings.text_scaled = FALSE;
     settings.text_scale_percentage = 100;
     settings.high_contrast_mode = FALSE;
     settings.minimize_ui = FALSE;
     settings.show_page_colors = TRUE;
 
-    // Language & Translation
+    /* Language & Translation */
     settings.language = g_strdup("en");
     settings.enable_translation = FALSE;
     settings.translation_language = g_strdup("");
 
-    // System
+    /* System */
     settings.hardware_acceleration = FALSE;
     settings.user_agent = g_strdup(default_user_agent);
     settings.use_system_title_bar = TRUE;
     settings.open_links_in_background = FALSE;
     settings.enable_system_proxy = TRUE;
 
-    // Cache & Storage
+    /* Cache & Storage */
     settings.cache_size = CACHE_UNLIMITED;
     settings.cache_enabled = TRUE;
-    settings.cookie_expiration_days = 0;  // Session cookies
+    settings.cookie_expiration_days = 0;  /* Session cookies */
     settings.offline_content_enabled = FALSE;
 
-    // History & Data
+    /* History & Data */
     settings.remember_history = TRUE;
     settings.remember_form_entries = TRUE;
-    settings.history_days_to_keep = 0;  // Forever
+    settings.history_days_to_keep = 0;  /* Forever */
     settings.clear_cache_on_exit = FALSE;
     settings.clear_cookies_on_exit = FALSE;
     settings.clear_history_on_exit = FALSE;
 
-    // Advanced
+    /* Advanced */
     settings.startup_command = g_strdup("");
     settings.enable_developer_tools = FALSE;
     settings.enable_debugging = FALSE;
 }
 
-// Free any allocated strings inside settings (called before overwriting)
+/**
+ * Frees all allocated strings inside settings.
+ * Called before overwriting settings during load.
+ */
 static void free_settings_strings(void)
 {
     g_free(settings.home_page);
@@ -163,7 +178,12 @@ static void free_settings_strings(void)
     }
 }
 
-// Load settings from file
+/**
+ * Loads settings from the configuration file.
+ * If the file doesn't exist, initializes with defaults and saves them.
+ *
+ * @sideeffect Populates the global settings structure.
+ */
 void load_settings(void)
 {
     ensure_config_dir();
@@ -172,12 +192,12 @@ void load_settings(void)
     if (!f) {
         printf("Settings: no settings file found, using defaults\n");
         init_default_settings();
-        save_settings(); // save defaults
+        save_settings(); /* save defaults */
         g_free(path);
         return;
     }
 
-    // Start with defaults, then override with file
+    /* Start with defaults, then override with file */
     init_default_settings();
 
     char line[512];
@@ -200,7 +220,7 @@ void load_settings(void)
                 settings.startup_behavior = sb;
         }
         else if (strcmp(key, "startup_pages") == 0) {
-            // Simple: split by '|' into a list
+            /* Simple: split by '|' into a list */
             if (settings.startup_pages)
                 g_list_free_full(settings.startup_pages, g_free);
             settings.startup_pages = NULL;
@@ -458,7 +478,11 @@ void load_settings(void)
     printf("Settings: loaded\n");
 }
 
-// Save settings to file
+/**
+ * Saves current settings to the configuration file.
+ *
+ * @sideeffect Writes settings to disk.
+ */
 void save_settings(void)
 {
     ensure_config_dir();
@@ -470,7 +494,7 @@ void save_settings(void)
         return;
     }
 
-    // General
+    /* General */
     fprintf(f, "home_page=%s\n", settings.home_page);
     fprintf(f, "startup_behavior=%d\n", settings.startup_behavior);
     if (settings.startup_pages) {
@@ -485,11 +509,11 @@ void save_settings(void)
         fprintf(f, "startup_pages=\n");
     }
 
-    // Search
+    /* Search */
     fprintf(f, "search_engine=%d\n", settings.search_engine);
     fprintf(f, "custom_search_url=%s\n", settings.custom_search_url);
 
-    // Appearance
+    /* Appearance */
     fprintf(f, "dark_mode=%d\n", settings.dark_mode);
     fprintf(f, "font_size=%d\n", settings.font_size);
     fprintf(f, "font_family=%s\n", settings.font_family);
@@ -497,7 +521,7 @@ void save_settings(void)
     fprintf(f, "show_bookmarks_bar=%d\n", settings.show_bookmarks_bar);
     fprintf(f, "show_home_button=%d\n", settings.show_home_button);
 
-    // Privacy & Security
+    /* Privacy & Security */
     fprintf(f, "enable_javascript=%d\n", settings.enable_javascript);
     fprintf(f, "enable_cookies=%d\n", settings.enable_cookies);
     fprintf(f, "enable_images=%d\n", settings.enable_images);
@@ -510,7 +534,7 @@ void save_settings(void)
     fprintf(f, "remember_passwords=%d\n", settings.remember_passwords);
     fprintf(f, "autofill_enabled=%d\n", settings.autofill_enabled);
 
-    // Privacy & Security (Additional)
+    /* Privacy & Security (Additional) */
     fprintf(f, "block_third_party_cookies=%d\n", settings.block_third_party_cookies);
     fprintf(f, "https_only_mode=%d\n", settings.https_only_mode);
     fprintf(f, "block_mixed_content=%d\n", settings.block_mixed_content);
@@ -520,11 +544,11 @@ void save_settings(void)
     fprintf(f, "block_fingerprinting=%d\n", settings.block_fingerprinting);
     fprintf(f, "blocked_sites=%s\n", settings.blocked_sites);
 
-    // Appearance (Additional)
+    /* Appearance (Additional) */
     fprintf(f, "show_status_bar=%d\n", settings.show_status_bar);
     fprintf(f, "theme_color=%d\n", settings.theme_color);
 
-    // Permissions
+    /* Permissions */
     fprintf(f, "location_enabled=%d\n", settings.location_enabled);
     fprintf(f, "camera_enabled=%d\n", settings.camera_enabled);
     fprintf(f, "microphone_enabled=%d\n", settings.microphone_enabled);
@@ -534,17 +558,17 @@ void save_settings(void)
     fprintf(f, "usb_enabled=%d\n", settings.usb_enabled);
     fprintf(f, "gyroscope_enabled=%d\n", settings.gyroscope_enabled);
 
-    // Downloads
+    /* Downloads */
     fprintf(f, "download_dir=%s\n", settings.download_dir);
     fprintf(f, "ask_download_location=%d\n", settings.ask_download_location);
     fprintf(f, "show_downloads_when_done=%d\n", settings.show_downloads_when_done);
 
-    // Tabs & Windows
+    /* Tabs & Windows */
     fprintf(f, "tab_behavior=%d\n", settings.tab_behavior);
     fprintf(f, "restore_session_on_startup=%d\n", settings.restore_session_on_startup);
     fprintf(f, "enable_tab_groups=%d\n", settings.enable_tab_groups);
 
-    // Content Settings
+    /* Content Settings */
     fprintf(f, "enable_sound=%d\n", settings.enable_sound);
     fprintf(f, "enable_autoplay_video=%d\n", settings.enable_autoplay_video);
     fprintf(f, "enable_autoplay_audio=%d\n", settings.enable_autoplay_audio);
@@ -552,32 +576,32 @@ void save_settings(void)
     fprintf(f, "block_ads=%d\n", settings.block_ads);
     fprintf(f, "enable_reading_mode=%d\n", settings.enable_reading_mode);
 
-    // Accessibility
+    /* Accessibility */
     fprintf(f, "text_scaled=%d\n", settings.text_scaled);
     fprintf(f, "text_scale_percentage=%d\n", settings.text_scale_percentage);
     fprintf(f, "high_contrast_mode=%d\n", settings.high_contrast_mode);
     fprintf(f, "minimize_ui=%d\n", settings.minimize_ui);
     fprintf(f, "show_page_colors=%d\n", settings.show_page_colors);
 
-    // Language & Translation
+    /* Language & Translation */
     fprintf(f, "language=%s\n", settings.language);
     fprintf(f, "enable_translation=%d\n", settings.enable_translation);
     fprintf(f, "translation_language=%s\n", settings.translation_language);
 
-    // System
+    /* System */
     fprintf(f, "hardware_acceleration=%d\n", settings.hardware_acceleration);
     fprintf(f, "user_agent=%s\n", settings.user_agent);
     fprintf(f, "use_system_title_bar=%d\n", settings.use_system_title_bar);
     fprintf(f, "open_links_in_background=%d\n", settings.open_links_in_background);
     fprintf(f, "enable_system_proxy=%d\n", settings.enable_system_proxy);
 
-    // Cache & Storage
+    /* Cache & Storage */
     fprintf(f, "cache_size=%d\n", settings.cache_size);
     fprintf(f, "cache_enabled=%d\n", settings.cache_enabled);
     fprintf(f, "cookie_expiration_days=%d\n", settings.cookie_expiration_days);
     fprintf(f, "offline_content_enabled=%d\n", settings.offline_content_enabled);
 
-    // History & Data
+    /* History & Data */
     fprintf(f, "remember_history=%d\n", settings.remember_history);
     fprintf(f, "remember_form_entries=%d\n", settings.remember_form_entries);
     fprintf(f, "history_days_to_keep=%d\n", settings.history_days_to_keep);
@@ -585,7 +609,7 @@ void save_settings(void)
     fprintf(f, "clear_cookies_on_exit=%d\n", settings.clear_cookies_on_exit);
     fprintf(f, "clear_history_on_exit=%d\n", settings.clear_history_on_exit);
 
-    // Advanced
+    /* Advanced */
     fprintf(f, "startup_command=%s\n", settings.startup_command);
     fprintf(f, "enable_developer_tools=%d\n", settings.enable_developer_tools);
     fprintf(f, "enable_debugging=%d\n", settings.enable_debugging);
@@ -595,7 +619,12 @@ void save_settings(void)
     printf("Settings: saved\n");
 }
 
-// Apply settings to a WebKitWebView
+/**
+ * Applies settings to a WebKitWebView.
+ * Updates WebKitSettings based on current configuration.
+ *
+ * @param web_view The WebKitWebView to configure.
+ */
 void apply_settings_to_web_view(WebKitWebView *web_view)
 {
     WebKitSettings *wk_settings = webkit_web_view_get_settings(web_view);
@@ -609,16 +638,16 @@ void apply_settings_to_web_view(WebKitWebView *web_view)
     webkit_settings_set_enable_page_cache(wk_settings, TRUE);
     webkit_settings_set_enable_smooth_scrolling(wk_settings, TRUE);
 
-    // Font settings
+    /* Font settings */
     webkit_settings_set_default_font_size(wk_settings, settings.font_size);
     if (settings.font_family && *settings.font_family) {
         webkit_settings_set_default_font_family(wk_settings, settings.font_family);
     }
 
-    // Zoom level
+    /* Zoom level */
     webkit_web_view_set_zoom_level(web_view, settings.zoom_level / 100.0);
 
-    // Cookies
+    /* Cookies */
     WebKitCookieManager *cookie_manager = webkit_web_context_get_cookie_manager(webkit_web_view_get_context(web_view));
     if (cookie_manager) {
         if (settings.enable_cookies) {
@@ -632,13 +661,19 @@ void apply_settings_to_web_view(WebKitWebView *web_view)
         }
     }
 
-    // User agent
+    /* User agent */
     if (settings.user_agent && *settings.user_agent) {
         webkit_settings_set_user_agent(wk_settings, settings.user_agent);
     }
 }
 
-// Construct search URL based on settings and query
+/**
+ * Constructs a search URL based on current search engine settings.
+ *
+ * @param query The search query string.
+ * @return Pointer to static string containing the full search URL.
+ *         Valid until next call to this function.
+ */
 const char* get_search_url(const char *query)
 {
     static GString *url = NULL;
@@ -674,14 +709,14 @@ const char* get_search_url(const char *query)
     return url->str;
 }
 
-// ----------------------------------------------------------------------
-// Settings Dialog
-// ----------------------------------------------------------------------
+/* ----------------------------------------------------------------------
+ * Settings Dialog - Data structure
+ * ---------------------------------------------------------------------- */
 
 typedef struct {
     GtkWidget *dialog;
 
-    // General
+    /* General */
     GtkWidget *home_entry;
     GtkWidget *startup_newtab_radio;
     GtkWidget *startup_continue_radio;
@@ -689,12 +724,12 @@ typedef struct {
     GtkWidget *startup_specific_radio;
     GtkWidget *startup_specific_entry;
 
-    // Search
+    /* Search */
     GtkWidget *search_combo;
     GtkWidget *custom_search_entry;
     GtkWidget *predictive_check;
 
-    // Appearance
+    /* Appearance */
     GtkWidget *dark_mode_check;
     GtkWidget *font_size_spin;
     GtkWidget *font_family_entry;
@@ -704,11 +739,11 @@ typedef struct {
     GtkWidget *status_bar_check;
     GtkWidget *theme_color_combo;
 
-    // Privacy & Security
+    /* Privacy & Security */
     GtkWidget *js_check;
     GtkWidget *cookies_check;
     GtkWidget *images_check;
-    GtkWidget *popups_check;        // "Block pop-ups" (inverted logic)
+    GtkWidget *popups_check;        /* "Block pop-ups" (inverted logic) */
     GtkWidget *plugins_check;
     GtkWidget *dnt_check;
     GtkWidget *safe_browsing_check;
@@ -724,7 +759,7 @@ typedef struct {
     GtkWidget *block_fingerprinting_check;
     GtkWidget *blocked_sites_entry;
 
-    // Permissions
+    /* Permissions */
     GtkWidget *location_check;
     GtkWidget *camera_check;
     GtkWidget *microphone_check;
@@ -734,18 +769,18 @@ typedef struct {
     GtkWidget *usb_check;
     GtkWidget *gyroscope_check;
 
-    // Downloads
+    /* Downloads */
     GtkWidget *download_dir_entry;
     GtkWidget *download_dir_button;
     GtkWidget *ask_location_check;
     GtkWidget *show_downloads_check;
 
-    // Tabs & Windows
+    /* Tabs & Windows */
     GtkWidget *tab_behavior_combo;
     GtkWidget *restore_session_check;
     GtkWidget *tab_groups_check;
 
-    // Content
+    /* Content */
     GtkWidget *enable_sound_check;
     GtkWidget *autoplay_video_check;
     GtkWidget *autoplay_audio_check;
@@ -753,32 +788,32 @@ typedef struct {
     GtkWidget *block_ads_check;
     GtkWidget *reading_mode_check;
 
-    // Accessibility
+    /* Accessibility */
     GtkWidget *text_scaled_check;
     GtkWidget *text_scale_spin;
     GtkWidget *high_contrast_check;
     GtkWidget *minimize_ui_check;
     GtkWidget *show_colors_check;
 
-    // Language
+    /* Language */
     GtkWidget *language_entry;
     GtkWidget *enable_translation_check;
     GtkWidget *translation_lang_entry;
 
-    // System
+    /* System */
     GtkWidget *hw_accel_check;
     GtkWidget *user_agent_entry;
     GtkWidget *system_title_bar_check;
     GtkWidget *open_background_check;
     GtkWidget *system_proxy_check;
 
-    // Cache & Storage
+    /* Cache & Storage */
     GtkWidget *cache_size_combo;
     GtkWidget *cache_enabled_check;
     GtkWidget *cookie_expiry_spin;
     GtkWidget *offline_content_check;
 
-    // History
+    /* History */
     GtkWidget *history_check;
     GtkWidget *remember_forms_check;
     GtkWidget *history_days_spin;
@@ -787,7 +822,7 @@ typedef struct {
     GtkWidget *clear_history_exit_check;
     GtkWidget *clear_history_btn;
 
-    // Advanced
+    /* Advanced */
     GtkWidget *startup_command_entry;
     GtkWidget *dev_tools_check;
     GtkWidget *debugging_check;
@@ -795,14 +830,28 @@ typedef struct {
     BrowserWindow *browser;
 } SettingsDialogData;
 
-// Helper: update sensitivity of custom search entry based on search engine
+/* ----------------------------------------------------------------------
+ * Settings Dialog - Helper functions
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Updates sensitivity of custom search entry based on selected search engine.
+ *
+ * @param combo The search engine combo box.
+ * @param data  SettingsDialogData instance.
+ */
 static void on_search_engine_changed(GtkComboBox *combo, SettingsDialogData *data)
 {
     int active = gtk_combo_box_get_active(combo);
     gtk_widget_set_sensitive(data->custom_search_entry, (active == SEARCH_CUSTOM));
 }
 
-// Helper: update sensitivity of specific pages entry based on radio
+/**
+ * Updates sensitivity of specific pages entry based on startup radio selection.
+ *
+ * @param button The radio button that was toggled.
+ * @param data   SettingsDialogData instance.
+ */
 static void on_startup_radio_toggled(GtkToggleButton *button, SettingsDialogData *data)
 {
     (void)button;
@@ -810,7 +859,12 @@ static void on_startup_radio_toggled(GtkToggleButton *button, SettingsDialogData
     gtk_widget_set_sensitive(data->startup_specific_entry, sensitive);
 }
 
-// Browse for download folder
+/**
+ * Opens a file chooser dialog to select the download directory.
+ *
+ * @param button The browse button that was clicked.
+ * @param data   SettingsDialogData instance.
+ */
 static void on_download_dir_clicked(GtkButton *button, SettingsDialogData *data)
 {
     (void)button;
@@ -828,11 +882,22 @@ static void on_download_dir_clicked(GtkButton *button, SettingsDialogData *data)
     gtk_widget_destroy(chooser);
 }
 
-// Dialog response handler
+/* ----------------------------------------------------------------------
+ * Settings Dialog - Response handler
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Callback for settings dialog response.
+ * Saves all settings from dialog widgets to the global settings structure.
+ *
+ * @param dialog      The dialog.
+ * @param response_id Response ID (GTK_RESPONSE_ACCEPT or GTK_RESPONSE_CANCEL).
+ * @param data        SettingsDialogData instance.
+ */
 static void on_settings_response(GtkDialog *dialog, gint response_id, SettingsDialogData *data)
 {
     if (response_id == GTK_RESPONSE_ACCEPT) {
-        // ----- General -----
+        /* ----- General ----- */
         g_free(settings.home_page);
         settings.home_page = g_strdup(gtk_entry_get_text(GTK_ENTRY(data->home_entry)));
 
@@ -844,20 +909,20 @@ static void on_settings_response(GtkDialog *dialog, gint response_id, SettingsDi
             settings.startup_behavior = STARTUP_HOME_PAGE;
         else if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->startup_specific_radio))) {
             settings.startup_behavior = STARTUP_SPECIFIC_PAGES;
-            // For simplicity, store a single page as a list
+            /* For simplicity, store a single page as a list */
             const char *specific = gtk_entry_get_text(GTK_ENTRY(data->startup_specific_entry));
             if (settings.startup_pages)
                 g_list_free_full(settings.startup_pages, g_free);
             settings.startup_pages = g_list_append(NULL, g_strdup(specific));
         }
 
-        // ----- Search -----
+        /* ----- Search ----- */
         settings.search_engine = gtk_combo_box_get_active(GTK_COMBO_BOX(data->search_combo));
         g_free(settings.custom_search_url);
         settings.custom_search_url = g_strdup(gtk_entry_get_text(GTK_ENTRY(data->custom_search_entry)));
         settings.predictive_search = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->predictive_check));
 
-        // ----- Appearance -----
+        /* ----- Appearance ----- */
         settings.dark_mode = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->dark_mode_check));
         settings.font_size = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(data->font_size_spin));
         g_free(settings.font_family);
@@ -868,11 +933,11 @@ static void on_settings_response(GtkDialog *dialog, gint response_id, SettingsDi
         settings.show_status_bar = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->status_bar_check));
         settings.theme_color = gtk_combo_box_get_active(GTK_COMBO_BOX(data->theme_color_combo));
 
-        // ----- Privacy & Security -----
+        /* ----- Privacy & Security ----- */
         settings.enable_javascript = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->js_check));
         settings.enable_cookies = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->cookies_check));
         settings.enable_images = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->images_check));
-        settings.enable_popups = !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->popups_check)); // inverted
+        settings.enable_popups = !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->popups_check)); /* inverted */
         settings.enable_plugins = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->plugins_check));
         settings.do_not_track = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->dnt_check));
         settings.safe_browsing_enabled = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->safe_browsing_check));
@@ -889,7 +954,7 @@ static void on_settings_response(GtkDialog *dialog, gint response_id, SettingsDi
         g_free(settings.blocked_sites);
         settings.blocked_sites = g_strdup(gtk_entry_get_text(GTK_ENTRY(data->blocked_sites_entry)));
 
-        // ----- Permissions -----
+        /* ----- Permissions ----- */
         settings.location_enabled = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->location_check));
         settings.camera_enabled = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->camera_check));
         settings.microphone_enabled = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->microphone_check));
@@ -899,18 +964,18 @@ static void on_settings_response(GtkDialog *dialog, gint response_id, SettingsDi
         settings.usb_enabled = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->usb_check));
         settings.gyroscope_enabled = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->gyroscope_check));
 
-        // ----- Downloads -----
+        /* ----- Downloads ----- */
         g_free(settings.download_dir);
         settings.download_dir = g_strdup(gtk_entry_get_text(GTK_ENTRY(data->download_dir_entry)));
         settings.ask_download_location = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->ask_location_check));
         settings.show_downloads_when_done = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->show_downloads_check));
 
-        // ----- Tabs & Windows -----
+        /* ----- Tabs & Windows ----- */
         settings.tab_behavior = gtk_combo_box_get_active(GTK_COMBO_BOX(data->tab_behavior_combo));
         settings.restore_session_on_startup = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->restore_session_check));
         settings.enable_tab_groups = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->tab_groups_check));
 
-        // ----- Content Settings -----
+        /* ----- Content Settings ----- */
         settings.enable_sound = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->enable_sound_check));
         settings.enable_autoplay_video = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->autoplay_video_check));
         settings.enable_autoplay_audio = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->autoplay_audio_check));
@@ -918,21 +983,21 @@ static void on_settings_response(GtkDialog *dialog, gint response_id, SettingsDi
         settings.block_ads = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->block_ads_check));
         settings.enable_reading_mode = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->reading_mode_check));
 
-        // ----- Accessibility -----
+        /* ----- Accessibility ----- */
         settings.text_scaled = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->text_scaled_check));
         settings.text_scale_percentage = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(data->text_scale_spin));
         settings.high_contrast_mode = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->high_contrast_check));
         settings.minimize_ui = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->minimize_ui_check));
         settings.show_page_colors = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->show_colors_check));
 
-        // ----- Language & Translation -----
+        /* ----- Language & Translation ----- */
         g_free(settings.language);
         settings.language = g_strdup(gtk_entry_get_text(GTK_ENTRY(data->language_entry)));
         settings.enable_translation = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->enable_translation_check));
         g_free(settings.translation_language);
         settings.translation_language = g_strdup(gtk_entry_get_text(GTK_ENTRY(data->translation_lang_entry)));
 
-        // ----- System -----
+        /* ----- System ----- */
         settings.hardware_acceleration = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->hw_accel_check));
         g_free(settings.user_agent);
         settings.user_agent = g_strdup(gtk_entry_get_text(GTK_ENTRY(data->user_agent_entry)));
@@ -940,13 +1005,13 @@ static void on_settings_response(GtkDialog *dialog, gint response_id, SettingsDi
         settings.open_links_in_background = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->open_background_check));
         settings.enable_system_proxy = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->system_proxy_check));
 
-        // ----- Cache & Storage -----
+        /* ----- Cache & Storage ----- */
         settings.cache_size = gtk_combo_box_get_active(GTK_COMBO_BOX(data->cache_size_combo));
         settings.cache_enabled = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->cache_enabled_check));
         settings.cookie_expiration_days = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(data->cookie_expiry_spin));
         settings.offline_content_enabled = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->offline_content_check));
 
-        // ----- History & Data -----
+        /* ----- History & Data ----- */
         settings.remember_history = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->history_check));
         settings.remember_form_entries = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->remember_forms_check));
         settings.history_days_to_keep = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(data->history_days_spin));
@@ -954,7 +1019,7 @@ static void on_settings_response(GtkDialog *dialog, gint response_id, SettingsDi
         settings.clear_cookies_on_exit = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->clear_cookies_exit_check));
         settings.clear_history_on_exit = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->clear_history_exit_check));
 
-        // ----- Advanced -----
+        /* ----- Advanced ----- */
         g_free(settings.startup_command);
         settings.startup_command = g_strdup(gtk_entry_get_text(GTK_ENTRY(data->startup_command_entry)));
         settings.enable_developer_tools = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->dev_tools_check));
@@ -962,7 +1027,7 @@ static void on_settings_response(GtkDialog *dialog, gint response_id, SettingsDi
 
         save_settings();
 
-        // Apply changes to the current browser window
+        /* Apply changes to the current browser window */
         if (data->browser) {
             settings_updated(data->browser);
         }
@@ -972,6 +1037,15 @@ static void on_settings_response(GtkDialog *dialog, gint response_id, SettingsDi
     g_free(data);
 }
 
+/* ----------------------------------------------------------------------
+ * Settings Dialog - Public function
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Displays the settings dialog.
+ *
+ * @param browser BrowserWindow instance for applying changes.
+ */
 void show_settings_dialog(BrowserWindow *browser)
 
 {
@@ -991,14 +1065,14 @@ void show_settings_dialog(BrowserWindow *browser)
     GtkWidget *notebook = gtk_notebook_new();
     gtk_container_add(GTK_CONTAINER(content), notebook);
 
-    // ------------------------------------------------------------------
-    // 1. General tab
-    // ------------------------------------------------------------------
+    /* ------------------------------------------------------------------
+     * 1. General tab
+     * ------------------------------------------------------------------ */
     GtkWidget *general = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(general), 10);
     gtk_notebook_append_page(GTK_NOTEBOOK(notebook), general, gtk_label_new("General"));
 
-    // Startup
+    /* Startup */
     GtkWidget *startup_frame = gtk_frame_new("Startup");
     gtk_box_pack_start(GTK_BOX(general), startup_frame, FALSE, FALSE, 0);
     GtkWidget *startup_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
@@ -1030,7 +1104,7 @@ void show_settings_dialog(BrowserWindow *browser)
                        settings.startup_pages ? (char*)settings.startup_pages->data : "");
     gtk_box_pack_start(GTK_BOX(specific_hbox), data->startup_specific_entry, TRUE, TRUE, 0);
 
-    // Set active radio based on settings.startup_behavior
+    /* Set active radio based on settings.startup_behavior */
     switch (settings.startup_behavior) {
         case STARTUP_NEW_TAB_PAGE:
             gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->startup_newtab_radio), TRUE);
@@ -1046,9 +1120,9 @@ void show_settings_dialog(BrowserWindow *browser)
             break;
     }
     g_signal_connect(data->startup_specific_radio, "toggled", G_CALLBACK(on_startup_radio_toggled), data);
-    on_startup_radio_toggled(NULL, data); // initial sensitivity
+    on_startup_radio_toggled(NULL, data); /* initial sensitivity */
 
-    // Home page
+    /* Home page */
     GtkWidget *home_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     gtk_box_pack_start(GTK_BOX(general), home_hbox, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(home_hbox), gtk_label_new("Home page:"), FALSE, FALSE, 0);
@@ -1056,9 +1130,9 @@ void show_settings_dialog(BrowserWindow *browser)
     gtk_entry_set_text(GTK_ENTRY(data->home_entry), settings.home_page);
     gtk_box_pack_start(GTK_BOX(home_hbox), data->home_entry, TRUE, TRUE, 0);
 
-    // ------------------------------------------------------------------
-    // 2. Search tab
-    // ------------------------------------------------------------------
+    /* ------------------------------------------------------------------
+     * 2. Search tab
+     * ------------------------------------------------------------------ */
     GtkWidget *search_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(search_tab), 10);
     gtk_notebook_append_page(GTK_NOTEBOOK(notebook), search_tab, gtk_label_new("Search"));
@@ -1089,9 +1163,9 @@ void show_settings_dialog(BrowserWindow *browser)
     g_signal_connect(data->search_combo, "changed", G_CALLBACK(on_search_engine_changed), data);
     on_search_engine_changed(GTK_COMBO_BOX(data->search_combo), data);
 
-    // ------------------------------------------------------------------
-    // 3. Appearance tab
-    // ------------------------------------------------------------------
+    /* ------------------------------------------------------------------
+     * 3. Appearance tab
+     * ------------------------------------------------------------------ */
     GtkWidget *appearance = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(appearance), 10);
     gtk_notebook_append_page(GTK_NOTEBOOK(notebook), appearance, gtk_label_new("Appearance"));
@@ -1126,9 +1200,24 @@ void show_settings_dialog(BrowserWindow *browser)
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->home_button_check), settings.show_home_button);
     gtk_box_pack_start(GTK_BOX(appearance), data->home_button_check, FALSE, FALSE, 0);
 
-    // ------------------------------------------------------------------
-    // 4. Privacy & Security tab
-    // ------------------------------------------------------------------
+    data->status_bar_check = gtk_check_button_new_with_label("Show status bar");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->status_bar_check), settings.show_status_bar);
+    gtk_box_pack_start(GTK_BOX(appearance), data->status_bar_check, FALSE, FALSE, 0);
+
+    GtkWidget *theme_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+    gtk_box_pack_start(GTK_BOX(appearance), theme_hbox, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(theme_hbox), gtk_label_new("Theme Color:"), FALSE, FALSE, 0);
+    data->theme_color_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->theme_color_combo), "Default");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->theme_color_combo), "Light");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->theme_color_combo), "Sepia");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->theme_color_combo), "Dark");
+    gtk_combo_box_set_active(GTK_COMBO_BOX(data->theme_color_combo), settings.theme_color);
+    gtk_box_pack_start(GTK_BOX(theme_hbox), data->theme_color_combo, FALSE, FALSE, 0);
+
+    /* ------------------------------------------------------------------
+     * 4. Privacy & Security tab
+     * ------------------------------------------------------------------ */
     GtkWidget *privacy = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(privacy), 10);
     gtk_notebook_append_page(GTK_NOTEBOOK(notebook), privacy, gtk_label_new("Privacy & Security"));
@@ -1173,9 +1262,9 @@ void show_settings_dialog(BrowserWindow *browser)
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->autofill_check), settings.autofill_enabled);
     gtk_box_pack_start(GTK_BOX(privacy), data->autofill_check, FALSE, FALSE, 0);
 
-    // ------------------------------------------------------------------
-    // 5. Permissions tab
-    // ------------------------------------------------------------------
+    /* ------------------------------------------------------------------
+     * 5. Permissions tab
+     * ------------------------------------------------------------------ */
     GtkWidget *permissions = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(permissions), 10);
     gtk_notebook_append_page(GTK_NOTEBOOK(notebook), permissions, gtk_label_new("Permissions"));
@@ -1196,9 +1285,25 @@ void show_settings_dialog(BrowserWindow *browser)
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->notifications_check), settings.notifications_enabled);
     gtk_box_pack_start(GTK_BOX(permissions), data->notifications_check, FALSE, FALSE, 0);
 
-    // ------------------------------------------------------------------
-    // 6. Downloads tab
-    // ------------------------------------------------------------------
+    data->clipboard_check = gtk_check_button_new_with_label("Allow sites to access clipboard");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->clipboard_check), settings.clipboard_enabled);
+    gtk_box_pack_start(GTK_BOX(permissions), data->clipboard_check, FALSE, FALSE, 0);
+
+    data->midi_check = gtk_check_button_new_with_label("Allow sites to access MIDI devices");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->midi_check), settings.midi_enabled);
+    gtk_box_pack_start(GTK_BOX(permissions), data->midi_check, FALSE, FALSE, 0);
+
+    data->usb_check = gtk_check_button_new_with_label("Allow sites to access USB devices");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->usb_check), settings.usb_enabled);
+    gtk_box_pack_start(GTK_BOX(permissions), data->usb_check, FALSE, FALSE, 0);
+
+    data->gyroscope_check = gtk_check_button_new_with_label("Allow sites to access gyroscope");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->gyroscope_check), settings.gyroscope_enabled);
+    gtk_box_pack_start(GTK_BOX(permissions), data->gyroscope_check, FALSE, FALSE, 0);
+
+    /* ------------------------------------------------------------------
+     * 6. Downloads tab
+     * ------------------------------------------------------------------ */
     GtkWidget *downloads = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(downloads), 10);
     gtk_notebook_append_page(GTK_NOTEBOOK(notebook), downloads, gtk_label_new("Downloads"));
@@ -1217,9 +1322,13 @@ void show_settings_dialog(BrowserWindow *browser)
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->ask_location_check), settings.ask_download_location);
     gtk_box_pack_start(GTK_BOX(downloads), data->ask_location_check, FALSE, FALSE, 0);
 
-    // ------------------------------------------------------------------
-    // 7. System tab
-    // ------------------------------------------------------------------
+    data->show_downloads_check = gtk_check_button_new_with_label("Show downloads when finished");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->show_downloads_check), settings.show_downloads_when_done);
+    gtk_box_pack_start(GTK_BOX(downloads), data->show_downloads_check, FALSE, FALSE, 0);
+
+    /* ------------------------------------------------------------------
+     * 7. System tab
+     * ------------------------------------------------------------------ */
     GtkWidget *system = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(system), 10);
     gtk_notebook_append_page(GTK_NOTEBOOK(notebook), system, gtk_label_new("System"));
@@ -1243,25 +1352,214 @@ void show_settings_dialog(BrowserWindow *browser)
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->open_background_check), settings.open_links_in_background);
     gtk_box_pack_start(GTK_BOX(system), data->open_background_check, FALSE, FALSE, 0);
 
-    // Additional appearance options
-    data->status_bar_check = gtk_check_button_new_with_label("Show status bar");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->status_bar_check), settings.show_status_bar);
-    gtk_box_pack_start(GTK_BOX(appearance), data->status_bar_check, FALSE, FALSE, 0);
+    data->system_proxy_check = gtk_check_button_new_with_label("Use system proxy settings");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->system_proxy_check), settings.enable_system_proxy);
+    gtk_box_pack_start(GTK_BOX(system), data->system_proxy_check, FALSE, FALSE, 0);
 
-    GtkWidget *theme_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-    gtk_box_pack_start(GTK_BOX(appearance), theme_hbox, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(theme_hbox), gtk_label_new("Theme Color:"), FALSE, FALSE, 0);
-    data->theme_color_combo = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->theme_color_combo), "Default");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->theme_color_combo), "Light");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->theme_color_combo), "Sepia");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->theme_color_combo), "Dark");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(data->theme_color_combo), settings.theme_color);
-    gtk_box_pack_start(GTK_BOX(theme_hbox), data->theme_color_combo, FALSE, FALSE, 0);
+    /* ------------------------------------------------------------------
+     * 8. Tabs & Windows tab
+     * ------------------------------------------------------------------ */
+    GtkWidget *tabs_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    gtk_container_set_border_width(GTK_CONTAINER(tabs_tab), 10);
+    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), tabs_tab, gtk_label_new("Tabs & Windows"));
 
-    // ------------------------------------------------------------------
-    // 4.5 Privacy & Security (Extended) tab
-    // ------------------------------------------------------------------
+    GtkWidget *tab_behavior_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+    gtk_box_pack_start(GTK_BOX(tabs_tab), tab_behavior_hbox, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(tab_behavior_hbox), gtk_label_new("Tab Behavior:"), FALSE, FALSE, 0);
+    data->tab_behavior_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->tab_behavior_combo), "Last Tab");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->tab_behavior_combo), "Maintain Tabs");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->tab_behavior_combo), "Single Tab");
+    gtk_combo_box_set_active(GTK_COMBO_BOX(data->tab_behavior_combo), settings.tab_behavior);
+    gtk_box_pack_start(GTK_BOX(tab_behavior_hbox), data->tab_behavior_combo, FALSE, FALSE, 0);
+
+    data->restore_session_check = gtk_check_button_new_with_label("Restore session on startup");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->restore_session_check), settings.restore_session_on_startup);
+    gtk_box_pack_start(GTK_BOX(tabs_tab), data->restore_session_check, FALSE, FALSE, 0);
+
+    data->tab_groups_check = gtk_check_button_new_with_label("Enable tab groups");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->tab_groups_check), settings.enable_tab_groups);
+    gtk_box_pack_start(GTK_BOX(tabs_tab), data->tab_groups_check, FALSE, FALSE, 0);
+
+    /* ------------------------------------------------------------------
+     * 9. Content Settings tab
+     * ------------------------------------------------------------------ */
+    GtkWidget *content_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    gtk_container_set_border_width(GTK_CONTAINER(content_tab), 10);
+    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), content_tab, gtk_label_new("Content"));
+
+    data->enable_sound_check = gtk_check_button_new_with_label("Enable sound");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->enable_sound_check), settings.enable_sound);
+    gtk_box_pack_start(GTK_BOX(content_tab), data->enable_sound_check, FALSE, FALSE, 0);
+
+    data->autoplay_video_check = gtk_check_button_new_with_label("Allow video autoplay");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->autoplay_video_check), settings.enable_autoplay_video);
+    gtk_box_pack_start(GTK_BOX(content_tab), data->autoplay_video_check, FALSE, FALSE, 0);
+
+    data->autoplay_audio_check = gtk_check_button_new_with_label("Allow audio autoplay");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->autoplay_audio_check), settings.enable_autoplay_audio);
+    gtk_box_pack_start(GTK_BOX(content_tab), data->autoplay_audio_check, FALSE, FALSE, 0);
+
+    data->pdf_viewer_check = gtk_check_button_new_with_label("Enable built-in PDF viewer");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->pdf_viewer_check), settings.enable_pdf_viewer);
+    gtk_box_pack_start(GTK_BOX(content_tab), data->pdf_viewer_check, FALSE, FALSE, 0);
+
+    data->block_ads_check = gtk_check_button_new_with_label("Block ads");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->block_ads_check), settings.block_ads);
+    gtk_box_pack_start(GTK_BOX(content_tab), data->block_ads_check, FALSE, FALSE, 0);
+
+    data->reading_mode_check = gtk_check_button_new_with_label("Enable reading mode");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->reading_mode_check), settings.enable_reading_mode);
+    gtk_box_pack_start(GTK_BOX(content_tab), data->reading_mode_check, FALSE, FALSE, 0);
+
+    /* ------------------------------------------------------------------
+     * 10. Accessibility tab
+     * ------------------------------------------------------------------ */
+    GtkWidget *access_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    gtk_container_set_border_width(GTK_CONTAINER(access_tab), 10);
+    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), access_tab, gtk_label_new("Accessibility"));
+
+    data->text_scaled_check = gtk_check_button_new_with_label("Scale text on all sites");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->text_scaled_check), settings.text_scaled);
+    gtk_box_pack_start(GTK_BOX(access_tab), data->text_scaled_check, FALSE, FALSE, 0);
+
+    GtkWidget *scale_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+    gtk_box_pack_start(GTK_BOX(access_tab), scale_hbox, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(scale_hbox), gtk_label_new("Text Scale (%):"), FALSE, FALSE, 0);
+    data->text_scale_spin = gtk_spin_button_new_with_range(50, 200, 10);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(data->text_scale_spin), settings.text_scale_percentage);
+    gtk_box_pack_start(GTK_BOX(scale_hbox), data->text_scale_spin, FALSE, FALSE, 0);
+
+    data->high_contrast_check = gtk_check_button_new_with_label("High contrast mode");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->high_contrast_check), settings.high_contrast_mode);
+    gtk_box_pack_start(GTK_BOX(access_tab), data->high_contrast_check, FALSE, FALSE, 0);
+
+    data->minimize_ui_check = gtk_check_button_new_with_label("Minimize UI");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->minimize_ui_check), settings.minimize_ui);
+    gtk_box_pack_start(GTK_BOX(access_tab), data->minimize_ui_check, FALSE, FALSE, 0);
+
+    data->show_colors_check = gtk_check_button_new_with_label("Show page colors");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->show_colors_check), settings.show_page_colors);
+    gtk_box_pack_start(GTK_BOX(access_tab), data->show_colors_check, FALSE, FALSE, 0);
+
+    /* ------------------------------------------------------------------
+     * 11. Language & Translation tab
+     * ------------------------------------------------------------------ */
+    GtkWidget *lang_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    gtk_container_set_border_width(GTK_CONTAINER(lang_tab), 10);
+    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), lang_tab, gtk_label_new("Languages"));
+
+    GtkWidget *lang_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+    gtk_box_pack_start(GTK_BOX(lang_tab), lang_hbox, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(lang_hbox), gtk_label_new("Language:"), FALSE, FALSE, 0);
+    data->language_entry = gtk_entry_new();
+    gtk_entry_set_text(GTK_ENTRY(data->language_entry), settings.language);
+    gtk_box_pack_start(GTK_BOX(lang_hbox), data->language_entry, FALSE, FALSE, 0);
+
+    data->enable_translation_check = gtk_check_button_new_with_label("Enable page translation");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->enable_translation_check), settings.enable_translation);
+    gtk_box_pack_start(GTK_BOX(lang_tab), data->enable_translation_check, FALSE, FALSE, 0);
+
+    GtkWidget *trans_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+    gtk_box_pack_start(GTK_BOX(lang_tab), trans_hbox, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(trans_hbox), gtk_label_new("Translate to:"), FALSE, FALSE, 0);
+    data->translation_lang_entry = gtk_entry_new();
+    gtk_entry_set_text(GTK_ENTRY(data->translation_lang_entry), settings.translation_language);
+    gtk_box_pack_start(GTK_BOX(trans_hbox), data->translation_lang_entry, FALSE, FALSE, 0);
+
+    /* ------------------------------------------------------------------
+     * 12. Cache & Storage tab
+     * ------------------------------------------------------------------ */
+    GtkWidget *cache_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    gtk_container_set_border_width(GTK_CONTAINER(cache_tab), 10);
+    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), cache_tab, gtk_label_new("Cache & Storage"));
+
+    data->cache_enabled_check = gtk_check_button_new_with_label("Enable cache");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->cache_enabled_check), settings.cache_enabled);
+    gtk_box_pack_start(GTK_BOX(cache_tab), data->cache_enabled_check, FALSE, FALSE, 0);
+
+    GtkWidget *cache_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+    gtk_box_pack_start(GTK_BOX(cache_tab), cache_hbox, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(cache_hbox), gtk_label_new("Cache Size:"), FALSE, FALSE, 0);
+    data->cache_size_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->cache_size_combo), "Unlimited");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->cache_size_combo), "100 MB");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->cache_size_combo), "500 MB");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->cache_size_combo), "1 GB");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->cache_size_combo), "Disabled");
+    gtk_combo_box_set_active(GTK_COMBO_BOX(data->cache_size_combo), settings.cache_size);
+    gtk_box_pack_start(GTK_BOX(cache_hbox), data->cache_size_combo, FALSE, FALSE, 0);
+
+    GtkWidget *cookie_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+    gtk_box_pack_start(GTK_BOX(cache_tab), cookie_hbox, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(cookie_hbox), gtk_label_new("Cookie expiration (days, 0=session):"), FALSE, FALSE, 0);
+    data->cookie_expiry_spin = gtk_spin_button_new_with_range(0, 365, 1);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(data->cookie_expiry_spin), settings.cookie_expiration_days);
+    gtk_box_pack_start(GTK_BOX(cookie_hbox), data->cookie_expiry_spin, FALSE, FALSE, 0);
+
+    data->offline_content_check = gtk_check_button_new_with_label("Store content for offline use");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->offline_content_check), settings.offline_content_enabled);
+    gtk_box_pack_start(GTK_BOX(cache_tab), data->offline_content_check, FALSE, FALSE, 0);
+
+    /* ------------------------------------------------------------------
+     * 13. History & Data tab
+     * ------------------------------------------------------------------ */
+    GtkWidget *history_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    gtk_container_set_border_width(GTK_CONTAINER(history_tab), 10);
+    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), history_tab, gtk_label_new("History & Data"));
+
+    data->history_check = gtk_check_button_new_with_label("Remember browsing history");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->history_check), settings.remember_history);
+    gtk_box_pack_start(GTK_BOX(history_tab), data->history_check, FALSE, FALSE, 0);
+
+    data->remember_forms_check = gtk_check_button_new_with_label("Remember form entries");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->remember_forms_check), settings.remember_form_entries);
+    gtk_box_pack_start(GTK_BOX(history_tab), data->remember_forms_check, FALSE, FALSE, 0);
+
+    GtkWidget *history_days_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+    gtk_box_pack_start(GTK_BOX(history_tab), history_days_hbox, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(history_days_hbox), gtk_label_new("Keep history for (days, 0=forever):"), FALSE, FALSE, 0);
+    data->history_days_spin = gtk_spin_button_new_with_range(0, 365, 30);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(data->history_days_spin), settings.history_days_to_keep);
+    gtk_box_pack_start(GTK_BOX(history_days_hbox), data->history_days_spin, FALSE, FALSE, 0);
+
+    data->clear_cache_exit_check = gtk_check_button_new_with_label("Clear cache on exit");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->clear_cache_exit_check), settings.clear_cache_on_exit);
+    gtk_box_pack_start(GTK_BOX(history_tab), data->clear_cache_exit_check, FALSE, FALSE, 0);
+
+    data->clear_cookies_exit_check = gtk_check_button_new_with_label("Clear cookies on exit");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->clear_cookies_exit_check), settings.clear_cookies_on_exit);
+    gtk_box_pack_start(GTK_BOX(history_tab), data->clear_cookies_exit_check, FALSE, FALSE, 0);
+
+    data->clear_history_exit_check = gtk_check_button_new_with_label("Clear history on exit");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->clear_history_exit_check), settings.clear_history_on_exit);
+    gtk_box_pack_start(GTK_BOX(history_tab), data->clear_history_exit_check, FALSE, FALSE, 0);
+
+    /* ------------------------------------------------------------------
+     * 14. Advanced tab
+     * ------------------------------------------------------------------ */
+    GtkWidget *advanced = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    gtk_container_set_border_width(GTK_CONTAINER(advanced), 10);
+    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), advanced, gtk_label_new("Advanced"));
+
+    GtkWidget *startup_cmd_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+    gtk_box_pack_start(GTK_BOX(advanced), startup_cmd_hbox, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(startup_cmd_hbox), gtk_label_new("Startup Command:"), FALSE, FALSE, 0);
+    data->startup_command_entry = gtk_entry_new();
+    gtk_entry_set_text(GTK_ENTRY(data->startup_command_entry), settings.startup_command);
+    gtk_box_pack_start(GTK_BOX(startup_cmd_hbox), data->startup_command_entry, TRUE, TRUE, 0);
+
+    data->dev_tools_check = gtk_check_button_new_with_label("Enable developer tools");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->dev_tools_check), settings.enable_developer_tools);
+    gtk_box_pack_start(GTK_BOX(advanced), data->dev_tools_check, FALSE, FALSE, 0);
+
+    data->debugging_check = gtk_check_button_new_with_label("Enable debugging (remote debugging protocol)");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->debugging_check), settings.enable_debugging);
+    gtk_box_pack_start(GTK_BOX(advanced), data->debugging_check, FALSE, FALSE, 0);
+
+    /* ------------------------------------------------------------------
+     * Additional Privacy & Security (Extended) tab
+     * ------------------------------------------------------------------ */
     GtkWidget *privacy_ext = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(privacy_ext), 10);
     GtkWidget *privacy_scroll = gtk_scrolled_window_new(NULL, NULL);
@@ -1310,243 +1608,22 @@ void show_settings_dialog(BrowserWindow *browser)
     gtk_entry_set_text(GTK_ENTRY(data->blocked_sites_entry), settings.blocked_sites);
     gtk_box_pack_start(GTK_BOX(blocked_hbox), data->blocked_sites_entry, TRUE, TRUE, 0);
 
-    // Additional permissions
-    data->clipboard_check = gtk_check_button_new_with_label("Allow sites to access clipboard");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->clipboard_check), settings.clipboard_enabled);
-    gtk_box_pack_start(GTK_BOX(permissions), data->clipboard_check, FALSE, FALSE, 0);
-
-    data->midi_check = gtk_check_button_new_with_label("Allow sites to access MIDI devices");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->midi_check), settings.midi_enabled);
-    gtk_box_pack_start(GTK_BOX(permissions), data->midi_check, FALSE, FALSE, 0);
-
-    data->usb_check = gtk_check_button_new_with_label("Allow sites to access USB devices");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->usb_check), settings.usb_enabled);
-    gtk_box_pack_start(GTK_BOX(permissions), data->usb_check, FALSE, FALSE, 0);
-
-    data->gyroscope_check = gtk_check_button_new_with_label("Allow sites to access gyroscope");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->gyroscope_check), settings.gyroscope_enabled);
-    gtk_box_pack_start(GTK_BOX(permissions), data->gyroscope_check, FALSE, FALSE, 0);
-
-    // Additional downloads
-    data->show_downloads_check = gtk_check_button_new_with_label("Show downloads when finished");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->show_downloads_check), settings.show_downloads_when_done);
-    gtk_box_pack_start(GTK_BOX(downloads), data->show_downloads_check, FALSE, FALSE, 0);
-
-    // ------------------------------------------------------------------
-    // Tabs & Windows tab
-    // ------------------------------------------------------------------
-    GtkWidget *tabs_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-    gtk_container_set_border_width(GTK_CONTAINER(tabs_tab), 10);
-    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), tabs_tab, gtk_label_new("Tabs & Windows"));
-
-    GtkWidget *tab_behavior_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-    gtk_box_pack_start(GTK_BOX(tabs_tab), tab_behavior_hbox, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(tab_behavior_hbox), gtk_label_new("Tab Behavior:"), FALSE, FALSE, 0);
-    data->tab_behavior_combo = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->tab_behavior_combo), "Last Tab");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->tab_behavior_combo), "Maintain Tabs");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->tab_behavior_combo), "Single Tab");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(data->tab_behavior_combo), settings.tab_behavior);
-    gtk_box_pack_start(GTK_BOX(tab_behavior_hbox), data->tab_behavior_combo, FALSE, FALSE, 0);
-
-    data->restore_session_check = gtk_check_button_new_with_label("Restore session on startup");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->restore_session_check), settings.restore_session_on_startup);
-    gtk_box_pack_start(GTK_BOX(tabs_tab), data->restore_session_check, FALSE, FALSE, 0);
-
-    data->tab_groups_check = gtk_check_button_new_with_label("Enable tab groups");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->tab_groups_check), settings.enable_tab_groups);
-    gtk_box_pack_start(GTK_BOX(tabs_tab), data->tab_groups_check, FALSE, FALSE, 0);
-
-    // ------------------------------------------------------------------
-    // Content Settings tab
-    // ------------------------------------------------------------------
-    GtkWidget *content_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-    gtk_container_set_border_width(GTK_CONTAINER(content_tab), 10);
-    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), content_tab, gtk_label_new("Content"));
-
-    data->enable_sound_check = gtk_check_button_new_with_label("Enable sound");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->enable_sound_check), settings.enable_sound);
-    gtk_box_pack_start(GTK_BOX(content_tab), data->enable_sound_check, FALSE, FALSE, 0);
-
-    data->autoplay_video_check = gtk_check_button_new_with_label("Allow video autoplay");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->autoplay_video_check), settings.enable_autoplay_video);
-    gtk_box_pack_start(GTK_BOX(content_tab), data->autoplay_video_check, FALSE, FALSE, 0);
-
-    data->autoplay_audio_check = gtk_check_button_new_with_label("Allow audio autoplay");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->autoplay_audio_check), settings.enable_autoplay_audio);
-    gtk_box_pack_start(GTK_BOX(content_tab), data->autoplay_audio_check, FALSE, FALSE, 0);
-
-    data->pdf_viewer_check = gtk_check_button_new_with_label("Enable built-in PDF viewer");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->pdf_viewer_check), settings.enable_pdf_viewer);
-    gtk_box_pack_start(GTK_BOX(content_tab), data->pdf_viewer_check, FALSE, FALSE, 0);
-
-    data->block_ads_check = gtk_check_button_new_with_label("Block ads");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->block_ads_check), settings.block_ads);
-    gtk_box_pack_start(GTK_BOX(content_tab), data->block_ads_check, FALSE, FALSE, 0);
-
-    data->reading_mode_check = gtk_check_button_new_with_label("Enable reading mode");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->reading_mode_check), settings.enable_reading_mode);
-    gtk_box_pack_start(GTK_BOX(content_tab), data->reading_mode_check, FALSE, FALSE, 0);
-
-    // ------------------------------------------------------------------
-    // Accessibility tab
-    // ------------------------------------------------------------------
-    GtkWidget *access_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-    gtk_container_set_border_width(GTK_CONTAINER(access_tab), 10);
-    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), access_tab, gtk_label_new("Accessibility"));
-
-    data->text_scaled_check = gtk_check_button_new_with_label("Scale text on all sites");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->text_scaled_check), settings.text_scaled);
-    gtk_box_pack_start(GTK_BOX(access_tab), data->text_scaled_check, FALSE, FALSE, 0);
-
-    GtkWidget *scale_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-    gtk_box_pack_start(GTK_BOX(access_tab), scale_hbox, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(scale_hbox), gtk_label_new("Text Scale (%):"), FALSE, FALSE, 0);
-    data->text_scale_spin = gtk_spin_button_new_with_range(50, 200, 10);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(data->text_scale_spin), settings.text_scale_percentage);
-    gtk_box_pack_start(GTK_BOX(scale_hbox), data->text_scale_spin, FALSE, FALSE, 0);
-
-    data->high_contrast_check = gtk_check_button_new_with_label("High contrast mode");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->high_contrast_check), settings.high_contrast_mode);
-    gtk_box_pack_start(GTK_BOX(access_tab), data->high_contrast_check, FALSE, FALSE, 0);
-
-    data->minimize_ui_check = gtk_check_button_new_with_label("Minimize UI");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->minimize_ui_check), settings.minimize_ui);
-    gtk_box_pack_start(GTK_BOX(access_tab), data->minimize_ui_check, FALSE, FALSE, 0);
-
-    data->show_colors_check = gtk_check_button_new_with_label("Show page colors");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->show_colors_check), settings.show_page_colors);
-    gtk_box_pack_start(GTK_BOX(access_tab), data->show_colors_check, FALSE, FALSE, 0);
-
-    // ------------------------------------------------------------------
-    // Language & Translation tab
-    // ------------------------------------------------------------------
-    GtkWidget *lang_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-    gtk_container_set_border_width(GTK_CONTAINER(lang_tab), 10);
-    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), lang_tab, gtk_label_new("Languages"));
-
-    GtkWidget *lang_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-    gtk_box_pack_start(GTK_BOX(lang_tab), lang_hbox, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(lang_hbox), gtk_label_new("Language:"), FALSE, FALSE, 0);
-    data->language_entry = gtk_entry_new();
-    gtk_entry_set_text(GTK_ENTRY(data->language_entry), settings.language);
-    gtk_box_pack_start(GTK_BOX(lang_hbox), data->language_entry, FALSE, FALSE, 0);
-
-    data->enable_translation_check = gtk_check_button_new_with_label("Enable page translation");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->enable_translation_check), settings.enable_translation);
-    gtk_box_pack_start(GTK_BOX(lang_tab), data->enable_translation_check, FALSE, FALSE, 0);
-
-    GtkWidget *trans_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-    gtk_box_pack_start(GTK_BOX(lang_tab), trans_hbox, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(trans_hbox), gtk_label_new("Translate to:"), FALSE, FALSE, 0);
-    data->translation_lang_entry = gtk_entry_new();
-    gtk_entry_set_text(GTK_ENTRY(data->translation_lang_entry), settings.translation_language);
-    gtk_box_pack_start(GTK_BOX(trans_hbox), data->translation_lang_entry, FALSE, FALSE, 0);
-
-    // Additional system settings
-    data->system_proxy_check = gtk_check_button_new_with_label("Use system proxy settings");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->system_proxy_check), settings.enable_system_proxy);
-    gtk_box_pack_start(GTK_BOX(system), data->system_proxy_check, FALSE, FALSE, 0);
-
-    // ------------------------------------------------------------------
-    // Cache & Storage tab
-    // ------------------------------------------------------------------
-    GtkWidget *cache_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-    gtk_container_set_border_width(GTK_CONTAINER(cache_tab), 10);
-    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), cache_tab, gtk_label_new("Cache & Storage"));
-
-    data->cache_enabled_check = gtk_check_button_new_with_label("Enable cache");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->cache_enabled_check), settings.cache_enabled);
-    gtk_box_pack_start(GTK_BOX(cache_tab), data->cache_enabled_check, FALSE, FALSE, 0);
-
-    GtkWidget *cache_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-    gtk_box_pack_start(GTK_BOX(cache_tab), cache_hbox, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(cache_hbox), gtk_label_new("Cache Size:"), FALSE, FALSE, 0);
-    data->cache_size_combo = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->cache_size_combo), "Unlimited");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->cache_size_combo), "100 MB");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->cache_size_combo), "500 MB");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->cache_size_combo), "1 GB");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(data->cache_size_combo), "Disabled");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(data->cache_size_combo), settings.cache_size);
-    gtk_box_pack_start(GTK_BOX(cache_hbox), data->cache_size_combo, FALSE, FALSE, 0);
-
-    GtkWidget *cookie_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-    gtk_box_pack_start(GTK_BOX(cache_tab), cookie_hbox, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(cookie_hbox), gtk_label_new("Cookie expiration (days, 0=session):"), FALSE, FALSE, 0);
-    data->cookie_expiry_spin = gtk_spin_button_new_with_range(0, 365, 1);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(data->cookie_expiry_spin), settings.cookie_expiration_days);
-    gtk_box_pack_start(GTK_BOX(cookie_hbox), data->cookie_expiry_spin, FALSE, FALSE, 0);
-
-    data->offline_content_check = gtk_check_button_new_with_label("Store content for offline use");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->offline_content_check), settings.offline_content_enabled);
-    gtk_box_pack_start(GTK_BOX(cache_tab), data->offline_content_check, FALSE, FALSE, 0);
-
-    // ------------------------------------------------------------------
-    // History & Data tab
-    // ------------------------------------------------------------------
-    GtkWidget *history_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-    gtk_container_set_border_width(GTK_CONTAINER(history_tab), 10);
-    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), history_tab, gtk_label_new("History & Data"));
-
-    data->history_check = gtk_check_button_new_with_label("Remember browsing history");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->history_check), settings.remember_history);
-    gtk_box_pack_start(GTK_BOX(history_tab), data->history_check, FALSE, FALSE, 0);
-
-    // Enhanced history tab
-    data->remember_forms_check = gtk_check_button_new_with_label("Remember form entries");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->remember_forms_check), settings.remember_form_entries);
-    gtk_box_pack_start(GTK_BOX(history_tab), data->remember_forms_check, FALSE, FALSE, 0);
-
-    GtkWidget *history_days_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-    gtk_box_pack_start(GTK_BOX(history_tab), history_days_hbox, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(history_days_hbox), gtk_label_new("Keep history for (days, 0=forever):"), FALSE, FALSE, 0);
-    data->history_days_spin = gtk_spin_button_new_with_range(0, 365, 30);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(data->history_days_spin), settings.history_days_to_keep);
-    gtk_box_pack_start(GTK_BOX(history_days_hbox), data->history_days_spin, FALSE, FALSE, 0);
-
-    data->clear_cache_exit_check = gtk_check_button_new_with_label("Clear cache on exit");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->clear_cache_exit_check), settings.clear_cache_on_exit);
-    gtk_box_pack_start(GTK_BOX(history_tab), data->clear_cache_exit_check, FALSE, FALSE, 0);
-
-    data->clear_cookies_exit_check = gtk_check_button_new_with_label("Clear cookies on exit");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->clear_cookies_exit_check), settings.clear_cookies_on_exit);
-    gtk_box_pack_start(GTK_BOX(history_tab), data->clear_cookies_exit_check, FALSE, FALSE, 0);
-
-    data->clear_history_exit_check = gtk_check_button_new_with_label("Clear history on exit");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->clear_history_exit_check), settings.clear_history_on_exit);
-    gtk_box_pack_start(GTK_BOX(history_tab), data->clear_history_exit_check, FALSE, FALSE, 0);
-
-    // ------------------------------------------------------------------
-    // Advanced tab
-    // ------------------------------------------------------------------
-    GtkWidget *advanced = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-    gtk_container_set_border_width(GTK_CONTAINER(advanced), 10);
-    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), advanced, gtk_label_new("Advanced"));
-
-    GtkWidget *startup_cmd_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-    gtk_box_pack_start(GTK_BOX(advanced), startup_cmd_hbox, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(startup_cmd_hbox), gtk_label_new("Startup Command:"), FALSE, FALSE, 0);
-    data->startup_command_entry = gtk_entry_new();
-    gtk_entry_set_text(GTK_ENTRY(data->startup_command_entry), settings.startup_command);
-    gtk_box_pack_start(GTK_BOX(startup_cmd_hbox), data->startup_command_entry, TRUE, TRUE, 0);
-
-    data->dev_tools_check = gtk_check_button_new_with_label("Enable developer tools");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->dev_tools_check), settings.enable_developer_tools);
-    gtk_box_pack_start(GTK_BOX(advanced), data->dev_tools_check, FALSE, FALSE, 0);
-
-    data->debugging_check = gtk_check_button_new_with_label("Enable debugging (remote debugging protocol)");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(data->debugging_check), settings.enable_debugging);
-    gtk_box_pack_start(GTK_BOX(advanced), data->debugging_check, FALSE, FALSE, 0);
-
-    // Show everything and ensure the dialog gets focus
     gtk_widget_show_all(dialog);
-    gtk_window_present(GTK_WINDOW(dialog)); // Ensure the dialog gets focus
+    gtk_window_present(GTK_WINDOW(dialog)); /* Ensure the dialog gets focus */
 
     g_signal_connect(dialog, "response", G_CALLBACK(on_settings_response), data);
 }
 
-// Close tab callback for settings tab
+/* ----------------------------------------------------------------------
+ * Settings Tab - Close callback and main function
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Callback for settings tab close button.
+ *
+ * @param button  The close button that was clicked.
+ * @param browser BrowserWindow instance.
+ */
 static void on_settings_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
 {
     GtkWidget *tab_child = g_object_get_data(G_OBJECT(button), "tab-child");
@@ -1558,7 +1635,11 @@ static void on_settings_close_tab_clicked(GtkButton *button, BrowserWindow *brow
     }
 }
 
-// Settings Tab - opens settings inside the browser as a tab
+/**
+ * Opens settings as a tab inside the browser window.
+ *
+ * @param browser BrowserWindow instance.
+ */
 void show_settings_tab(BrowserWindow *browser)
 {
     GtkWidget *tab_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
@@ -1576,7 +1657,7 @@ void show_settings_tab(BrowserWindow *browser)
     GtkWidget *notebook = gtk_notebook_new();
     gtk_container_add(GTK_CONTAINER(scrolled), notebook);
     
-    // ========== GENERAL TAB ==========
+    /* ========== GENERAL TAB ========== */
     GtkWidget *general_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(general_scroll),
                                    GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
@@ -1592,7 +1673,7 @@ void show_settings_tab(BrowserWindow *browser)
     gtk_entry_set_text(GTK_ENTRY(home_entry), settings.home_page);
     gtk_box_pack_start(GTK_BOX(home_hbox), home_entry, TRUE, TRUE, 0);
     
-    // Search Engine
+    /* Search Engine */
     GtkWidget *search_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     gtk_box_pack_start(GTK_BOX(general), search_hbox, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(search_hbox), gtk_label_new("Search Engine:"), FALSE, FALSE, 0);
@@ -1605,7 +1686,7 @@ void show_settings_tab(BrowserWindow *browser)
     gtk_combo_box_set_active(GTK_COMBO_BOX(search_combo), settings.search_engine);
     gtk_box_pack_start(GTK_BOX(search_hbox), search_combo, FALSE, FALSE, 0);
     
-    // Custom Search URL
+    /* Custom Search URL */
     GtkWidget *custom_search_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     gtk_box_pack_start(GTK_BOX(general), custom_search_hbox, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(custom_search_hbox), gtk_label_new("Custom Search URL:"), FALSE, FALSE, 0);
@@ -1613,7 +1694,7 @@ void show_settings_tab(BrowserWindow *browser)
     gtk_entry_set_text(GTK_ENTRY(custom_search_entry), settings.custom_search_url);
     gtk_box_pack_start(GTK_BOX(custom_search_hbox), custom_search_entry, TRUE, TRUE, 0);
     
-    // Startup Behavior
+    /* Startup Behavior */
     GtkWidget *startup_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     gtk_box_pack_start(GTK_BOX(general), startup_hbox, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(startup_hbox), gtk_label_new("Startup:"), FALSE, FALSE, 0);
@@ -1625,7 +1706,7 @@ void show_settings_tab(BrowserWindow *browser)
     gtk_combo_box_set_active(GTK_COMBO_BOX(startup_combo), settings.startup_behavior);
     gtk_box_pack_start(GTK_BOX(startup_hbox), startup_combo, FALSE, FALSE, 0);
     
-    // Language
+    /* Language */
     GtkWidget *lang_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     gtk_box_pack_start(GTK_BOX(general), lang_hbox, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(lang_hbox), gtk_label_new("Language:"), FALSE, FALSE, 0);
@@ -1644,7 +1725,7 @@ void show_settings_tab(BrowserWindow *browser)
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(restore_session), settings.restore_session_on_startup);
     gtk_box_pack_start(GTK_BOX(general), restore_session, FALSE, FALSE, 0);
     
-    // ========== APPEARANCE TAB ==========
+    /* ========== APPEARANCE TAB ========== */
     GtkWidget *appearance_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(appearance_scroll),
                                    GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
@@ -1710,7 +1791,7 @@ void show_settings_tab(BrowserWindow *browser)
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(minimize_ui), settings.minimize_ui);
     gtk_box_pack_start(GTK_BOX(appearance), minimize_ui, FALSE, FALSE, 0);
     
-    // ========== PRIVACY & SECURITY TAB ==========
+    /* ========== PRIVACY & SECURITY TAB ========== */
     GtkWidget *privacy_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(privacy_scroll),
                                    GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
@@ -1800,7 +1881,7 @@ void show_settings_tab(BrowserWindow *browser)
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(block_fingerprint), settings.block_fingerprinting);
     gtk_box_pack_start(GTK_BOX(privacy), block_fingerprint, FALSE, FALSE, 0);
     
-    // ========== PERMISSIONS TAB ==========
+    /* ========== PERMISSIONS TAB ========== */
     GtkWidget *perms_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(perms_scroll),
                                    GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
@@ -1841,7 +1922,7 @@ void show_settings_tab(BrowserWindow *browser)
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gyro_check), settings.gyroscope_enabled);
     gtk_box_pack_start(GTK_BOX(permissions), gyro_check, FALSE, FALSE, 0);
     
-    // ========== DOWNLOADS TAB ==========
+    /* ========== DOWNLOADS TAB ========== */
     GtkWidget *download_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(download_scroll),
                                    GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
@@ -1865,7 +1946,7 @@ void show_settings_tab(BrowserWindow *browser)
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(show_when_done), settings.show_downloads_when_done);
     gtk_box_pack_start(GTK_BOX(downloads), show_when_done, FALSE, FALSE, 0);
     
-    // ========== CONTENT TAB ==========
+    /* ========== CONTENT TAB ========== */
     GtkWidget *content_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(content_scroll),
                                    GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
@@ -1898,7 +1979,7 @@ void show_settings_tab(BrowserWindow *browser)
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(reading_mode), settings.enable_reading_mode);
     gtk_box_pack_start(GTK_BOX(content), reading_mode, FALSE, FALSE, 0);
     
-    // ========== SYSTEM TAB ==========
+    /* ========== SYSTEM TAB ========== */
     GtkWidget *system_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(system_scroll),
                                    GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
@@ -1926,7 +2007,7 @@ void show_settings_tab(BrowserWindow *browser)
     gtk_entry_set_text(GTK_ENTRY(user_agent_entry), settings.user_agent);
     gtk_box_pack_start(GTK_BOX(user_agent_hbox), user_agent_entry, TRUE, TRUE, 0);
     
-    // ========== CACHE & STORAGE TAB ==========
+    /* ========== CACHE & STORAGE TAB ========== */
     GtkWidget *cache_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(cache_scroll),
                                    GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
@@ -1962,7 +2043,7 @@ void show_settings_tab(BrowserWindow *browser)
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(offline_content), settings.offline_content_enabled);
     gtk_box_pack_start(GTK_BOX(cache_tab), offline_content, FALSE, FALSE, 0);
     
-    // ========== HISTORY & DATA TAB ==========
+    /* ========== HISTORY & DATA TAB ========== */
     GtkWidget *history_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(history_scroll),
                                    GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
@@ -1998,7 +2079,7 @@ void show_settings_tab(BrowserWindow *browser)
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(clear_history_exit), settings.clear_history_on_exit);
     gtk_box_pack_start(GTK_BOX(history_tab), clear_history_exit, FALSE, FALSE, 0);
     
-    // ========== ADVANCED TAB ==========
+    /* ========== ADVANCED TAB ========== */
     GtkWidget *adv_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(adv_scroll),
                                    GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
@@ -2021,7 +2102,7 @@ void show_settings_tab(BrowserWindow *browser)
     
     gtk_widget_show_all(tab_content);
     
-    // Create tab label with close button
+    /* Create tab label with close button */
     GtkWidget *tab_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     GtkWidget *tab_label = gtk_label_new("Settings");
     GtkWidget *close_btn = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);

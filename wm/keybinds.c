@@ -1,6 +1,16 @@
 #include "wm.h"
 #include <X11/XKBlib.h>
 
+/**
+ * Grab keyboard shortcuts on the root window.
+ *
+ * Registers the following key bindings:
+ * - Mod4+Return: Launch xterm terminal
+ * - Mod4+q: Close the currently focused window
+ * - Mod4+Space: Launch the BlackLine launcher
+ *
+ * Grabs are performed with GrabModeAsync to avoid blocking other clients.
+ */
 void grab_keys(void) 
 
 {
@@ -33,6 +43,14 @@ void grab_keys(void)
     }
 }
 
+/**
+ * Spawn a child process with a new session.
+ *
+ * @param argv NULL-terminated argument vector for execvp.
+ *
+ * Forks a child, calls setsid() to create a new session, then executes
+ * the specified program. The parent process returns immediately.
+ */
 static void spawn(char *const argv[]) 
 
 {
@@ -44,6 +62,14 @@ static void spawn(char *const argv[])
     }
 }
 
+/**
+ * Send a WM_DELETE_WINDOW protocol message to a client.
+ *
+ * @param w X11 window ID to close.
+ *
+ * Sends a ClientMessage event requesting the window to close gracefully.
+ * This allows applications to perform cleanup or show save dialogs.
+ */
 static void close_window(Window w)
 
 {
@@ -57,6 +83,16 @@ static void close_window(Window w)
     XSendEvent(state.display, w, False, NoEventMask, &ev);
 }
 
+/**
+ * Handle key press events for global shortcuts.
+ *
+ * @param ev X11 key event.
+ *
+ * Only processes events with Mod4Mask (Super key) modifier.
+ * - Super+Return: Launch xterm
+ * - Super+q: Close focused window
+ * - Super+Space: Launch BlackLine launcher
+ */
 void handle_keypress(XKeyEvent *ev) 
 
 {

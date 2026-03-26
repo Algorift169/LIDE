@@ -8,14 +8,14 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-// Forward declaration of browser function
+/* Forward declaration of browser function */
 void browser_open_file(FileManager *fm, const gchar *path);
 
-// Clipboard for cut/copy
+/* Clipboard for cut/copy */
 static gchar *clipboard_path = NULL;
 static gboolean clipboard_is_cut = FALSE;
 
-// History management
+/* History management */
 typedef struct {
     GFile *location;
     GtkTreePath *scroll_position;
@@ -24,7 +24,7 @@ typedef struct {
 static GList *history = NULL;
 static GList *current_history_pos = NULL;
 
-// Function prototypes for new features
+/* Function prototypes for new features */
 static void fm_show_context_menu(FileManager *fm, GdkEventButton *event, const gchar *selected_path, gboolean is_directory);
 static void fm_cut_file(FileManager *fm, const gchar *path);
 static void fm_copy_file(const gchar *path);
@@ -39,7 +39,15 @@ static void fm_load_directory_contents(FileManager *fm);
 static void fm_update_navigation_buttons(FileManager *fm);
 static void fm_add_to_history(FileManager *fm, GFile *file);
 
-// Helper functions for formatting
+/* Helper functions for formatting */
+
+/**
+ * Formats file size to human-readable string.
+ *
+ * @param size Size in bytes.
+ * @return Newly allocated string with formatted size.
+ *         Caller must free with g_free().
+ */
 static gchar *format_size(guint64 size)
 
 {
@@ -49,7 +57,14 @@ static gchar *format_size(guint64 size)
     return g_strdup_printf("%.1f GB", size / (1024.0 * 1024.0 * 1024.0));
 }
 
-// Input dialog for getting names
+/**
+ * Displays an input dialog to get user input.
+ *
+ * @param parent Parent window for the dialog.
+ * @param title  Dialog title.
+ * @param prompt Prompt text to display.
+ * @return Newly allocated string with user input, or NULL if canceled.
+ */
 static gchar* show_input_dialog(GtkWindow *parent, const gchar *title, const gchar *prompt)
 
 {
@@ -82,7 +97,17 @@ static gchar* show_input_dialog(GtkWindow *parent, const gchar *title, const gch
     return result;
 }
 
-// Dragging functions
+/* Dragging functions */
+
+/**
+ * Callback for mouse button press on file manager window.
+ * Initiates window dragging or resizing.
+ *
+ * @param widget The window widget.
+ * @param event  Button event details.
+ * @param data   FileManager instance.
+ * @return       TRUE to stop event propagation.
+ */
 static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data)
 
 {
@@ -106,6 +131,15 @@ static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpoint
     return FALSE;
 }
 
+/**
+ * Callback for mouse button release on file manager window.
+ * Terminates window dragging or resizing.
+ *
+ * @param widget The window widget.
+ * @param event  Button event details.
+ * @param data   FileManager instance.
+ * @return       TRUE to stop event propagation.
+ */
 static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer data)
 
 {
@@ -120,11 +154,21 @@ static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpoi
     return FALSE;
 }
 
+/**
+ * Callback for mouse motion on file manager window.
+ * Handles window dragging, resizing, and cursor updates.
+ *
+ * @param widget The window widget.
+ * @param event  Motion event details.
+ * @param data   FileManager instance.
+ * @return       TRUE if event was handled.
+ */
 static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer data)
 
 {
     FileManager *fm = (FileManager *)data;
 
+    /* Update cursor for resize hints when not actively dragging/resizing */
     if (!fm->is_dragging && !fm->is_resizing) {
         int resize_edge = detect_resize_edge_absolute(GTK_WINDOW(fm->window), event->x_root, event->y_root);
         update_resize_cursor(widget, resize_edge);
@@ -158,7 +202,14 @@ static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoin
     return FALSE;
 }
 
-// Window control callbacks
+/* Window control callbacks */
+
+/**
+ * Callback for minimize button click.
+ *
+ * @param button The button that was clicked.
+ * @param window The window to minimize.
+ */
 static void on_minimize_clicked(GtkButton *button, gpointer window)
 
 {
@@ -166,6 +217,13 @@ static void on_minimize_clicked(GtkButton *button, gpointer window)
     gtk_window_iconify(GTK_WINDOW(window));
 }
 
+/**
+ * Callback for maximize/restore button click.
+ * Toggles between maximized and restored states.
+ *
+ * @param button The button that was clicked.
+ * @param window The window to maximize or restore.
+ */
 static void on_maximize_clicked(GtkButton *button, gpointer window)
 
 {
@@ -179,6 +237,15 @@ static void on_maximize_clicked(GtkButton *button, gpointer window)
     }
 }
 
+/**
+ * Callback for window state changes.
+ * Updates the maximize button label when window is maximized or restored.
+ *
+ * @param window The window whose state changed.
+ * @param event  Window state event details.
+ * @param data   Maximize button widget.
+ * @return       FALSE to allow further processing.
+ */
 static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *event, gpointer data)
 
 {
@@ -195,6 +262,12 @@ static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *
     return FALSE;
 }
 
+/**
+ * Callback for close button click.
+ *
+ * @param button The button that was clicked.
+ * @param window The window to close.
+ */
 static void on_close_clicked(GtkButton *button, gpointer window)
 
 {
@@ -202,7 +275,11 @@ static void on_close_clicked(GtkButton *button, gpointer window)
     gtk_window_close(GTK_WINDOW(window));
 }
 
-// Update navigation buttons state
+/**
+ * Updates the state of navigation buttons (back/forward) based on history position.
+ *
+ * @param fm FileManager instance.
+ */
 static void fm_update_navigation_buttons(FileManager *fm)
 
 {
@@ -210,11 +287,16 @@ static void fm_update_navigation_buttons(FileManager *fm)
     gtk_widget_set_sensitive(fm->forward_button, (current_history_pos != NULL && current_history_pos->next != NULL));
 }
 
-// Add current location to history
+/**
+ * Adds the current location to navigation history.
+ *
+ * @param fm   FileManager instance.
+ * @param file Current directory GFile.
+ */
 static void fm_add_to_history(FileManager *fm, GFile *file)
 
 {
-    // If we're not at the end of history, truncate forward history
+    /* If we're not at the end of history, truncate forward history */
     if (current_history_pos && current_history_pos->next) {
         GList *next = current_history_pos->next;
         GList *tmp;
@@ -230,11 +312,11 @@ static void fm_add_to_history(FileManager *fm, GFile *file)
         current_history_pos->next = NULL;
     }
     
-    // Create new history entry
+    /* Create new history entry */
     HistoryEntry *entry = g_new(HistoryEntry, 1);
     entry->location = g_object_ref(file);
     
-    // Save current scroll position
+    /* Save current scroll position */
     GtkAdjustment *vadjust = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(
         gtk_widget_get_parent(GTK_WIDGET(fm->main_tree))));
     if (vadjust) {
@@ -247,14 +329,18 @@ static void fm_add_to_history(FileManager *fm, GFile *file)
         entry->scroll_position = NULL;
     }
     
-    // Add to history
+    /* Add to history */
     history = g_list_append(history, entry);
     current_history_pos = g_list_last(history);
     
     fm_update_navigation_buttons(fm);
 }
 
-// Populate sidebar with places including Recent, Starred, Trash, and Root
+/**
+ * Populates the sidebar with places including Home, Root, Recent, Starred, and Trash.
+ *
+ * @param fm FileManager instance.
+ */
 void fm_populate_sidebar(FileManager *fm)
 
 {
@@ -262,33 +348,40 @@ void fm_populate_sidebar(FileManager *fm)
 
     GtkTreeIter iter;
 
-    // Home
+    /* Home */
     const gchar *home = g_get_home_dir();
     gtk_list_store_append(fm->sidebar_store, &iter);
     gtk_list_store_set(fm->sidebar_store, &iter, 0, "Home", -1);
     g_object_set_data_full(G_OBJECT(fm->sidebar_tree), "path_Home", g_strdup(home), g_free);
 
-    // Root
+    /* Root */
     gtk_list_store_append(fm->sidebar_store, &iter);
     gtk_list_store_set(fm->sidebar_store, &iter, 0, "Root", -1);
     g_object_set_data_full(G_OBJECT(fm->sidebar_tree), "path_Root", g_strdup("/"), g_free);
 
-    // Recent
+    /* Recent */
     gtk_list_store_append(fm->sidebar_store, &iter);
     gtk_list_store_set(fm->sidebar_store, &iter, 0, "Recent", -1);
 
-    // Starred
+    /* Starred */
     gtk_list_store_append(fm->sidebar_store, &iter);
     gtk_list_store_set(fm->sidebar_store, &iter, 0, "Starred", -1);
 
-    // Trash
+    /* Trash */
     gchar *trash_path = g_build_filename(g_get_home_dir(), ".local/share/Trash/files", NULL);
     gtk_list_store_append(fm->sidebar_store, &iter);
     gtk_list_store_set(fm->sidebar_store, &iter, 0, "Trash", -1);
     g_object_set_data_full(G_OBJECT(fm->sidebar_tree), "path_Trash", trash_path, g_free);
 }
 
-// Handle sidebar row activation
+/**
+ * Handles sidebar row activation (click).
+ *
+ * @param tree The sidebar tree view.
+ * @param path Activated tree path.
+ * @param col  Tree view column.
+ * @param fm   FileManager instance.
+ */
 void fm_on_sidebar_row_activated(GtkTreeView *tree, GtkTreePath *path, GtkTreeViewColumn *col, FileManager *fm)
 
 {
@@ -316,7 +409,12 @@ void fm_on_sidebar_row_activated(GtkTreeView *tree, GtkTreePath *path, GtkTreeVi
     g_free(text);
 }
 
-// Load directory contents (with special handling for home)
+/**
+ * Loads directory contents into the main tree view.
+ * Handles special case for home directory showing XDG user directories.
+ *
+ * @param fm FileManager instance.
+ */
 static void fm_load_directory_contents(FileManager *fm)
 
 {
@@ -328,10 +426,10 @@ static void fm_load_directory_contents(FileManager *fm)
     g_free(current_dir_path);
 
     if (is_home) {
-        // Show standard XDG user directories
+        /* Show standard XDG user directories */
         GtkTreeIter iter;
 
-        // Define XDG user directories
+        /* Define XDG user directories */
         const gchar *dir_names[] = {
             "Desktop", "Documents", "Downloads", "Music",
             "Pictures", "Public", "Videos", NULL
@@ -369,7 +467,7 @@ static void fm_load_directory_contents(FileManager *fm)
             g_free(path);
         }
     } else {
-        // Normal directory listing
+        /* Normal directory listing */
         GFileEnumerator *enumerator = g_file_enumerate_children(fm->current_dir,
                                                                 "standard::name,standard::size,standard::content-type,time::modified",
                                                                 G_FILE_QUERY_INFO_NONE,
@@ -422,7 +520,12 @@ static void fm_load_directory_contents(FileManager *fm)
     g_free(current_dir_path);
 }
 
-// Open a location and load its contents
+/**
+ * Opens a location and loads its contents.
+ *
+ * @param fm   FileManager instance.
+ * @param path Path to open.
+ */
 void fm_open_location(FileManager *fm, const gchar *path)
 
 {
@@ -435,7 +538,7 @@ void fm_open_location(FileManager *fm, const gchar *path)
         return;
     }
 
-    // Add current location to history before changing
+    /* Add current location to history before changing */
     if (fm->current_dir) {
         fm_add_to_history(fm, fm->current_dir);
         g_object_unref(fm->current_dir);
@@ -444,13 +547,20 @@ void fm_open_location(FileManager *fm, const gchar *path)
     fm->current_dir = g_object_ref(new_dir);
     fm_load_directory_contents(fm);
 
-    // Update location entry
+    /* Update location entry */
     gtk_entry_set_text(GTK_ENTRY(fm->location_entry), path);
     
     g_object_unref(new_dir);
 }
 
-// Row activated handler
+/**
+ * Handles row activation (double-click or Enter key).
+ *
+ * @param tree_view The tree view.
+ * @param path      Activated tree path.
+ * @param column    Tree view column.
+ * @param fm        FileManager instance.
+ */
 void fm_on_row_activated(GtkTreeView *tree_view, GtkTreePath *path, GtkTreeViewColumn *column, FileManager *fm)
 
 {
@@ -465,14 +575,18 @@ void fm_on_row_activated(GtkTreeView *tree_view, GtkTreePath *path, GtkTreeViewC
         if (g_file_test(full_path, G_FILE_TEST_IS_DIR)) {
             fm_open_location(fm, full_path);
         } else {
-            // Call external open function from browser.c
+            /* Call external open function from browser.c */
             browser_open_file(fm, full_path);
         }
         g_free(full_path);
     }
 }
 
-// Create new folder
+/**
+ * Creates a new folder in the current directory.
+ *
+ * @param fm FileManager instance.
+ */
 static void fm_new_folder(FileManager *fm)
 
 {
@@ -491,7 +605,11 @@ static void fm_new_folder(FileManager *fm)
     }
 }
 
-// Create new file
+/**
+ * Creates a new empty file in the current directory.
+ *
+ * @param fm FileManager instance.
+ */
 static void fm_new_file(FileManager *fm)
 
 {
@@ -512,7 +630,14 @@ static void fm_new_file(FileManager *fm)
     }
 }
 
-// Context menu for main view
+/**
+ * Displays the context menu for the main view.
+ *
+ * @param fm           FileManager instance.
+ * @param event        Button event that triggered the menu.
+ * @param selected_path Path of selected item, or NULL if clicking empty space.
+ * @param is_directory  TRUE if selected item is a directory.
+ */
 static void fm_show_context_menu(FileManager *fm, GdkEventButton *event, const gchar *selected_path, gboolean is_directory)
 
 {
@@ -520,7 +645,7 @@ static void fm_show_context_menu(FileManager *fm, GdkEventButton *event, const g
     GtkWidget *item;
 
     if (selected_path) {
-        // File/Directory specific options
+        /* File/Directory specific options */
         item = gtk_menu_item_new_with_label("Open");
         g_signal_connect_swapped(item, "activate", G_CALLBACK(browser_open_file), fm);
         g_object_set_data_full(G_OBJECT(item), "path", g_strdup(selected_path), g_free);
@@ -536,7 +661,7 @@ static void fm_show_context_menu(FileManager *fm, GdkEventButton *event, const g
         gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 
         item = gtk_menu_item_new_with_label("Rename");
-        g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_new_folder), fm); // Placeholder
+        g_signal_connect_swapped(item, "activate", G_CALLBACK(fm_new_folder), fm); /* Placeholder */
         gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 
         item = gtk_menu_item_new_with_label("Delete");
@@ -550,7 +675,7 @@ static void fm_show_context_menu(FileManager *fm, GdkEventButton *event, const g
         gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
     }
 
-    // Always show these options (for empty space or as additional options)
+    /* Always show these options (for empty space or as additional options) */
     if (!selected_path) {
         gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
     }
@@ -591,7 +716,15 @@ static void fm_show_context_menu(FileManager *fm, GdkEventButton *event, const g
     gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent*)event);
 }
 
-// Context menu trigger on right-click
+/**
+ * Callback for right-click on main tree view.
+ * Shows context menu for the selected item or empty space.
+ *
+ * @param widget The tree view.
+ * @param event  Button event.
+ * @param fm     FileManager instance.
+ * @return       TRUE to stop event propagation.
+ */
 static gboolean on_main_tree_button_press(GtkWidget *widget, GdkEventButton *event, FileManager *fm)
 
 {
@@ -611,7 +744,7 @@ static gboolean on_main_tree_button_press(GtkWidget *widget, GdkEventButton *eve
             }
             gtk_tree_path_free(path);
         } else {
-            // Click on empty space
+            /* Click on empty space */
             fm_show_context_menu(fm, event, NULL, FALSE);
         }
         return TRUE;
@@ -619,7 +752,14 @@ static gboolean on_main_tree_button_press(GtkWidget *widget, GdkEventButton *eve
     return FALSE;
 }
 
-// Action 
+/* Action functions */
+
+/**
+ * Cuts a file or directory (marks for move operation).
+ *
+ * @param fm   FileManager instance.
+ * @param path Path to cut.
+ */
 static void fm_cut_file(FileManager *fm, const gchar *path)
 
 {
@@ -630,6 +770,11 @@ static void fm_cut_file(FileManager *fm, const gchar *path)
     gtk_label_set_text(GTK_LABEL(fm->status_label), "Cut: ready to paste");
 }
 
+/**
+ * Copies a file or directory.
+ *
+ * @param path Path to copy.
+ */
 static void fm_copy_file(const gchar *path)
 
 {
@@ -639,6 +784,12 @@ static void fm_copy_file(const gchar *path)
     clipboard_is_cut = FALSE;
 }
 
+/**
+ * Pastes the cut or copied file to the destination directory.
+ *
+ * @param fm       FileManager instance.
+ * @param dest_dir Destination directory path.
+ */
 static void fm_paste_file(FileManager *fm, const gchar *dest_dir)
 
 {
@@ -676,6 +827,11 @@ static void fm_paste_file(FileManager *fm, const gchar *dest_dir)
     fm_refresh(fm);
 }
 
+/**
+ * Moves a file to the trash.
+ *
+ * @param path Path to trash.
+ */
 static void fm_move_to_trash(const gchar *path)
 
 {
@@ -688,6 +844,11 @@ static void fm_move_to_trash(const gchar *path)
     g_object_unref(file);
 }
 
+/**
+ * Permanently deletes a file (bypasses trash).
+ *
+ * @param path Path to delete.
+ */
 static void fm_delete_permanently(const gchar *path)
 
 {
@@ -700,7 +861,11 @@ static void fm_delete_permanently(const gchar *path)
     g_object_unref(file);
 }
 
-// Open in terminal
+/**
+ * Opens a terminal in the specified directory.
+ *
+ * @param path Path to open terminal in.
+ */
 static void fm_open_in_terminal(const gchar *path)
 
 {
@@ -715,7 +880,11 @@ static void fm_open_in_terminal(const gchar *path)
     g_free(dir);
 }
 
-// Show properties
+/**
+ * Shows properties dialog for a file or directory.
+ *
+ * @param path Path to show properties for.
+ */
 static void fm_show_properties(const gchar *path)
 
 {
@@ -746,7 +915,13 @@ static void fm_show_properties(const gchar *path)
     g_object_unref(file);
 }
 
-// Navigation helpers
+/* Navigation helpers */
+
+/**
+ * Navigates to the user's home directory.
+ *
+ * @param fm FileManager instance.
+ */
 void fm_go_home(FileManager *fm)
 
 {
@@ -754,6 +929,11 @@ void fm_go_home(FileManager *fm)
     fm_open_location(fm, home);
 }
 
+/**
+ * Navigates to the parent directory.
+ *
+ * @param fm FileManager instance.
+ */
 void fm_go_up(FileManager *fm)
 
 {
@@ -768,6 +948,11 @@ void fm_go_up(FileManager *fm)
     }
 }
 
+/**
+ * Navigates backward in history.
+ *
+ * @param fm FileManager instance.
+ */
 void fm_go_back(FileManager *fm)
 
 {
@@ -787,7 +972,7 @@ void fm_go_back(FileManager *fm)
     
     fm_load_directory_contents(fm);
     
-    // Restore scroll position
+    /* Restore scroll position */
     if (entry->scroll_position) {
         gtk_tree_view_scroll_to_cell(GTK_TREE_VIEW(fm->main_tree), entry->scroll_position, NULL, TRUE, 0.5, 0.0);
     }
@@ -795,6 +980,11 @@ void fm_go_back(FileManager *fm)
     fm_update_navigation_buttons(fm);
 }
 
+/**
+ * Navigates forward in history.
+ *
+ * @param fm FileManager instance.
+ */
 void fm_go_forward(FileManager *fm)
 
 {
@@ -814,7 +1004,7 @@ void fm_go_forward(FileManager *fm)
     
     fm_load_directory_contents(fm);
     
-    // Restore scroll position
+    /* Restore scroll position */
     if (entry->scroll_position) {
         gtk_tree_view_scroll_to_cell(GTK_TREE_VIEW(fm->main_tree), entry->scroll_position, NULL, TRUE, 0.5, 0.0);
     }
@@ -822,6 +1012,11 @@ void fm_go_forward(FileManager *fm)
     fm_update_navigation_buttons(fm);
 }
 
+/**
+ * Refreshes the current directory view.
+ *
+ * @param fm FileManager instance.
+ */
 void fm_refresh(FileManager *fm)
 
 {
@@ -831,6 +1026,12 @@ void fm_refresh(FileManager *fm)
     g_free(path);
 }
 
+/**
+ * Callback for location entry activation (Enter key).
+ * Navigates to the entered path.
+ *
+ * @param fm FileManager instance.
+ */
 void fm_on_location_activate(FileManager *fm)
 
 {
@@ -840,7 +1041,11 @@ void fm_on_location_activate(FileManager *fm)
     }
 }
 
-// Update status
+/**
+ * Updates the status label with current directory path.
+ *
+ * @param fm FileManager instance.
+ */
 void fm_update_status(FileManager *fm)
 
 {
@@ -851,7 +1056,17 @@ void fm_update_status(FileManager *fm)
     }
 }
 
-// Main activation
+/* Main activation */
+
+/**
+ * Application activation callback.
+ * Creates and displays the file manager window.
+ *
+ * @param app        The GtkApplication instance.
+ * @param user_data  User data (unused).
+ *
+ * @sideeffect Creates file manager UI and initializes state.
+ */
 static void activate(GtkApplication *app, gpointer user_data)
 
 {
@@ -863,7 +1078,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     fm->is_resizing = 0;
     fm->resize_edge = RESIZE_NONE;
 
-    // Main window
+    /* Main window */
     fm->window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(fm->window), "Blackline File Manager");
     gtk_window_set_default_size(GTK_WINDOW(fm->window), 900, 600);
@@ -877,7 +1092,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     g_signal_connect(fm->window, "button-release-event", G_CALLBACK(on_button_release), fm);
     g_signal_connect(fm->window, "motion-notify-event", G_CALLBACK(on_motion_notify), fm);
 
-    // CSS
+    /* CSS */
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
         "window { background-color: #1e1e1e; color: #e0e0e0; }\n"
@@ -896,11 +1111,11 @@ static void activate(GtkApplication *app, gpointer user_data)
         GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
     g_object_unref(provider);
 
-    // Main vertical box
+    /* Main vertical box */
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_container_add(GTK_CONTAINER(fm->window), vbox);
 
-    // Title bar
+    /* Title bar */
     GtkWidget *title_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     gtk_widget_set_name(title_bar, "title-bar");
     gtk_widget_set_size_request(title_bar, -1, 30);
@@ -932,7 +1147,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     GtkWidget *sep = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_box_pack_start(GTK_BOX(vbox), sep, FALSE, FALSE, 0);
 
-    // Toolbar
+    /* Toolbar */
     GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
     gtk_box_pack_start(GTK_BOX(vbox), toolbar, FALSE, FALSE, 5);
 
@@ -960,11 +1175,11 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_box_pack_start(GTK_BOX(toolbar), fm->location_entry, TRUE, TRUE, 0);
     g_signal_connect_swapped(fm->location_entry, "activate", G_CALLBACK(fm_on_location_activate), fm);
 
-    // Horizontal paned
+    /* Horizontal paned */
     GtkWidget *hpaned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_box_pack_start(GTK_BOX(vbox), hpaned, TRUE, TRUE, 5);
 
-    // Sidebar
+    /* Sidebar */
     GtkWidget *sidebar_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sidebar_scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_paned_pack1(GTK_PANED(hpaned), sidebar_scroll, FALSE, FALSE);
@@ -978,12 +1193,12 @@ static void activate(GtkApplication *app, gpointer user_data)
     g_signal_connect(fm->sidebar_tree, "row-activated", G_CALLBACK(fm_on_sidebar_row_activated), fm);
     fm_populate_sidebar(fm);
 
-    // Main view
+    /* Main view */
     GtkWidget *main_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(main_scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_paned_pack2(GTK_PANED(hpaned), main_scroll, TRUE, TRUE);
 
-    // Tree store with 5 columns: name, size, type, modified, full_path (hidden)
+    /* Tree store with 5 columns: name, size, type, modified, full_path (hidden) */
     fm->main_store = gtk_tree_store_new(5, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
     fm->main_tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(fm->main_store));
     gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(fm->main_tree), TRUE);
@@ -1012,21 +1227,28 @@ static void activate(GtkApplication *app, gpointer user_data)
     g_signal_connect(fm->main_tree, "row-activated", G_CALLBACK(fm_on_row_activated), fm);
     g_signal_connect(fm->main_tree, "button-press-event", G_CALLBACK(on_main_tree_button_press), fm);
 
-    // Status bar
+    /* Status bar */
     fm->status_label = gtk_label_new("Ready");
     gtk_label_set_xalign(GTK_LABEL(fm->status_label), 0);
     gtk_box_pack_start(GTK_BOX(vbox), fm->status_label, FALSE, FALSE, 2);
 
-    // Initialize navigation buttons state
+    /* Initialize navigation buttons state */
     fm_update_navigation_buttons(fm);
 
-    // Start at home
+    /* Start at home */
     fm_go_home(fm);
 
     gtk_widget_show_all(fm->window);
     g_object_set_data_full(G_OBJECT(fm->window), "fm", fm, g_free);
 }
 
+/**
+ * Application entry point.
+ *
+ * @param argc Argument count from command line.
+ * @param argv Argument vector from command line.
+ * @return     Exit status from g_application_run().
+ */
 int main(int argc, char **argv)
 
 {

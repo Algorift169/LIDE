@@ -28,7 +28,19 @@ static Atom net_wm_window_type_normal;
 static Atom net_wm_name;
 static Atom utf8_string;
 
-// Desktop icon structure
+/**
+ * Desktop icon structure representing a file or folder on the desktop.
+ *
+ * @id            X11 window ID for the icon (None if not a separate window).
+ * @name          Display name of the icon.
+ * @path          Full filesystem path.
+ * @x,y           Screen coordinates of the icon.
+ * @width,height  Icon dimensions in pixels.
+ * @is_selected   Selection state flag (1 if selected, 0 otherwise).
+ * @mod_time      Last modification timestamp from stat().
+ * @size          File size in bytes.
+ * @next          Pointer to next icon in linked list.
+ */
 typedef struct DesktopIcon {
     Window id;
     char *name;
@@ -41,7 +53,19 @@ typedef struct DesktopIcon {
     struct DesktopIcon *next;
 } DesktopIcon;
 
-// Window list structure 
+/**
+ * Client window structure for managed application windows.
+ *
+ * @id                X11 window ID.
+ * @x,y               Current window position.
+ * @width,height      Current window dimensions.
+ * @is_maximized      Flag indicating if window is maximized.
+ * @saved_x,saved_y   Saved position before maximize.
+ * @saved_width,saved_height Saved dimensions before maximize.
+ * @is_dock           Flag for dock-type windows (panels, toolbars) that
+ *                    should not be focused or managed like regular windows.
+ * @next              Pointer to next client in linked list.
+ */
 typedef struct ClientWindow {
     Window id;
     int x, y;
@@ -53,7 +77,14 @@ typedef struct ClientWindow {
     struct ClientWindow *next;
 } ClientWindow;
 
-// Menu item structure
+/**
+ * Menu item structure for context menus.
+ *
+ * @label      Display text of the menu item.
+ * @callback   Function to call when item is selected.
+ * @data       User data passed to the callback.
+ * @next       Pointer to next menu item.
+ */
 typedef struct MenuItem {
     char *label;
     void (*callback)(Display *d, Window menu, void *data);
@@ -125,7 +156,14 @@ static Window active_menu = None;
 static DesktopIcon *selected_icon = NULL;
 static Window focused_window = None;
 
-// Add window to list
+/**
+ * Add a window to the client list.
+ *
+ * @param id X11 window ID.
+ *
+ * Allocates a new ClientWindow structure, initializes fields to defaults,
+ * and prepends it to the global window_list.
+ */
 static void add_window(Window id) 
 
 {
@@ -145,7 +183,12 @@ static void add_window(Window id)
     window_list = new_win;
 }
 
-// Find window in list
+/**
+ * Find a client window by its XID.
+ *
+ * @param id X11 window ID to locate.
+ * @return Pointer to ClientWindow if found, NULL otherwise.
+ */
 static ClientWindow* find_window(Window id) 
 
 {
@@ -157,7 +200,11 @@ static ClientWindow* find_window(Window id)
     return NULL;
 }
 
-// Remove window from list
+/**
+ * Remove a window from the client list and free its memory.
+ *
+ * @param id X11 window ID to remove.
+ */
 static void remove_window(Window id) 
 
 {
@@ -173,7 +220,14 @@ static void remove_window(Window id)
     }
 }
 
-// Get screen dimensions
+/**
+ * Get the screen dimensions.
+ *
+ * @param d      X11 display.
+ * @param screen Screen number.
+ * @param width  Output parameter for screen width.
+ * @param height Output parameter for screen height.
+ */
 static void get_screen_size(Display *d, int screen, int *width, int *height)
 
 {
@@ -181,7 +235,16 @@ static void get_screen_size(Display *d, int screen, int *width, int *height)
     *height = DisplayHeight(d, screen);
 }
 
-// Check if window is a dock (panel, toolbar, etc.)
+/**
+ * Check if a window is a dock type (panel, toolbar, etc.).
+ *
+ * @param d   X11 display.
+ * @param win X11 window ID.
+ * @return 1 if window is a dock, 0 otherwise.
+ *
+ * Queries the _NET_WM_WINDOW_TYPE property and compares against
+ * net_wm_window_type_dock atom.
+ */
 static int is_dock_window(Display *d, Window win) 
 
 {
@@ -204,7 +267,16 @@ static int is_dock_window(Display *d, Window win)
     return 0;
 }
 
-// Maximize window
+/**
+ * Maximize a window to fill the screen (with panel offset).
+ *
+ * @param d   X11 display.
+ * @param win X11 window ID.
+ *
+ * Saves current geometry, then moves and resizes the window to fill the
+ * screen, leaving 30 pixels at the top for the panel. Updates the
+ * _NET_WM_STATE property to indicate maximized state.
+ */
 static void maximize_window(Display *d, Window win) 
 
 {
@@ -243,7 +315,15 @@ static void maximize_window(Display *d, Window win)
     }
 }
 
-// Unmaximize window
+/**
+ * Restore a maximized window to its saved geometry.
+ *
+ * @param d   X11 display.
+ * @param win X11 window ID.
+ *
+ * Restores the saved position and dimensions, clears the _NET_WM_STATE
+ * maximized property.
+ */
 static void unmaximize_window(Display *d, Window win) 
 
 {
@@ -264,7 +344,13 @@ static void unmaximize_window(Display *d, Window win)
     XDeleteProperty(d, win, net_wm_state);
 }
 
-// Handle maximize/unmaximize request
+/**
+ * Handle _NET_WM_STATE client messages for maximize requests.
+ *
+ * @param d      X11 display.
+ * @param win    X11 window ID.
+ * @param action 0=REMOVE, 1=ADD, 2=TOGGLE.
+ */
 static void handle_maximize_request(Display *d, Window win, long action)
 
 {
@@ -289,7 +375,15 @@ static void handle_maximize_request(Display *d, Window win, long action)
     XRaiseWindow(d, win);
 }
 
-// Set input focus to a window
+/**
+ * Set input focus to a window.
+ *
+ * @param d   X11 display.
+ * @param win X11 window ID to focus.
+ *
+ * Updates the X server's input focus, tracks the focused window globally,
+ * and updates the _NET_ACTIVE_WINDOW root window property.
+ */
 static void set_focus(Display *d, Window win)
 
 {
@@ -308,7 +402,15 @@ static void set_focus(Display *d, Window win)
 
 // ==================== WALLPAPER FUNCTIONS ====================
 
-// Load wallpaper using Imlib2
+/**
+ * Load an image file and scale it to fit the screen using Imlib2.
+ *
+ * @param d        X11 display.
+ * @param screen   Screen number.
+ * @param root     Root window ID.
+ * @param filename Path to the image file.
+ * @return Pixmap containing the scaled image, or None on failure.
+ */
 static Pixmap load_wallpaper_imlib2(Display *d, int screen, Window root, const char *filename)
 
 {
@@ -361,7 +463,14 @@ static Pixmap load_wallpaper_imlib2(Display *d, int screen, Window root, const c
     return pixmap;
 }
 
-// Create solid color fallback wallpaper
+/**
+ * Create a solid color wallpaper as fallback.
+ *
+ * @param d      X11 display.
+ * @param screen Screen number.
+ * @param root   Root window ID.
+ * @return Pixmap filled with the default color (#0b0f14).
+ */
 static Pixmap create_solid_wallpaper(Display *d, int screen, Window root)
 
 {
@@ -382,7 +491,17 @@ static Pixmap create_solid_wallpaper(Display *d, int screen, Window root)
     return pixmap;
 }
 
-// Load wallpaper
+/**
+ * Load the wallpaper from disk or create a solid color fallback.
+ *
+ * @param d      X11 display.
+ * @param screen Screen number.
+ * @param root   Root window ID.
+ *
+ * Searches multiple paths for an image file. If found, loads and scales it.
+ * Otherwise creates a solid color pixmap. Stores the result in the global
+ * wallpaper_pixmap for later use.
+ */
 static void load_wallpaper(Display *d, int screen, Window root)
 
 {
@@ -444,7 +563,14 @@ static void load_wallpaper(Display *d, int screen, Window root)
     }
 }
 
-// Set wallpaper for desktop window
+/**
+ * Apply the wallpaper to a desktop window.
+ *
+ * @param d   X11 display.
+ * @param win Desktop window ID.
+ *
+ * Sets the window background pixmap and clears the window to trigger redraw.
+ */
 static void set_wallpaper(Display *d, Window win)
 
 {
@@ -462,7 +588,12 @@ static void set_wallpaper(Display *d, Window win)
 
 // ==================== DESKTOP FUNCTIONS ====================
 
-// Get desktop directory path
+/**
+ * Get the user's desktop directory path.
+ *
+ * @return Newly allocated string containing the desktop path.
+ *         Caller must free with free().
+ */
 static char* get_desktop_path(void)
 
 {
@@ -476,7 +607,14 @@ static char* get_desktop_path(void)
     return path;
 }
 
-// Load desktop icons from ~/Desktop
+/**
+ * Scan the desktop directory and build the icons list.
+ *
+ * @param d X11 display (unused, kept for API consistency).
+ *
+ * Frees existing icons, reads all files in ~/Desktop (excluding hidden files),
+ * and creates DesktopIcon structures with default positions in a grid layout.
+ */
 static void load_desktop_icons(Display *d)
 
 {
@@ -537,7 +675,12 @@ static void load_desktop_icons(Display *d)
     free(desktop_path);
 }
 
-// Find desktop icon at coordinates
+/**
+ * Find a desktop icon at given screen coordinates.
+ *
+ * @param x,y Cursor coordinates relative to desktop window.
+ * @return Pointer to DesktopIcon if found, NULL otherwise.
+ */
 static DesktopIcon* find_icon_at(int x, int y)
 
 {
@@ -552,7 +695,11 @@ static DesktopIcon* find_icon_at(int x, int y)
     return NULL;
 }
 
-// Draw desktop
+/**
+ * Draw the desktop (currently just sets wallpaper).
+ *
+ * @param d X11 display.
+ */
 static void draw_desktop(Display *d)
 
 {
@@ -562,7 +709,14 @@ static void draw_desktop(Display *d)
     set_wallpaper(d, desktop_window);
 }
 
-// Create new folder on desktop
+/**
+ * Create a new folder on the desktop.
+ *
+ * @param d X11 display.
+ *
+ * Generates a unique "New Folder" name and creates the directory.
+ * Reloads icons and refreshes the desktop display.
+ */
 static void desktop_new_folder(Display *d)
 
 {
@@ -585,7 +739,15 @@ static void desktop_new_folder(Display *d)
     draw_desktop(d);
 }
 
-// Paste file on desktop
+/**
+ * Paste a file from clipboard to the desktop.
+ *
+ * @param d X11 display.
+ *
+ * If the clipboard contains a cut operation, the file is moved.
+ * If copy, the file is duplicated. The operation clears the clipboard
+ * after completion for cut operations.
+ */
 static void desktop_paste(Display *d)
 
 {
@@ -624,7 +786,11 @@ static void desktop_paste(Display *d)
     draw_desktop(d);
 }
 
-// Cut file
+/**
+ * Cut a file (copy path to clipboard with cut flag set).
+ *
+ * @param icon Desktop icon representing the file to cut.
+ */
 static void desktop_cut(DesktopIcon *icon)
 
 {
@@ -634,7 +800,11 @@ static void desktop_cut(DesktopIcon *icon)
     clipboard_is_cut = 1;
 }
 
-// Copy file
+/**
+ * Copy a file (copy path to clipboard without cut flag).
+ *
+ * @param icon Desktop icon representing the file to copy.
+ */
 static void desktop_copy(DesktopIcon *icon)
 
 {
@@ -644,7 +814,9 @@ static void desktop_copy(DesktopIcon *icon)
     clipboard_is_cut = 0;
 }
 
-// Open in terminal
+/**
+ * Open a terminal window in the desktop directory.
+ */
 static void desktop_open_terminal(void)
 
 {
@@ -659,7 +831,11 @@ static void desktop_open_terminal(void)
     free(desktop_path);
 }
 
-// Show desktop files
+/**
+ * Refresh the desktop display by reloading icons and redrawing.
+ *
+ * @param d X11 display.
+ */
 static void desktop_show_files(Display *d)
 
 {
@@ -667,7 +843,12 @@ static void desktop_show_files(Display *d)
     draw_desktop(d);
 }
 
-// Compare function for sorting by name
+/**
+ * Compare two icons by name for qsort.
+ *
+ * @param a,b Pointers to DesktopIcon pointers.
+ * @return Negative if a < b, zero if equal, positive if a > b.
+ */
 static int compare_icon_by_name(const void *a, const void *b)
 
 {
@@ -676,7 +857,12 @@ static int compare_icon_by_name(const void *a, const void *b)
     return strcmp(ia->name, ib->name);
 }
 
-// Compare function for sorting by size
+/**
+ * Compare two icons by file size for qsort.
+ *
+ * @param a,b Pointers to DesktopIcon pointers.
+ * @return Negative if a < b, zero if equal, positive if a > b.
+ */
 static int compare_icon_by_size(const void *a, const void *b)
 
 {
@@ -687,7 +873,12 @@ static int compare_icon_by_size(const void *a, const void *b)
     return 0;
 }
 
-// Compare function for sorting by date
+/**
+ * Compare two icons by modification date for qsort.
+ *
+ * @param a,b Pointers to DesktopIcon pointers.
+ * @return Negative if a < b, zero if equal, positive if a > b.
+ */
 static int compare_icon_by_date(const void *a, const void *b)
 
 {
@@ -698,7 +889,15 @@ static int compare_icon_by_date(const void *a, const void *b)
     return 0;
 }
 
-// Arrange desktop icons
+/**
+ * Arrange desktop icons in the specified sort order.
+ *
+ * @param d    X11 display.
+ * @param mode Sort mode: "name", "size", or "date".
+ *
+ * Collects all icons into an array, sorts using the appropriate comparator,
+ * then reassigns positions in a grid layout.
+ */
 static void desktop_arrange_icons(Display *d, const char *mode)
 
 {
@@ -875,7 +1074,19 @@ static void menu_properties(Display *d, Window menu, void *data)
     printf("Properties:\n%s\n", msg);
 }
 
-// Create a popup menu window
+/**
+ * Create a popup menu window.
+ *
+ * @param d     X11 display.
+ * @param x,y   Screen coordinates for the menu.
+ * @param items Array of MenuItem structures.
+ * @param count Number of items.
+ * @return X11 window ID of the created menu.
+ *
+ * Creates an override-redirect window with menu styling, draws text labels,
+ * and stores the items in X properties for later lookup. The window is
+ * mapped and raised immediately.
+ */
 static Window create_menu_window(Display *d, int x, int y, MenuItem *items, int count)
 
 {
@@ -927,7 +1138,15 @@ static Window create_menu_window(Display *d, int x, int y, MenuItem *items, int 
     return menu;
 }
 
-// Show desktop context menu
+/**
+ * Show the desktop context menu at the specified coordinates.
+ *
+ * @param d   X11 display.
+ * @param x,y Screen coordinates for the menu.
+ *
+ * Destroys any existing menu, creates a new one with desktop actions,
+ * and stores it in active_menu.
+ */
 static void show_desktop_menu(Display *d, int x, int y)
 
 {
@@ -951,7 +1170,13 @@ static void show_desktop_menu(Display *d, int x, int y)
     active_menu = create_menu_window(d, x, y, items, count);
 }
 
-// Show icon context menu
+/**
+ * Show the icon context menu for a specific desktop icon.
+ *
+ * @param d    X11 display.
+ * @param x,y  Screen coordinates for the menu.
+ * @param icon DesktopIcon the menu applies to.
+ */
 static void show_icon_menu(Display *d, int x, int y, DesktopIcon *icon)
 
 {
@@ -973,7 +1198,15 @@ static void show_icon_menu(Display *d, int x, int y, DesktopIcon *icon)
     active_menu = create_menu_window(d, x, y, items, count);
 }
 
-// Handle menu button press
+/**
+ * Handle button presses on the menu window.
+ *
+ * @param d  X11 display.
+ * @param ev Button event structure.
+ *
+ * Left-click on a menu item closes the menu. In a full implementation,
+ * this would dispatch to the appropriate callback based on click position.
+ */
 static void handle_menu_button(Display *d, XButtonEvent *ev)
 
 {
@@ -987,7 +1220,17 @@ static void handle_menu_button(Display *d, XButtonEvent *ev)
     }
 }
 
-// Create desktop window
+/**
+ * Create the desktop window that sits below all other windows.
+ *
+ * @param d      X11 display.
+ * @param screen Screen number.
+ * @param root   Root window ID.
+ *
+ * Loads the wallpaper, creates an override-redirect window sized to fill
+ * the screen below the panel (y=30, height=screen_height-30), and maps it
+ * at the bottom of the stacking order.
+ */
 static void create_desktop_window(Display *d, int screen, Window root)
 
 {
@@ -1023,7 +1266,15 @@ static void create_desktop_window(Display *d, int screen, Window root)
     set_wallpaper(d, desktop_window);
 }
 
-// Handle desktop button press
+/**
+ * Handle button presses on the desktop window.
+ *
+ * @param d  X11 display.
+ * @param ev Button event structure.
+ *
+ * Left-click selects an icon if one is under the cursor; otherwise clears
+ * selection. Right-click shows the appropriate context menu (desktop or icon).
+ */
 static void handle_desktop_button(Display *d, XButtonEvent *ev)
 
 {
@@ -1067,6 +1318,18 @@ static void handle_desktop_button(Display *d, XButtonEvent *ev)
 
 // ==================== MAIN ====================
 
+/**
+ * Main entry point for the BlackLine Window Manager.
+ *
+ * Initializes X11, sets up EWMH atoms, creates the desktop window,
+ * loads desktop icons, and enters the main event loop.
+ *
+ * Handles window management events: MapRequest, ConfigureRequest, ClientMessage,
+ * ButtonPress, KeyPress, and DestroyNotify. Manages window focus, maximize state,
+ * and desktop interaction.
+ *
+ * @return 0 on exit (never reached in normal operation).
+ */
 int main(void) 
 
 {

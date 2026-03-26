@@ -4,6 +4,13 @@
 
 static FILE *log_file = NULL;
 
+/**
+ * Write a timestamped message to the debug log file.
+ *
+ * @param msg Message string to log.
+ *
+ * Writes to /tmp/blackline-wm-debug.log. Does nothing if log file is not open.
+ */
 static void log_message(const char *msg) 
 
 {
@@ -13,7 +20,16 @@ static void log_message(const char *msg)
     fflush(log_file);
 }
 
-// Override the x_error_handler to log errors
+/**
+ * X11 error handler for debugging.
+ *
+ * @param d X11 display.
+ * @param e X11 error event.
+ * @return 0 (XSetErrorHandler expects 0 return).
+ *
+ * Logs error messages to the debug file without terminating the WM.
+ * Overrides the default error handler to prevent crashes from non-fatal X errors.
+ */
 static int debug_error_handler(Display *d, XErrorEvent *e) 
 
 {
@@ -23,6 +39,21 @@ static int debug_error_handler(Display *d, XErrorEvent *e)
     return 0;
 }
 
+/**
+ * Main entry point for the BlackLine Window Manager.
+ *
+ * Opens X display, sets up error handling, initializes the WM state,
+ * grabs keyboard shortcuts, and enters the main event loop.
+ *
+ * Side effects:
+ * - Creates debug log file at /tmp/blackline-wm-debug.log
+ * - Grabs keys on the root window (Mod4+Return, Mod4+Shift+c, etc.)
+ * - Reparents and manages client windows
+ *
+ * The WM runs indefinitely until terminated by a signal or X server shutdown.
+ *
+ * @return 0 on normal exit (unreachable in typical operation), 1 on fatal error.
+ */
 int main(void) 
 
 {

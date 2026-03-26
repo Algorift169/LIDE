@@ -16,65 +16,71 @@
 #include "upload.h"
 #include "download.h"
 
-// Define HISTORY_SIZE before using it
+/* Define HISTORY_SIZE before using it */
 #define HISTORY_SIZE 60
 
-// Include monitor.h for CpuData and MemData definitions
+/* Include monitor.h for CpuData and MemData definitions */
 #include "../tools/system-monitor/monitor.h"
 
-// Define the global variables expected by the system monitor code
+/* Define the global variables expected by the system monitor code */
 double cpu_history[HISTORY_SIZE] = {0};
 int cpu_history_index = 0;
 double mem_history[HISTORY_SIZE] = {0};
 int mem_history_index = 0;
 
-// Include system monitor files after defining the globals and HISTORY_SIZE
+/* Include system monitor files after defining the globals and HISTORY_SIZE */
 #include "../tools/system-monitor/cpu.c"
 #include "../tools/system-monitor/memory.c"
 
 static pid_t tools_pid = 0;
 
-// Global stat variables - renamed to avoid conflicts with monitor.h
+/* Global stat variables - renamed to avoid conflicts with monitor.h */
 static double panel_cpu_percent = 0.0;
 static guint64 panel_mem_total = 0;
 static guint64 panel_mem_available = 0;
 static guint64 panel_mem_used = 0;
 static int panel_mem_percent = 0;
 
-// PERSISTENT CPU DATA - must be static to track previous values across calls
-// This is critical for accurate CPU percentage calculation
+/* PERSISTENT CPU DATA - must be static to track previous values across calls
+ * This is critical for accurate CPU percentage calculation */
 static CpuData panel_cpu_data = {0};
 
-// CPU history for smooth display
+/* CPU history for smooth display */
 static float panel_cpu_history[5] = {0};
 static int panel_cpu_history_index = 0;
 
-// Battery and Network status
+/* Battery and Network status */
 static int battery_percent = -1;
 static gboolean battery_charging = FALSE;
 static gboolean is_wifi_connected = FALSE;
 static gboolean is_internet_connected = FALSE;
 static gchar *wifi_ssid = NULL;
 
-// Forward declarations for cleanup functions
+/* Forward declarations for cleanup functions */
 void wifi_list_cleanup(void);
 void wifi_connect_cleanup(void);
 void internet_settings_cleanup(void);
 
-// Forward declarations for network window
+/* Forward declarations for network window */
 static GtkWidget *network_window = NULL;
 static void update_network_window_display(GtkWidget *vbox);
 
-// Forward declaration for refresh function
+/* Forward declaration for refresh function */
 void refresh_wifi_network_list(GtkWidget *window);
 
-// Forward declaration for WiFi connection callback
+/* Forward declaration for WiFi connection callback */
 static void on_wifi_network_clicked(GtkButton *btn, gpointer data);
 
-// ====================
-// BATTERY FUNCTIONS
-// ====================
+/* ====================
+ * BATTERY FUNCTIONS
+ * ==================== */
 
+/**
+ * Reads current battery percentage from sysfs.
+ * Attempts BAT0 first, falls back to BAT1.
+ *
+ * @return Battery percentage (0-100), or -1 if not found.
+ */
 static int get_battery_percent(void)
 {
     FILE *fp;
@@ -98,6 +104,11 @@ static int get_battery_percent(void)
     return battery;
 }
 
+/**
+ * Checks whether battery is currently charging.
+ *
+ * @return TRUE if charging or full, FALSE otherwise.
+ */
 static gboolean check_battery_charging(void)
 {
     FILE *fp;
@@ -119,16 +130,24 @@ static gboolean check_battery_charging(void)
     return FALSE;
 }
 
-// ====================
-// NETWORK FUNCTIONS
-// ====================
+/* ====================
+ * NETWORK FUNCTIONS
+ * ==================== */
 
+/**
+ * Checks internet connectivity by pinging Google DNS (8.8.8.8).
+ * Updates global is_internet_connected flag.
+ */
 static void check_internet_connectivity(void)
 {
     int ret = system("ping -c 1 -W 1 8.8.8.8 >/dev/null 2>&1");
     is_internet_connected = (ret == 0);
 }
 
+/**
+ * Checks current WiFi connection status using nmcli.
+ * Updates global is_wifi_connected and wifi_ssid.
+ */
 static void check_wifi_status(void)
 {
     FILE *fp = popen("nmcli -t -f NAME,TYPE connection show --active 2>/dev/null | grep wifi | cut -d: -f1", "r");
@@ -147,7 +166,11 @@ static void check_wifi_status(void)
     }
 }
 
-// Function to check if WiFi is enabled
+/**
+ * Checks whether WiFi radio is enabled via nmcli.
+ *
+ * @return TRUE if WiFi is enabled, FALSE otherwise.
+ */
 static gboolean is_wifi_enabled(void)
 {
     FILE *fp = popen("nmcli radio wifi 2>/dev/null | tr -d '\\n'", "r");
@@ -162,36 +185,44 @@ static gboolean is_wifi_enabled(void)
     return TRUE;
 }
 
-// Simple WiFi toggle for the network window
+/**
+ * Toggles WiFi on/off via nmcli.
+ * Updates the toggle button text and refreshes network list if the window is open.
+ *
+ * @param widget The toggle button widget (unused).
+ * @param data   User data (unused).
+ *
+ * @sideeffect Executes nmcli commands to control WiFi radio.
+ */
 static void toggle_wifi_simple(GtkWidget *widget, gpointer data)
 {
     (void)widget;
     (void)data;
     
-    // Get current WiFi state
+    /* Get current WiFi state */
     gboolean currently_enabled = is_wifi_enabled();
     
-    // Toggle WiFi
+    /* Toggle WiFi */
     if (currently_enabled) {
         system("nmcli radio wifi off 2>/dev/null");
     } else {
         system("nmcli radio wifi on 2>/dev/null");
-        // Give it time to enable and scan
+        /* Give it time to enable and scan */
         sleep(1);
         system("nmcli device wifi rescan 2>/dev/null");
     }
     
-    // Update the button text if the network window is open
+    /* Update the button text if the network window is open */
     if (network_window != NULL) {
         GtkWidget *vbox = g_object_get_data(G_OBJECT(network_window), "vbox");
         if (vbox) {
-            // Find and update the toggle button
+            /* Find and update the toggle button */
             GList *children = gtk_container_get_children(GTK_CONTAINER(vbox));
             for (GList *l = children; l != NULL; l = l->next) {
                 GtkWidget *child = GTK_WIDGET(l->data);
                 const gchar *name = gtk_widget_get_name(child);
                 if (name && g_strcmp0(name, "wifi-toggle-btn") == 0) {
-                    // Update button text based on new state
+                    /* Update button text based on new state */
                     if (currently_enabled) {
                         gtk_button_set_label(GTK_BUTTON(child), "🟢 Turn On WiFi");
                     } else {
@@ -202,13 +233,20 @@ static void toggle_wifi_simple(GtkWidget *widget, gpointer data)
             }
             g_list_free(children);
             
-            // Refresh the network list
+            /* Refresh the network list */
             refresh_wifi_network_list(network_window);
         }
     }
 }
 
-// Function to refresh the WiFi network list in the main window
+/**
+ * Refreshes the WiFi network list in the main window.
+ * Scans for available networks and creates connectable buttons.
+ *
+ * @param window The network window widget.
+ *
+ * @sideeffect Destroys and recreates the network list container.
+ */
 void refresh_wifi_network_list(GtkWidget *window)
 {
     GtkWidget *vbox = g_object_get_data(G_OBJECT(window), "vbox");
@@ -226,7 +264,7 @@ void refresh_wifi_network_list(GtkWidget *window)
                     gtk_widget_destroy(old_list);
                 }
                 
-                // Create new network list with connectable buttons
+                /* Create new network list with connectable buttons */
                 GtkWidget *new_list = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
                 gtk_container_set_border_width(GTK_CONTAINER(new_list), 10);
                 
@@ -234,7 +272,7 @@ void refresh_wifi_network_list(GtkWidget *window)
                     GtkWidget *wifi_off = gtk_label_new("WiFi is disabled");
                     gtk_box_pack_start(GTK_BOX(new_list), wifi_off, TRUE, TRUE, 0);
                 } else {
-                    // Get WiFi networks
+                    /* Get WiFi networks via nmcli */
                     FILE *fp = popen("nmcli -t -f SSID,SIGNAL,SECURITY device wifi list --rescan yes 2>/dev/null", "r");
                     if (fp) {
                         char line[512];
@@ -250,14 +288,14 @@ void refresh_wifi_network_list(GtkWidget *window)
                             
                             int signal = signal_str ? atoi(signal_str) : 0;
                             
-                            // Determine signal icon
+                            /* Determine signal icon */
                             const char *signal_icon = "🔴";
                             if (signal >= 80) signal_icon = "🟢";
                             else if (signal >= 60) signal_icon = "🟢";
                             else if (signal >= 40) signal_icon = "🟡";
                             else if (signal >= 20) signal_icon = "🟠";
                             
-                            // Security icon
+                            /* Security icon */
                             const char *lock_icon = "";
                             if (security && strlen(security) > 0 && strcmp(security, "--") != 0) {
                                 lock_icon = "🔒 ";
@@ -267,11 +305,11 @@ void refresh_wifi_network_list(GtkWidget *window)
                             GtkWidget *net_btn = gtk_button_new_with_label(btn_label);
                             g_free(btn_label);
                             
-                            // Store network info
+                            /* Store network info */
                             g_object_set_data_full(G_OBJECT(net_btn), "ssid", g_strdup(ssid), g_free);
                             g_object_set_data_full(G_OBJECT(net_btn), "security", g_strdup(security ? security : ""), g_free);
                             
-                            // Connect to callback
+                            /* Connect to callback */
                             g_signal_connect(net_btn, "clicked", G_CALLBACK(on_wifi_network_clicked), window);
                             
                             gtk_widget_set_margin_top(net_btn, 2);
@@ -291,7 +329,16 @@ void refresh_wifi_network_list(GtkWidget *window)
     g_list_free(children);
 }
 
-// Callback for WiFi network button clicks
+/**
+ * Callback for WiFi network button clicks.
+ * Handles connection to selected network, showing password dialog for secured networks.
+ *
+ * @param btn  The clicked network button.
+ * @param data Parent window for dialogs.
+ *
+ * @sideeffect Executes nmcli connection commands.
+ * @sideeffect Shows password dialog for secured networks.
+ */
 static void on_wifi_network_clicked(GtkButton *btn, gpointer data)
 {
     GtkWidget *parent = GTK_WIDGET(data);
@@ -300,19 +347,19 @@ static void on_wifi_network_clicked(GtkButton *btn, gpointer data)
     
     if (!ssid) return;
     
-    // Check if network is secured
+    /* Check if network is secured */
     gboolean secured = (security && strlen(security) > 0 && strcmp(security, "--") != 0);
     
     if (secured) {
-        // Show password dialog for secured networks
+        /* Show password dialog for secured networks */
         show_wifi_connect_dialog(parent, ssid);
     } else {
-        // Connect directly to open networks
+        /* Connect directly to open networks */
         gchar *cmd = g_strdup_printf("nmcli device wifi connect '%s' 2>/dev/null", ssid);
         int result = system(cmd);
         g_free(cmd);
         
-        // Show result
+        /* Show result dialog */
         GtkWidget *status_dialog = gtk_message_dialog_new(
             GTK_WINDOW(parent),
             GTK_DIALOG_MODAL,
@@ -337,20 +384,25 @@ static void on_wifi_network_clicked(GtkButton *btn, gpointer data)
         gtk_widget_destroy(status_dialog);
     }
     
-    // Refresh the network list
+    /* Refresh the network list */
     refresh_wifi_network_list(parent);
 }
 
-// ====================
-// BRIGHTNESS FUNCTIONS - Improved for system compatibility
-// ====================
+/* ====================
+ * BRIGHTNESS FUNCTIONS - Improved for system compatibility
+ * ==================== */
 
-// Get brightness using multiple methods for compatibility
+/**
+ * Gets current screen brightness using multiple fallback methods.
+ * Tries xbacklight, sysfs backlight interface, brightnessctl, and xrandr.
+ *
+ * @return Brightness percentage (10-100), default 100 on failure.
+ */
 static int get_brightness(void)
 {
-    int brightness = 100; // Default value
+    int brightness = 100; /* Default value */
     
-    // Method 1: Try xbacklight first (most common)
+    /* Method 1: Try xbacklight first (most common) */
     FILE *fp = popen("xbacklight -get 2>/dev/null", "r");
     if (fp) {
         char buf[16] = {0};
@@ -365,7 +417,7 @@ static int get_brightness(void)
         pclose(fp);
     }
     
-    // Method 2: Try sysfs backlight interface
+    /* Method 2: Try sysfs backlight interface */
     const char *backlight_paths[] = {
         "/sys/class/backlight/intel_backlight/brightness",
         "/sys/class/backlight/radeon_bl0/brightness",
@@ -391,7 +443,7 @@ static int get_brightness(void)
             if (fscanf(f, "%d", &current) == 1) {
                 fclose(f);
                 
-                // Get max brightness
+                /* Get max brightness */
                 FILE *fmax = fopen(max_paths[i], "r");
                 if (fmax) {
                     int max_val = 0;
@@ -407,7 +459,7 @@ static int get_brightness(void)
         }
     }
     
-    // Method 3: Try brightnessctl
+    /* Method 3: Try brightnessctl */
     fp = popen("brightnessctl g 2>/dev/null", "r");
     if (fp) {
         int current = 0;
@@ -427,7 +479,7 @@ static int get_brightness(void)
         }
     }
     
-    // Method 4: Try xrandr as fallback
+    /* Method 4: Try xrandr as fallback */
     fp = popen("xrandr --verbose | grep -i 'brightness' | head -1 | awk '{print $2}' | sed 's/\\.//'", "r");
     if (fp) {
         char buf[16] = {0};
@@ -443,20 +495,26 @@ static int get_brightness(void)
     return brightness;
 }
 
-// Set brightness using multiple methods
+/**
+ * Sets screen brightness using multiple fallback methods.
+ *
+ * @param level Desired brightness percentage (10-100).
+ *
+ * @sideeffect Executes system commands to adjust brightness.
+ */
 static void set_brightness(int level)
 {
     if (level < 10) level = 10;
     if (level > 100) level = 100;
     
-    // Method 1: Try xbacklight first
+    /* Method 1: Try xbacklight first */
     gchar *cmd = g_strdup_printf("xbacklight -set %d 2>/dev/null", level);
     int result = system(cmd);
     g_free(cmd);
     
-    if (result == 0) return; // Success with xbacklight
+    if (result == 0) return; /* Success with xbacklight */
     
-    // Method 2: Try sysfs backlight interface
+    /* Method 2: Try sysfs backlight interface */
     const char *backlight_paths[] = {
         "/sys/class/backlight/intel_backlight/brightness",
         "/sys/class/backlight/radeon_bl0/brightness",
@@ -484,12 +542,12 @@ static void set_brightness(int level)
                 
                 int new_brightness = (level * max_val) / 100;
                 
-                // Write to brightness file
+                /* Write to brightness file */
                 FILE *f = fopen(backlight_paths[i], "w");
                 if (f) {
                     fprintf(f, "%d", new_brightness);
                     fclose(f);
-                    return; // Success
+                    return; /* Success */
                 }
             } else {
                 fclose(fmax);
@@ -497,21 +555,26 @@ static void set_brightness(int level)
         }
     }
     
-    // Method 3: Try brightnessctl
+    /* Method 3: Try brightnessctl */
     cmd = g_strdup_printf("brightnessctl s %d%% 2>/dev/null", level);
     result = system(cmd);
     g_free(cmd);
     
     if (result == 0) return;
     
-    // Method 4: Try xrandr as fallback
+    /* Method 4: Try xrandr as fallback */
     float brightness = level / 100.0f;
     cmd = g_strdup_printf("xrandr --output $(xrandr | grep ' connected' | head -1 | awk '{print $1}') --brightness %.2f 2>/dev/null &", brightness);
     system(cmd);
     g_free(cmd);
 }
 
-// Brightness slider callback
+/**
+ * Callback for brightness slider value changes.
+ *
+ * @param scale      The GtkScale widget.
+ * @param user_data  User data (unused).
+ */
 static void on_brightness_changed(GtkScale *scale, gpointer user_data)
 {
     (void)user_data;
@@ -519,7 +582,12 @@ static void on_brightness_changed(GtkScale *scale, gpointer user_data)
     set_brightness(brightness);
 }
 
-// Callback for View Connection Details button
+/**
+ * Callback for View Connection Details button.
+ *
+ * @param btn  The button that was clicked.
+ * @param data User data (unused).
+ */
 static void on_view_connection_details(GtkButton *btn, gpointer data)
 {
     (void)data;
@@ -527,7 +595,12 @@ static void on_view_connection_details(GtkButton *btn, gpointer data)
     show_connection_details(toplevel);
 }
 
-// Callback for Ethernet Settings button
+/**
+ * Callback for Ethernet Settings button.
+ *
+ * @param btn  The button that was clicked.
+ * @param data User data (unused).
+ */
 static void on_ethernet_settings(GtkButton *btn, gpointer data)
 {
     (void)data;
@@ -535,7 +608,13 @@ static void on_ethernet_settings(GtkButton *btn, gpointer data)
     show_internet_settings(toplevel);
 }
 
-// Callback for Refresh Networks button
+/**
+ * Callback for Refresh Networks button.
+ * Triggers a WiFi rescan and refreshes the network list.
+ *
+ * @param btn  The button that was clicked.
+ * @param data User data (unused).
+ */
 static void on_refresh_networks(GtkButton *btn, gpointer data)
 {
     (void)btn;
@@ -543,13 +622,18 @@ static void on_refresh_networks(GtkButton *btn, gpointer data)
     system("nmcli device wifi rescan 2>/dev/null &");
     sleep(1);
     
-    // Refresh the network list in the main window
+    /* Refresh the network list in the main window */
     if (network_window) {
         refresh_wifi_network_list(network_window);
     }
 }
 
-// Callback for View All Networks button
+/**
+ * Callback for View All Networks button.
+ *
+ * @param btn  The button that was clicked.
+ * @param data User data (unused).
+ */
 static void on_view_all_networks(GtkButton *btn, gpointer data)
 {
     (void)data;
@@ -557,14 +641,20 @@ static void on_view_all_networks(GtkButton *btn, gpointer data)
     show_wifi_list(toplevel);
 }
 
-// Wrapper functions to avoid parameter issues
+/**
+ * Updates CPU usage statistics.
+ * Uses persistent CpuData structure to track deltas across calls.
+ */
 static void panel_update_cpu_usage(void)
 {
-    // Use persistent CPU data structure to properly track deltas across calls
+    /* Use persistent CPU data structure to properly track deltas across calls */
     update_cpu_usage(&panel_cpu_data);
     panel_cpu_percent = panel_cpu_data.usage;
 }
 
+/**
+ * Updates memory usage statistics.
+ */
 static void panel_update_mem_usage(void)
 {
     MemData mem;
@@ -579,7 +669,13 @@ static void panel_update_mem_usage(void)
     }
 }
 
-// Find a window with a given PID using _NET_WM_PID
+/**
+ * Finds a window with a given PID using the _NET_WM_PID X11 property.
+ *
+ * @param display X11 display connection.
+ * @param pid     Process ID to search for.
+ * @return        Window ID if found, None otherwise.
+ */
 static Window find_window_by_pid(Display *display, pid_t pid)
 {
     Atom net_client_list = XInternAtom(display, "_NET_CLIENT_LIST", True);
@@ -611,7 +707,7 @@ static Window find_window_by_pid(Display *display, pid_t pid)
     for (unsigned long i = 0; i < num_items; i++) {
         Window win = windows[i];
         
-        // Get the PID property of this window
+        /* Get the PID property of this window */
         unsigned char *pid_data = NULL;
         unsigned long pid_items;
         if (XGetWindowProperty(display, win, net_wm_pid, 0, 1, False, XA_CARDINAL,
@@ -634,13 +730,18 @@ static Window find_window_by_pid(Display *display, pid_t pid)
     return result;
 }
 
+/**
+ * Updates the network window display with current connection status.
+ *
+ * @param vbox The main vertical box containing network widgets.
+ */
 static void update_network_window_display(GtkWidget *vbox)
 {
-    // Refresh network status
+    /* Refresh network status */
     check_internet_connectivity();
     check_wifi_status();
     
-    // Find and update labels in the vbox
+    /* Find and update labels in the vbox */
     GList *children = gtk_container_get_children(GTK_CONTAINER(vbox));
     for (GList *l = children; l != NULL; l = l->next) {
         GtkWidget *child = GTK_WIDGET(l->data);
@@ -667,7 +768,7 @@ static void update_network_window_display(GtkWidget *vbox)
         } else if (GTK_IS_BUTTON(child)) {
             const gchar *name = gtk_widget_get_name(child);
             if (name && g_strcmp0(name, "wifi-toggle-btn") == 0) {
-                // Update WiFi toggle button text based on WiFi state
+                /* Update WiFi toggle button text based on WiFi state */
                 const gchar *label = is_wifi_connected ? "🔴 Turn Off WiFi" : "🟢 Turn On WiFi";
                 gtk_button_set_label(GTK_BUTTON(child), label);
             }
@@ -676,6 +777,12 @@ static void update_network_window_display(GtkWidget *vbox)
     g_list_free(children);
 }
 
+/**
+ * Timer callback for periodic network window updates.
+ *
+ * @param user_data The vbox widget containing network displays.
+ * @return G_SOURCE_CONTINUE to keep timer active.
+ */
 static gboolean network_window_update_timer(gpointer user_data)
 {
     if (network_window != NULL && gtk_widget_get_visible(network_window)) {
@@ -687,6 +794,12 @@ static gboolean network_window_update_timer(gpointer user_data)
     return G_SOURCE_CONTINUE;
 }
 
+/**
+ * Cleanup handler for network window destruction.
+ *
+ * @param widget The destroyed widget.
+ * @param data   User data (unused).
+ */
 static void on_network_window_destroy(GtkWidget *widget, gpointer data)
 {
     (void)widget;
@@ -694,6 +807,11 @@ static void on_network_window_destroy(GtkWidget *widget, gpointer data)
     network_window = NULL;
 }
 
+/**
+ * Applies custom CSS styling to the network window.
+ *
+ * @param window The GtkWindow to style.
+ */
 static void apply_network_window_css(GtkWidget *window)
 {
     GtkCssProvider *provider = gtk_css_provider_new();
@@ -710,7 +828,7 @@ static void apply_network_window_css(GtkWidget *window)
         "scale highlight { background-color: #a92d5a; }",
         -1, NULL);
     
-    // Apply CSS only to this specific window
+    /* Apply CSS only to this specific window */
     gtk_style_context_add_provider(
         gtk_widget_get_style_context(window),
         GTK_STYLE_PROVIDER(provider),
@@ -719,18 +837,26 @@ static void apply_network_window_css(GtkWidget *window)
     g_object_unref(provider);
 }
 
+/**
+ * Launches the network settings window/tab.
+ *
+ * @param button The button that was clicked.
+ * @param data   User data (unused).
+ *
+ * @sideeffect Creates and displays network settings window.
+ */
 static void launch_network_tab(GtkButton *button, gpointer data)
 {
     (void)button;
     (void)data;
     
-    // If window already exists, just show it
+    /* If window already exists, just show it */
     if (network_window != NULL) {
         gtk_window_present(GTK_WINDOW(network_window));
         return;
     }
     
-    // Create new network status window
+    /* Create new network status window */
     network_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(network_window), "Settings");
     gtk_window_set_default_size(GTK_WINDOW(network_window), 350, 500);
@@ -740,7 +866,7 @@ static void launch_network_tab(GtkButton *button, gpointer data)
     gtk_window_set_modal(GTK_WINDOW(network_window), FALSE);
     gtk_window_set_transient_for(GTK_WINDOW(network_window), NULL);
     
-    // Position at top-right corner (below network button)
+    /* Position at top-right corner (below network button) */
     GdkDisplay *gdisplay = gdk_display_get_default();
     GdkMonitor *monitor = gdk_display_get_primary_monitor(gdisplay);
     GdkRectangle geom;
@@ -749,35 +875,35 @@ static void launch_network_tab(GtkButton *button, gpointer data)
     
     g_signal_connect(network_window, "destroy", G_CALLBACK(on_network_window_destroy), NULL);
     
-    // Apply CSS only to this window
+    /* Apply CSS only to this window */
     apply_network_window_css(network_window);
     
-    // Main scrollable container
+    /* Main scrollable container */
     GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_container_add(GTK_CONTAINER(network_window), scroll);
     
-    // Main vertical box inside scroll
+    /* Main vertical box inside scroll */
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 15);
     gtk_container_set_border_width(GTK_CONTAINER(vbox), 15);
     gtk_container_add(GTK_CONTAINER(scroll), vbox);
     
-    // Store vbox reference for updates
+    /* Store vbox reference for updates */
     g_object_set_data(G_OBJECT(network_window), "vbox", vbox);
     
-    // ============ INTERNET SECTION ============
+    /* ============ INTERNET SECTION ============ */
     GtkWidget *inet_title = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(inet_title), "<b>🌐 Internet</b>");
     gtk_label_set_xalign(GTK_LABEL(inet_title), 0.0);
     gtk_box_pack_start(GTK_BOX(vbox), inet_title, FALSE, FALSE, 0);
     
-    // Internet status
+    /* Internet status */
     GtkWidget *inet_status = gtk_label_new("🌐 Internet: Loading...");
     gtk_widget_set_name(inet_status, "internet-label");
     gtk_label_set_xalign(GTK_LABEL(inet_status), 0.0);
     gtk_box_pack_start(GTK_BOX(vbox), inet_status, FALSE, FALSE, 0);
     
-    // Internet management frame
+    /* Internet management frame */
     GtkWidget *inet_frame = gtk_frame_new("Connection Management");
     gtk_box_pack_start(GTK_BOX(vbox), inet_frame, FALSE, FALSE, 0);
     
@@ -785,17 +911,17 @@ static void launch_network_tab(GtkButton *button, gpointer data)
     gtk_container_set_border_width(GTK_CONTAINER(inet_vbox), 10);
     gtk_container_add(GTK_CONTAINER(inet_frame), inet_vbox);
     
-    // Connection info button
+    /* Connection info button */
     GtkWidget *conn_btn = gtk_button_new_with_label("📊 View Connection Details");
     g_signal_connect(conn_btn, "clicked", G_CALLBACK(on_view_connection_details), NULL);
     gtk_box_pack_start(GTK_BOX(inet_vbox), conn_btn, FALSE, FALSE, 0);
     
-    // Ethernet button
+    /* Ethernet button */
     GtkWidget *eth_btn = gtk_button_new_with_label("🔗 Ethernet Settings");
     g_signal_connect(eth_btn, "clicked", G_CALLBACK(on_ethernet_settings), NULL);
     gtk_box_pack_start(GTK_BOX(inet_vbox), eth_btn, FALSE, FALSE, 0);
     
-    // ============ WiFi SECTION ============
+    /* ============ WiFi SECTION ============ */
     GtkWidget *wifi_sep = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_box_pack_start(GTK_BOX(vbox), wifi_sep, FALSE, FALSE, 0);
     
@@ -804,30 +930,30 @@ static void launch_network_tab(GtkButton *button, gpointer data)
     gtk_label_set_xalign(GTK_LABEL(wifi_title), 0.0);
     gtk_box_pack_start(GTK_BOX(vbox), wifi_title, FALSE, FALSE, 0);
     
-    // Current WiFi status
+    /* Current WiFi status */
     GtkWidget *current_wifi = gtk_label_new("📡 WiFi: Loading...");
     gtk_widget_set_name(current_wifi, "wifi-label");
     gtk_label_set_xalign(GTK_LABEL(current_wifi), 0.0);
     gtk_box_pack_start(GTK_BOX(vbox), current_wifi, FALSE, FALSE, 0);
     
-    // WiFi toggle button with correct initial state
+    /* WiFi toggle button with correct initial state */
     gboolean wifi_enabled = is_wifi_enabled();
     GtkWidget *wifi_toggle = gtk_button_new_with_label(wifi_enabled ? "🔴 Turn Off WiFi" : "🟢 Turn On WiFi");
     gtk_widget_set_name(wifi_toggle, "wifi-toggle-btn");
     g_signal_connect(wifi_toggle, "clicked", G_CALLBACK(toggle_wifi_simple), NULL);
     gtk_box_pack_start(GTK_BOX(vbox), wifi_toggle, FALSE, FALSE, 0);
     
-    // WiFi networks frame
+    /* WiFi networks frame */
     GtkWidget *networks_frame = gtk_frame_new("Available Networks");
     gtk_box_pack_start(GTK_BOX(vbox), networks_frame, TRUE, TRUE, 0);
     
-    // Scrolled window for network list
+    /* Scrolled window for network list */
     GtkWidget *net_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(net_scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(net_scroll), 150);
     gtk_container_add(GTK_CONTAINER(networks_frame), net_scroll);
     
-    // Create connectable network list
+    /* Create connectable network list */
     GtkWidget *net_list = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
     gtk_container_set_border_width(GTK_CONTAINER(net_list), 10);
     
@@ -835,7 +961,7 @@ static void launch_network_tab(GtkButton *button, gpointer data)
         GtkWidget *wifi_off = gtk_label_new("WiFi is disabled");
         gtk_box_pack_start(GTK_BOX(net_list), wifi_off, TRUE, TRUE, 0);
     } else {
-        // Get WiFi networks
+        /* Get WiFi networks */
         FILE *fp = popen("nmcli -t -f SSID,SIGNAL,SECURITY device wifi list --rescan yes 2>/dev/null", "r");
         if (fp) {
             char line[512];
@@ -851,14 +977,14 @@ static void launch_network_tab(GtkButton *button, gpointer data)
                 
                 int signal = signal_str ? atoi(signal_str) : 0;
                 
-                // Determine signal icon
+                /* Determine signal icon */
                 const char *signal_icon = "🔴";
                 if (signal >= 80) signal_icon = "🟢";
                 else if (signal >= 60) signal_icon = "🟢";
                 else if (signal >= 40) signal_icon = "🟡";
                 else if (signal >= 20) signal_icon = "🟠";
                 
-                // Security icon
+                /* Security icon */
                 const char *lock_icon = "";
                 if (security && strlen(security) > 0 && strcmp(security, "--") != 0) {
                     lock_icon = "🔒 ";
@@ -868,11 +994,11 @@ static void launch_network_tab(GtkButton *button, gpointer data)
                 GtkWidget *net_btn = gtk_button_new_with_label(btn_label);
                 g_free(btn_label);
                 
-                // Store network info
+                /* Store network info */
                 g_object_set_data_full(G_OBJECT(net_btn), "ssid", g_strdup(ssid), g_free);
                 g_object_set_data_full(G_OBJECT(net_btn), "security", g_strdup(security ? security : ""), g_free);
                 
-                // Connect to callback
+                /* Connect to callback */
                 g_signal_connect(net_btn, "clicked", G_CALLBACK(on_wifi_network_clicked), network_window);
                 
                 gtk_widget_set_margin_top(net_btn, 2);
@@ -886,17 +1012,17 @@ static void launch_network_tab(GtkButton *button, gpointer data)
     gtk_container_add(GTK_CONTAINER(net_scroll), net_list);
     gtk_widget_set_name(net_list, "wifi-list");
     
-    // Refresh networks button
+    /* Refresh networks button */
     GtkWidget *refresh_btn = gtk_button_new_with_label("🔄 Refresh Networks");
     g_signal_connect(refresh_btn, "clicked", G_CALLBACK(on_refresh_networks), NULL);
     gtk_box_pack_start(GTK_BOX(vbox), refresh_btn, FALSE, FALSE, 0);
     
-    // View all networks button
+    /* View all networks button */
     GtkWidget *view_all_btn = gtk_button_new_with_label("📡 View All Networks");
     g_signal_connect(view_all_btn, "clicked", G_CALLBACK(on_view_all_networks), NULL);
     gtk_box_pack_start(GTK_BOX(vbox), view_all_btn, FALSE, FALSE, 0);
     
-    // ============ BRIGHTNESS SECTION ============
+    /* ============ BRIGHTNESS SECTION ============ */
     GtkWidget *bright_sep = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_box_pack_start(GTK_BOX(vbox), bright_sep, FALSE, FALSE, 0);
     
@@ -905,7 +1031,7 @@ static void launch_network_tab(GtkButton *button, gpointer data)
     gtk_label_set_xalign(GTK_LABEL(bright_title), 0.0);
     gtk_box_pack_start(GTK_BOX(vbox), bright_title, FALSE, FALSE, 0);
     
-    // Brightness slider
+    /* Brightness slider */
     int current_brightness = get_brightness();
     GtkWidget *brightness_scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 10, 100, 5);
     gtk_range_set_value(GTK_RANGE(brightness_scale), current_brightness);
@@ -914,36 +1040,45 @@ static void launch_network_tab(GtkButton *button, gpointer data)
     g_signal_connect(brightness_scale, "value-changed", G_CALLBACK(on_brightness_changed), NULL);
     gtk_box_pack_start(GTK_BOX(vbox), brightness_scale, FALSE, FALSE, 0);
     
-    // ============ FOOTER ============
+    /* ============ FOOTER ============ */
     GtkWidget *footer_sep = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_box_pack_start(GTK_BOX(vbox), footer_sep, FALSE, FALSE, 0);
     
-    // Close button
+    /* Close button */
     GtkWidget *close_btn = gtk_button_new_with_label("Close");
     g_signal_connect_swapped(close_btn, "clicked", G_CALLBACK(gtk_widget_destroy), network_window);
     gtk_box_pack_start(GTK_BOX(vbox), close_btn, FALSE, FALSE, 0);
     
-    // Initial update
+    /* Initial update */
     update_network_window_display(vbox);
     
-    // Start timer for updates
+    /* Start timer for updates */
     g_timeout_add(2000, network_window_update_timer, vbox);
     
     gtk_widget_show_all(network_window);
 }
 
+/**
+ * Launches the tools window.
+ * Checks for existing window and raises it if found, otherwise forks a new process.
+ *
+ * @param button The button that was clicked.
+ * @param data   User data (unused).
+ *
+ * @sideeffect Forks a child process to launch blackline-tools.
+ */
 static void launch_tools(GtkButton *button, gpointer data)
 {
     (void)button;
     (void)data;
     
-    // check if the window still exists
+    /* Check if the window still exists */
     if (tools_pid > 0) {
         Display *display = XOpenDisplay(NULL);
         if (display) {
             Window win = find_window_by_pid(display, tools_pid);
             if (win != None) {
-                // Window exists – raise it
+                /* Window exists – raise it */
                 XRaiseWindow(display, win);
                 XMapRaised(display, win);
                 XFlush(display);
@@ -952,29 +1087,40 @@ static void launch_tools(GtkButton *button, gpointer data)
             }
             XCloseDisplay(display);
         }
-        // If we get here, the window is gone – reset PID
+        /* If we get here, the window is gone – reset PID */
         tools_pid = 0;
     }
     
-    // Launch new tools container
+    /* Launch new tools container */
     pid_t pid = fork();
     if (pid == 0) {
-        // Child process
+        /* Child process */
         execl("./blackline-tools", "blackline-tools", NULL);
         exit(0);
     } else if (pid > 0) {
-        // Parent – store the PID
+        /* Parent – store the PID */
         tools_pid = pid;
     }
 }
 
+/**
+ * Placeholder callback for buttons with no functionality.
+ *
+ * @param button The button that was clicked.
+ * @param data   User data (unused).
+ */
 static void do_nothing(GtkButton *button, gpointer data)
 {
     (void)button;
     (void)data;
 }
 
-// Format network speed for display
+/**
+ * Formats network speed for display with appropriate units.
+ *
+ * @param speed_bytes Speed in bytes per second.
+ * @return Pointer to static string buffer containing formatted speed.
+ */
 static const char* format_speed(double speed_bytes)
 {
     static char buffer[64];
@@ -989,7 +1135,13 @@ static const char* format_speed(double speed_bytes)
     return buffer;
 }
 
-// Update all system stats
+/**
+ * Timer callback for periodic system statistics updates.
+ * Updates CPU, memory, network, and battery displays.
+ *
+ * @param user_data The CPU label widget (used to access other widgets via object data).
+ * @return G_SOURCE_CONTINUE to keep timer active.
+ */
 static gboolean update_system_stats(gpointer user_data)
 {
     GtkWidget *cpu_label = GTK_WIDGET(user_data);
@@ -1003,10 +1155,10 @@ static gboolean update_system_stats(gpointer user_data)
         return G_SOURCE_CONTINUE;
     }
     
-    // Update CPU using wrapper
+    /* Update CPU using wrapper */
     panel_update_cpu_usage();
     
-    // Smooth CPU display with moving average
+    /* Smooth CPU display with moving average */
     panel_cpu_history[panel_cpu_history_index] = panel_cpu_percent;
     panel_cpu_history_index = (panel_cpu_history_index + 1) % 5;
     
@@ -1024,16 +1176,16 @@ static gboolean update_system_stats(gpointer user_data)
     }
     gtk_label_set_text(GTK_LABEL(cpu_label), cpu_text);
     
-    // Update Memory using wrapper
+    /* Update Memory using wrapper */
     panel_update_mem_usage();
     
     char mem_text[64];
     snprintf(mem_text, sizeof(mem_text), "RAM: %d%%", panel_mem_percent);
     gtk_label_set_text(GTK_LABEL(mem_label), mem_text);
     
-    // Update Network stats
+    /* Update Network stats */
     network_stats_update();
-    double upload_speed = network_stats_get_upload() * 1024.0;  // Convert KB/s to B/s
+    double upload_speed = network_stats_get_upload() * 1024.0;  /* Convert KB/s to B/s */
     double download_speed = network_stats_get_download() * 1024.0;
 
     char upload_text[64];
@@ -1045,7 +1197,7 @@ static gboolean update_system_stats(gpointer user_data)
     gtk_label_set_text(GTK_LABEL(upload_label), upload_text);
     gtk_label_set_text(GTK_LABEL(download_label), download_text);
     
-    // Update Battery (every 15 ticks = 30 seconds)
+    /* Update Battery (every 15 ticks = 30 seconds) */
     static int battery_counter = 0;
     if (battery_counter++ % 15 == 0) {
         battery_percent = get_battery_percent();
@@ -1066,7 +1218,7 @@ static gboolean update_system_stats(gpointer user_data)
         gtk_button_set_label(GTK_BUTTON(battery_label), battery_text);
     }
     
-    // Update Network Status (every 5 ticks = 10 seconds)
+    /* Update Network Status (every 5 ticks = 10 seconds) - commented out in original */
     /*
     static int network_counter = 0;
     if (network_counter++ % 5 == 0) {
@@ -1086,6 +1238,12 @@ static gboolean update_system_stats(gpointer user_data)
     return G_SOURCE_CONTINUE;
 }
 
+/**
+ * Timer callback for clock updates.
+ *
+ * @param label The GtkLabel to update with current time.
+ * @return G_SOURCE_CONTINUE to keep timer active.
+ */
 static gboolean update_clock(gpointer label)
 {
     time_t rawtime;
@@ -1099,6 +1257,11 @@ static gboolean update_clock(gpointer label)
     return G_SOURCE_CONTINUE;
 }
 
+/**
+ * Applies custom CSS styling to the panel window.
+ *
+ * @param window The GtkWindow to style.
+ */
 static void apply_panel_css(GtkWidget *window)
 {
     GtkCssProvider *provider = gtk_css_provider_new();
@@ -1111,7 +1274,7 @@ static void apply_panel_css(GtkWidget *window)
         "#stats-box label { font-family: monospace; }",
         -1, NULL);
     
-    // Apply CSS only to this panel window
+    /* Apply CSS only to this panel window */
     gtk_style_context_add_provider(
         gtk_widget_get_style_context(window),
         GTK_STYLE_PROVIDER(provider),
@@ -1120,15 +1283,24 @@ static void apply_panel_css(GtkWidget *window)
     g_object_unref(provider);
 }
 
+/**
+ * Application activation callback.
+ * Creates the main panel window with system monitoring widgets.
+ *
+ * @param app        The GtkApplication instance.
+ * @param user_data  User data passed during signal connection (unused).
+ *
+ * @sideeffect Creates the panel UI and starts periodic update timers.
+ */
 static void activate(GtkApplication *app, gpointer user_data)
 {
     (void)app;
     (void)user_data;
     
-    // Initialize the minimized container
+    /* Initialize the minimized container */
     minimized_container_initialize();
     
-    // Initialize network stats
+    /* Initialize network stats */
     network_stats_init();
     
     GtkWidget *window = gtk_application_window_new(app);
@@ -1138,10 +1310,10 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
     gtk_window_set_type_hint(GTK_WINDOW(window), GDK_WINDOW_TYPE_HINT_DOCK);
     
-    // Apply CSS only to the panel window
+    /* Apply CSS only to the panel window */
     apply_panel_css(window);
     
-    // Full width
+    /* Full width */
     GdkDisplay *gdisplay = gdk_display_get_default();
     GdkMonitor *monitor = gdk_display_get_primary_monitor(gdisplay);
     GdkRectangle geom;
@@ -1153,95 +1325,102 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_container_set_border_width(GTK_CONTAINER(box), 2);
     gtk_container_add(GTK_CONTAINER(window), box);
     
-    // Left section with buttons
+    /* Left section with buttons */
     GtkWidget *left_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
     gtk_box_pack_start(GTK_BOX(box), left_box, FALSE, FALSE, 0);
     
-    // BlackLine button
+    /* BlackLine button */
     GtkWidget *btn1 = gtk_button_new_with_label("BlackLine");
     g_signal_connect(btn1, "clicked", G_CALLBACK(do_nothing), NULL);
     gtk_box_pack_start(GTK_BOX(left_box), btn1, FALSE, FALSE, 2);
     
-    // Tools button
+    /* Tools button */
     GtkWidget *btn2 = gtk_button_new_with_label("Tools");
     g_signal_connect(btn2, "clicked", G_CALLBACK(launch_tools), NULL);
     gtk_box_pack_start(GTK_BOX(left_box), btn2, FALSE, FALSE, 2);
     
-    // Minimized Apps button (📌)
+    /* Minimized Apps button (📌) */
     GtkWidget *min_btn = minimized_container_get_toggle_button();
     gtk_box_pack_start(GTK_BOX(left_box), min_btn, FALSE, FALSE, 2);
     
-    // Center spacer
+    /* Center spacer */
     GtkWidget *spacer = gtk_label_new(NULL);
     gtk_box_pack_start(GTK_BOX(box), spacer, TRUE, TRUE, 0);
     
-    // System stats container (right side)
+    /* System stats container (right side) */
     GtkWidget *stats_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
     gtk_widget_set_name(stats_box, "stats-box");
     gtk_box_pack_end(GTK_BOX(box), stats_box, FALSE, FALSE, 4);
     
-    // CPU Label
+    /* CPU Label */
     GtkWidget *cpu_label = gtk_label_new("CPU: 0.0%");
     gtk_box_pack_start(GTK_BOX(stats_box), cpu_label, FALSE, FALSE, 2);
     
-    // Memory Label
+    /* Memory Label */
     GtkWidget *mem_label = gtk_label_new("RAM: 0%");
     gtk_box_pack_start(GTK_BOX(stats_box), mem_label, FALSE, FALSE, 2);
     
-    // Separator
+    /* Separator */
     GtkWidget *sep1 = gtk_label_new("|");
     gtk_box_pack_start(GTK_BOX(stats_box), sep1, FALSE, FALSE, 2);
     
-    // Upload Label
+    /* Upload Label */
     GtkWidget *upload_label = gtk_label_new("↑ 0 KB/s");
     gtk_box_pack_start(GTK_BOX(stats_box), upload_label, FALSE, FALSE, 2);
     
-    // Download Label
+    /* Download Label */
     GtkWidget *download_label = gtk_label_new("↓ 0 KB/s");
     gtk_box_pack_start(GTK_BOX(stats_box), download_label, FALSE, FALSE, 2);
     
-    // Separator
+    /* Separator */
     GtkWidget *sep2 = gtk_label_new("|");
     gtk_box_pack_start(GTK_BOX(stats_box), sep2, FALSE, FALSE, 2);
     
-    // Battery Label Button
+    /* Battery Label Button */
     GtkWidget *battery_label = gtk_button_new_with_label("🔋 0%");
     gtk_button_set_relief(GTK_BUTTON(battery_label), GTK_RELIEF_NONE);
     gtk_box_pack_start(GTK_BOX(stats_box), battery_label, FALSE, FALSE, 2);
     
-    // Separator
+    /* Separator */
     GtkWidget *sep3 = gtk_label_new("|");
     gtk_box_pack_start(GTK_BOX(stats_box), sep3, FALSE, FALSE, 2);
         
-    // Network Status Button with Gear icon
+    /* Network Status Button with Gear icon */
     GtkWidget *network_btn = gtk_button_new_with_label("⚙️ Gear");
     gtk_button_set_relief(GTK_BUTTON(network_btn), GTK_RELIEF_NONE);
     g_signal_connect(network_btn, "clicked", G_CALLBACK(launch_network_tab), NULL);
     gtk_box_pack_start(GTK_BOX(stats_box), network_btn, FALSE, FALSE, 2);
 
-    // Separator
+    /* Separator */
     GtkWidget *sep4 = gtk_label_new("|");
     gtk_box_pack_start(GTK_BOX(stats_box), sep4, FALSE, FALSE, 2);
     
-    // Clock with date
+    /* Clock with date */
     GtkWidget *clock = gtk_label_new(NULL);
     update_clock(clock);
     gtk_box_pack_start(GTK_BOX(stats_box), clock, FALSE, FALSE, 2);
     
-    // Store references for stats update
+    /* Store references for stats update */
     g_object_set_data(G_OBJECT(cpu_label), "mem-label", mem_label);
     g_object_set_data(G_OBJECT(cpu_label), "upload-label", upload_label);
     g_object_set_data(G_OBJECT(cpu_label), "download-label", download_label);
     g_object_set_data(G_OBJECT(cpu_label), "battery-label", battery_label);
     g_object_set_data(G_OBJECT(cpu_label), "network-btn", network_btn);
     
-    // Update timers
+    /* Update timers */
     g_timeout_add_seconds(1, update_clock, clock);
-    g_timeout_add(2000, update_system_stats, cpu_label);  // Update every 2 seconds
+    g_timeout_add(2000, update_system_stats, cpu_label);  /* Update every 2 seconds */
     
     gtk_widget_show_all(window);
 }
 
+/**
+ * Application entry point.
+ *
+ * @param argc Argument count from command line.
+ * @param argv Argument vector from command line.
+ * @return     Exit status from g_application_run().
+ */
 int main(int argc, char **argv)
 {
     GtkApplication *app = gtk_application_new("org.blackline.panel", G_APPLICATION_DEFAULT_FLAGS);
@@ -1249,7 +1428,7 @@ int main(int argc, char **argv)
     int status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
     
-    // Cleanup all modules
+    /* Cleanup all modules */
     network_stats_cleanup();
     if (wifi_ssid != NULL) {
         g_free(wifi_ssid);

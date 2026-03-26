@@ -5,18 +5,23 @@
 #include <string.h>
 #include <ctype.h>
 
-// Global edit history
+/* Global edit history */
 static EditHistory *history = NULL;
 static GtkTextBuffer *global_buffer = NULL;
 static FindReplaceData *find_replace_data = NULL;
 
-// Print operation data structure
+/* Print operation data structure */
 typedef struct {
     GtkTextView *text_view;
     GtkTextBuffer *buffer;
 } PrintData;
 
-// Initialize edit history
+/**
+ * Creates a new edit history manager.
+ *
+ * @param max_size Maximum number of undo states to store.
+ * @return Newly allocated EditHistory structure.
+ */
 static EditHistory* edit_history_new(gint max_size) 
 {
     EditHistory *h = g_new(EditHistory, 1);
@@ -28,11 +33,19 @@ static EditHistory* edit_history_new(gint max_size)
     return h;
 }
 
-// Add state to history
+/**
+ * Pushes the current buffer state onto the undo history stack.
+ * Removes any redo states after the current position.
+ *
+ * @param buffer The GtkTextBuffer to capture state from.
+ *
+ * @sideeffect Creates a new EditNode with the current buffer text.
+ * @sideeffect Trims history if max stack size is exceeded.
+ */
 static void edit_history_push(GtkTextBuffer *buffer) 
 {
     if (!history) {
-        history = edit_history_new(50); // Max 50 undo steps
+        history = edit_history_new(50); /* Max 50 undo steps */
     }
     
     GtkTextIter start, end;
@@ -48,7 +61,7 @@ static void edit_history_push(GtkTextBuffer *buffer)
     node->prev = history->current;
     
     if (history->current) {
-        // Remove any redo states
+        /* Remove any redo states */
         EditNode *temp = history->current->next;
         while (temp) {
             EditNode *next = temp->next;
@@ -68,7 +81,7 @@ static void edit_history_push(GtkTextBuffer *buffer)
     history->tail = node;
     history->current_size++;
     
-    // Trim if too large
+    /* Trim if too large */
     while (history->current_size > history->max_stack_size && history->head != history->current) {
         EditNode *old_head = history->head;
         history->head = old_head->next;
@@ -81,7 +94,14 @@ static void edit_history_push(GtkTextBuffer *buffer)
     }
 }
 
-// Undo operation
+/**
+ * Undoes the last text edit operation.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ *
+ * @sideeffect Restores previous buffer state from history.
+ */
 void edit_undo(GtkWidget *widget, gpointer data) 
 {
     (void)widget;
@@ -99,7 +119,14 @@ void edit_undo(GtkWidget *widget, gpointer data)
     }
 }
 
-// Redo operation
+/**
+ * Redoes the last undone text edit operation.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ *
+ * @sideeffect Restores forward buffer state from history.
+ */
 void edit_redo(GtkWidget *widget, gpointer data)
 {
     (void)widget;
@@ -117,7 +144,14 @@ void edit_redo(GtkWidget *widget, gpointer data)
     }
 }
 
-// Cut operation
+/**
+ * Cuts the selected text to clipboard.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ *
+ * @sideeffect Copies selected text to clipboard and removes from buffer.
+ */
 void edit_cut(GtkWidget *widget, gpointer data) 
 {
     (void)widget;
@@ -129,7 +163,12 @@ void edit_cut(GtkWidget *widget, gpointer data)
     edit_history_push(buffer);
 }
 
-// Copy operation
+/**
+ * Copies the selected text to clipboard.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ */
 void edit_copy(GtkWidget *widget, gpointer data)
 {
     (void)widget;
@@ -140,7 +179,14 @@ void edit_copy(GtkWidget *widget, gpointer data)
         gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
 }
 
-// Paste operation
+/**
+ * Pastes text from clipboard at cursor position.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ *
+ * @sideeffect Inserts clipboard contents and pushes to history.
+ */
 void edit_paste(GtkWidget *widget, gpointer data) 
 {
     (void)widget;
@@ -152,7 +198,14 @@ void edit_paste(GtkWidget *widget, gpointer data)
     edit_history_push(buffer);
 }
 
-// Delete operation
+/**
+ * Deletes the selected text.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ *
+ * @sideeffect Removes selected text and pushes to history.
+ */
 void edit_delete(GtkWidget *widget, gpointer data) 
 {
     (void)widget;
@@ -166,7 +219,12 @@ void edit_delete(GtkWidget *widget, gpointer data)
     }
 }
 
-// Select all
+/**
+ * Selects all text in the document.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ */
 void edit_select_all(GtkWidget *widget, gpointer data)
 {
     (void)widget;
@@ -179,7 +237,15 @@ void edit_select_all(GtkWidget *widget, gpointer data)
     gtk_text_buffer_select_range(buffer, &start, &end);
 }
 
-// Find dialog response
+/* Find/Replace dialog response handlers */
+
+/**
+ * Callback for find dialog response.
+ *
+ * @param dialog      The find dialog.
+ * @param response_id Response ID from dialog buttons.
+ * @param user_data   FindReplaceData structure.
+ */
 static void on_find_response(GtkDialog *dialog, gint response_id, gpointer user_data) 
 {
     FindReplaceData *fr_data = (FindReplaceData *)user_data;
@@ -193,7 +259,7 @@ static void on_find_response(GtkDialog *dialog, gint response_id, gpointer user_
             GtkTextIter start, match_start, match_end;
             GtkTextBuffer *buffer = fr_data->buffer;
             
-            // Start from cursor or beginning
+            /* Start from cursor or beginning */
             gtk_text_buffer_get_iter_at_mark(buffer, &start, 
                 gtk_text_buffer_get_insert(buffer));
             
@@ -206,7 +272,7 @@ static void on_find_response(GtkDialog *dialog, gint response_id, gpointer user_
             if (gtk_text_iter_forward_search(&start, search_text, flags, 
                 &match_start, &match_end, &search_end)) {
                 
-                // Check for whole word
+                /* Check for whole word */
                 if (whole_word) {
                     GtkTextIter prev = match_start;
                     GtkTextIter next = match_end;
@@ -218,16 +284,15 @@ static void on_find_response(GtkDialog *dialog, gint response_id, gpointer user_
                     }
                     
                     if (!gtk_text_iter_starts_word(&prev) || !gtk_text_iter_ends_word(&next)) {
-                        // Not a whole word, search again
+                        /* Not a whole word, search again - simplified */
                         gtk_text_iter_forward_char(&match_end);
-                        // Recursive search would go here
                     }
                 }
                 
                 gtk_text_buffer_select_range(buffer, &match_start, &match_end);
                 gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(fr_data->window), &match_start, 0.0, TRUE, 0.0, 0.0);
             } else {
-                // Wrap around
+                /* Wrap around to beginning */
                 gtk_text_buffer_get_start_iter(buffer, &start);
                 if (gtk_text_iter_forward_search(&start, search_text, flags, 
                     &match_start, &match_end, &search_end)) {
@@ -245,7 +310,12 @@ static void on_find_response(GtkDialog *dialog, gint response_id, gpointer user_
     }
 }
 
-// Find operation
+/**
+ * Opens the find dialog.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ */
 void edit_find(GtkWidget *widget, gpointer data) 
 {
     (void)widget;
@@ -261,7 +331,7 @@ void edit_find(GtkWidget *widget, gpointer data)
     find_replace_data->buffer = buffer;
     find_replace_data->window = GTK_WIDGET(text_view);
     
-    // Create dialog
+    /* Create dialog */
     GtkWidget *dialog = gtk_dialog_new_with_buttons("Find",
         GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(text_view))),
         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
@@ -278,7 +348,7 @@ void edit_find(GtkWidget *widget, gpointer data)
     gtk_container_set_border_width(GTK_CONTAINER(grid), 10);
     gtk_box_pack_start(GTK_BOX(content), grid, TRUE, TRUE, 0);
     
-    // Find entry
+    /* Find entry */
     GtkWidget *find_label = gtk_label_new("Find:");
     gtk_widget_set_halign(find_label, GTK_ALIGN_START);
     gtk_grid_attach(GTK_GRID(grid), find_label, 0, 0, 1, 1);
@@ -287,7 +357,7 @@ void edit_find(GtkWidget *widget, gpointer data)
     gtk_entry_set_placeholder_text(GTK_ENTRY(find_replace_data->find_entry), "Search text...");
     gtk_grid_attach(GTK_GRID(grid), find_replace_data->find_entry, 1, 0, 2, 1);
     
-    // Options
+    /* Options */
     find_replace_data->match_case_check = gtk_check_button_new_with_label("Match case");
     gtk_grid_attach(GTK_GRID(grid), find_replace_data->match_case_check, 1, 1, 1, 1);
     
@@ -299,7 +369,13 @@ void edit_find(GtkWidget *widget, gpointer data)
     gtk_widget_show_all(dialog);
 }
 
-// Replace dialog response
+/**
+ * Callback for replace dialog response.
+ *
+ * @param dialog      The replace dialog.
+ * @param response_id Response ID from dialog buttons.
+ * @param user_data   FindReplaceData structure.
+ */
 static void on_replace_response(GtkDialog *dialog, gint response_id, gpointer user_data) 
 {
     FindReplaceData *fr_data = (FindReplaceData *)user_data;
@@ -314,7 +390,7 @@ static void on_replace_response(GtkDialog *dialog, gint response_id, gpointer us
             GtkTextBuffer *buffer = fr_data->buffer;
             
             if (gtk_text_buffer_get_selection_bounds(buffer, &start, &match_end)) {
-                // Replace selected text
+                /* Replace selected text if it matches search */
                 gchar *selected = gtk_text_buffer_get_text(buffer, &start, &match_end, FALSE);
                 if (g_strcmp0(selected, search_text) == 0) {
                     gtk_text_buffer_delete(buffer, &start, &match_end);
@@ -322,7 +398,7 @@ static void on_replace_response(GtkDialog *dialog, gint response_id, gpointer us
                 }
                 g_free(selected);
             } else {
-                // Find and replace next
+                /* Find and replace next occurrence */
                 gtk_text_buffer_get_iter_at_mark(buffer, &start, 
                     gtk_text_buffer_get_insert(buffer));
                 
@@ -350,7 +426,12 @@ static void on_replace_response(GtkDialog *dialog, gint response_id, gpointer us
     }
 }
 
-// Replace operation
+/**
+ * Opens the replace dialog.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ */
 void edit_replace(GtkWidget *widget, gpointer data) 
 {
     (void)widget;
@@ -366,7 +447,7 @@ void edit_replace(GtkWidget *widget, gpointer data)
     find_replace_data->buffer = buffer;
     find_replace_data->window = GTK_WIDGET(text_view);
     
-    // Create dialog
+    /* Create dialog */
     GtkWidget *dialog = gtk_dialog_new_with_buttons("Replace",
         GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(text_view))),
         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
@@ -383,7 +464,7 @@ void edit_replace(GtkWidget *widget, gpointer data)
     gtk_container_set_border_width(GTK_CONTAINER(grid), 10);
     gtk_box_pack_start(GTK_BOX(content), grid, TRUE, TRUE, 0);
     
-    // Find entry
+    /* Find entry */
     GtkWidget *find_label = gtk_label_new("Find:");
     gtk_widget_set_halign(find_label, GTK_ALIGN_START);
     gtk_grid_attach(GTK_GRID(grid), find_label, 0, 0, 1, 1);
@@ -392,7 +473,7 @@ void edit_replace(GtkWidget *widget, gpointer data)
     gtk_entry_set_placeholder_text(GTK_ENTRY(find_replace_data->find_entry), "Search text...");
     gtk_grid_attach(GTK_GRID(grid), find_replace_data->find_entry, 1, 0, 2, 1);
     
-    // Replace entry
+    /* Replace entry */
     GtkWidget *replace_label = gtk_label_new("Replace:");
     gtk_widget_set_halign(replace_label, GTK_ALIGN_START);
     gtk_grid_attach(GTK_GRID(grid), replace_label, 0, 1, 1, 1);
@@ -401,7 +482,7 @@ void edit_replace(GtkWidget *widget, gpointer data)
     gtk_entry_set_placeholder_text(GTK_ENTRY(find_replace_data->replace_entry), "Replace with...");
     gtk_grid_attach(GTK_GRID(grid), find_replace_data->replace_entry, 1, 1, 2, 1);
     
-    // Options
+    /* Options */
     find_replace_data->match_case_check = gtk_check_button_new_with_label("Match case");
     gtk_grid_attach(GTK_GRID(grid), find_replace_data->match_case_check, 1, 2, 2, 1);
     
@@ -410,14 +491,25 @@ void edit_replace(GtkWidget *widget, gpointer data)
     gtk_widget_show_all(dialog);
 }
 
-// Callback for Enter key in Go to Line dialog
+/**
+ * Callback for Enter key in Go to Line dialog.
+ *
+ * @param entry   The entry widget.
+ * @param dialog  The dialog to respond to.
+ */
 static void on_goto_entry_activate(GtkEntry *entry, gpointer dialog) 
 {
     (void)entry;
     gtk_dialog_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK);
 }
 
-// Goto line dialog response - FIXED VERSION
+/**
+ * Callback for Go to Line dialog response.
+ *
+ * @param dialog      The dialog.
+ * @param response_id Response ID from dialog buttons.
+ * @param user_data   GtkTextView to operate on.
+ */
 static void on_goto_response(GtkDialog *dialog, gint response_id, gpointer user_data) 
 {
     GtkTextView *text_view = GTK_TEXT_VIEW(user_data);
@@ -430,10 +522,10 @@ static void on_goto_response(GtkDialog *dialog, gint response_id, gpointer user_
         if (line_number > 0) {
             GtkTextBuffer *buffer = gtk_text_view_get_buffer(text_view);
             
-            // Get the total number of lines
+            /* Get total number of lines */
             gint total_lines = gtk_text_buffer_get_line_count(buffer);
             
-            // Clamp line number to valid range
+            /* Clamp line number to valid range */
             if (line_number > total_lines) {
                 line_number = total_lines;
             }
@@ -447,11 +539,16 @@ static void on_goto_response(GtkDialog *dialog, gint response_id, gpointer user_
         }
     }
     
-    // Always destroy dialog for any response (OK, Cancel, or close)
+    /* Always destroy dialog for any response */
     gtk_widget_destroy(GTK_WIDGET(dialog));
 }
 
-// Goto line - FIXED VERSION (no lambda)
+/**
+ * Opens the Go to Line dialog.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ */
 void edit_goto_line(GtkWidget *widget, gpointer data) 
 {
     (void)widget;
@@ -476,19 +573,24 @@ void edit_goto_line(GtkWidget *widget, gpointer data)
     gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "e.g., 42");
     gtk_box_pack_start(GTK_BOX(box), entry, FALSE, FALSE, 0);
     
-    // Connect Enter key in entry to activate Go button (using regular function, not lambda)
+    /* Connect Enter key in entry to activate Go button */
     g_signal_connect(entry, "activate", G_CALLBACK(on_goto_entry_activate), dialog);
     
     g_object_set_data(G_OBJECT(dialog), "line-entry", entry);
     g_object_set_data(G_OBJECT(dialog), "text-view", text_view);
     
-    // Connect dialog response
+    /* Connect dialog response */
     g_signal_connect(dialog, "response", G_CALLBACK(on_goto_response), text_view);
     
     gtk_widget_show_all(dialog);
 }
 
-// Toggle comment (assumes C-style comments)
+/**
+ * Toggles C-style line comments (//) on the current line or selection.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ */
 void edit_toggle_comment(GtkWidget *widget, gpointer data)
 {
     (void)widget;
@@ -502,7 +604,7 @@ void edit_toggle_comment(GtkWidget *widget, gpointer data)
         end = start;
     }
     
-    // Get line bounds
+    /* Get line bounds */
     GtkTextIter line_start = start;
     GtkTextIter line_end = end;
     gtk_text_iter_set_line_offset(&line_start, 0);
@@ -511,13 +613,13 @@ void edit_toggle_comment(GtkWidget *widget, gpointer data)
     gchar *line_text = gtk_text_buffer_get_text(buffer, &line_start, &line_end, FALSE);
     
     if (g_str_has_prefix(line_text, "//")) {
-        // Uncomment
+        /* Uncomment */
         GtkTextIter delete_start = line_start;
         GtkTextIter delete_end = line_start;
         gtk_text_iter_forward_chars(&delete_end, 2);
         gtk_text_buffer_delete(buffer, &delete_start, &delete_end);
     } else {
-        // Comment
+        /* Comment */
         gtk_text_buffer_insert(buffer, &line_start, "//", -1);
     }
     
@@ -525,7 +627,12 @@ void edit_toggle_comment(GtkWidget *widget, gpointer data)
     edit_history_push(buffer);
 }
 
-// Indent
+/**
+ * Indents the current line or selection by inserting 4 spaces.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ */
 void edit_indent(GtkWidget *widget, gpointer data) 
 {
     (void)widget;
@@ -547,7 +654,12 @@ void edit_indent(GtkWidget *widget, gpointer data)
     edit_history_push(buffer);
 }
 
-// Unindent
+/**
+ * Unindents the current line or selection by removing leading spaces/tabs.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ */
 void edit_unindent(GtkWidget *widget, gpointer data) 
 {
     (void)widget;
@@ -564,7 +676,7 @@ void edit_unindent(GtkWidget *widget, gpointer data)
     GtkTextIter line_start = start;
     gtk_text_iter_set_line_offset(&line_start, 0);
     
-    // Check for spaces or tabs
+    /* Check for spaces or tabs */
     GtkTextIter check = line_start;
     gint spaces = 0;
     while (spaces < 4 && !gtk_text_iter_ends_line(&check)) {
@@ -589,7 +701,12 @@ void edit_unindent(GtkWidget *widget, gpointer data)
     edit_history_push(buffer);
 }
 
-// Convert to uppercase
+/**
+ * Converts selected text to uppercase.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ */
 void edit_to_uppercase(GtkWidget *widget, gpointer data)
 {
     (void)widget;
@@ -609,7 +726,12 @@ void edit_to_uppercase(GtkWidget *widget, gpointer data)
     }
 }
 
-// Convert to lowercase
+/**
+ * Converts selected text to lowercase.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ */
 void edit_to_lowercase(GtkWidget *widget, gpointer data) 
 {
     (void)widget;
@@ -629,7 +751,12 @@ void edit_to_lowercase(GtkWidget *widget, gpointer data)
     }
 }
 
-// Capitalize words
+/**
+ * Capitalizes the first letter of each word in the selected text.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ */
 void edit_capitalize(GtkWidget *widget, gpointer data) 
 {
     (void)widget;
@@ -659,7 +786,12 @@ void edit_capitalize(GtkWidget *widget, gpointer data)
     }
 }
 
-// Duplicate line
+/**
+ * Duplicates the current line.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ */
 void edit_duplicate_line(GtkWidget *widget, gpointer data) 
 {
     (void)widget;
@@ -674,7 +806,7 @@ void edit_duplicate_line(GtkWidget *widget, gpointer data)
     GtkTextIter line_end = cursor;
     gtk_text_iter_set_line_offset(&line_start, 0);
     gtk_text_iter_forward_to_line_end(&line_end);
-    gtk_text_iter_forward_char(&line_end); // Include newline
+    gtk_text_iter_forward_char(&line_end); /* Include newline */
     
     gchar *line = gtk_text_buffer_get_text(buffer, &line_start, &line_end, FALSE);
     gtk_text_buffer_insert(buffer, &line_end, line, -1);
@@ -683,7 +815,12 @@ void edit_duplicate_line(GtkWidget *widget, gpointer data)
     edit_history_push(buffer);
 }
 
-// Delete line
+/**
+ * Deletes the current line.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ */
 void edit_delete_line(GtkWidget *widget, gpointer data) 
 {
     (void)widget;
@@ -698,13 +835,18 @@ void edit_delete_line(GtkWidget *widget, gpointer data)
     GtkTextIter line_end = cursor;
     gtk_text_iter_set_line_offset(&line_start, 0);
     gtk_text_iter_forward_to_line_end(&line_end);
-    gtk_text_iter_forward_char(&line_end); // Include newline
+    gtk_text_iter_forward_char(&line_end); /* Include newline */
     
     gtk_text_buffer_delete(buffer, &line_start, &line_end);
     edit_history_push(buffer);
 }
 
-// Join lines
+/**
+ * Joins multiple lines into a single line.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ */
 void edit_join_lines(GtkWidget *widget, gpointer data)
 {
     (void)widget;
@@ -722,10 +864,10 @@ void edit_join_lines(GtkWidget *widget, gpointer data)
     GtkTextIter line_end = end;
     gtk_text_iter_set_line_offset(&line_start, 0);
     
-    // Find the end of the last line
+    /* Find the end of the last line */
     gtk_text_iter_forward_line(&line_end);
     
-    // Replace newlines with spaces
+    /* Replace newlines with spaces */
     gchar *text = gtk_text_buffer_get_text(buffer, &line_start, &line_end, FALSE);
     for (gint i = 0; text[i]; i++) {
         if (text[i] == '\n') text[i] = ' ';
@@ -738,13 +880,24 @@ void edit_join_lines(GtkWidget *widget, gpointer data)
     edit_history_push(buffer);
 }
 
-// Comparison function for sort
+/**
+ * Comparison function for sorting lines alphabetically.
+ *
+ * @param a First line string pointer.
+ * @param b Second line string pointer.
+ * @return Negative if a < b, zero if equal, positive if a > b.
+ */
 static gint compare_lines(gconstpointer a, gconstpointer b) 
 {
     return g_strcmp0(*(const gchar**)a, *(const gchar**)b);
 }
 
-// Sort lines
+/**
+ * Sorts the selected lines alphabetically.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to operate on.
+ */
 void edit_sort_lines(GtkWidget *widget, gpointer data) 
 {
     (void)widget;
@@ -761,7 +914,7 @@ void edit_sort_lines(GtkWidget *widget, gpointer data)
     GtkTextIter line_end = end;
     gtk_text_iter_set_line_offset(&line_start, 0);
     
-    // Get all lines
+    /* Get all lines */
     GPtrArray *lines = g_ptr_array_new();
     GtkTextIter current = line_start;
     
@@ -775,10 +928,10 @@ void edit_sort_lines(GtkWidget *widget, gpointer data)
         current = next_line;
     }
     
-    // Sort lines
+    /* Sort lines */
     g_ptr_array_sort(lines, compare_lines);
     
-    // Rebuild text
+    /* Rebuild text */
     gtk_text_buffer_delete(buffer, &line_start, &line_end);
     
     for (guint i = 0; i < lines->len; i++) {
@@ -791,7 +944,14 @@ void edit_sort_lines(GtkWidget *widget, gpointer data)
     edit_history_push(buffer);
 }
 
-// Draw page callback for printing
+/**
+ * Callback for drawing a page during printing.
+ *
+ * @param operation The print operation.
+ * @param context   Print context.
+ * @param page_nr   Page number being drawn (0-indexed).
+ * @param user_data PrintData structure.
+ */
 static void on_draw_page(GtkPrintOperation *operation, GtkPrintContext *context, gint page_nr, gpointer user_data) 
 {
     (void)operation;
@@ -802,44 +962,44 @@ static void on_draw_page(GtkPrintOperation *operation, GtkPrintContext *context,
     double width = gtk_print_context_get_width(context);
     double height = gtk_print_context_get_height(context);
     
-    // Set up text rendering
-    cairo_set_source_rgb(cr, 0, 0, 0); // Black text
+    /* Set up text rendering */
+    cairo_set_source_rgb(cr, 0, 0, 0); /* Black text */
     
-    // Get text from buffer
+    /* Get text from buffer */
     GtkTextIter start, end;
     gtk_text_buffer_get_start_iter(data->buffer, &start);
     gtk_text_buffer_get_end_iter(data->buffer, &end);
     gchar *text = gtk_text_buffer_get_text(data->buffer, &start, &end, FALSE);
     
-    // Create Pango layout for text wrapping
+    /* Create Pango layout for text wrapping */
     PangoLayout *layout = gtk_print_context_create_pango_layout(context);
     pango_layout_set_text(layout, text, -1);
-    pango_layout_set_width(layout, (width - 100) * PANGO_SCALE); // Margins
+    pango_layout_set_width(layout, (width - 100) * PANGO_SCALE); /* Margins */
     
-    // Set font
+    /* Set font */
     PangoFontDescription *font_desc = pango_font_description_from_string("Monospace 10");
     pango_layout_set_font_description(layout, font_desc);
     pango_font_description_free(font_desc);
     
-    // Set line spacing
+    /* Set line spacing */
     pango_layout_set_spacing(layout, 2 * PANGO_SCALE);
     
-    // Draw text
-    cairo_move_to(cr, 50, 50); // Top margin
+    /* Draw text */
+    cairo_move_to(cr, 50, 50); /* Top margin */
     pango_cairo_show_layout(cr, layout);
     
-    // Add page numbers
+    /* Add page numbers if multiple pages */
     int n_pages = gtk_print_operation_get_n_pages_to_print(operation);
     if (n_pages > 1) {
         gchar *page_text = g_strdup_printf("Page %d of %d", page_nr + 1, n_pages);
         
         cairo_move_to(cr, width - 100, height - 30);
         
-        // Create a new layout for page number
+        /* Create a new layout for page number */
         PangoLayout *page_layout = gtk_print_context_create_pango_layout(context);
         pango_layout_set_text(page_layout, page_text, -1);
         
-        // Set smaller font for page numbers
+        /* Set smaller font for page numbers */
         PangoFontDescription *page_font = pango_font_description_from_string("Sans 8");
         pango_layout_set_font_description(page_layout, page_font);
         pango_font_description_free(page_font);
@@ -854,18 +1014,24 @@ static void on_draw_page(GtkPrintOperation *operation, GtkPrintContext *context,
     g_free(text);
 }
 
-// Begin print operation - calculate pages
+/**
+ * Callback for begin-print signal to calculate page count.
+ *
+ * @param operation The print operation.
+ * @param context   Print context.
+ * @param user_data PrintData structure.
+ */
 static void on_begin_print_simple(GtkPrintOperation *operation, GtkPrintContext *context, gpointer user_data) 
 {
     PrintData *data = (PrintData *)user_data;
     
-    // Get text from buffer
+    /* Get text from buffer */
     GtkTextIter start, end;
     gtk_text_buffer_get_start_iter(data->buffer, &start);
     gtk_text_buffer_get_end_iter(data->buffer, &end);
     gchar *text = gtk_text_buffer_get_text(data->buffer, &start, &end, FALSE);
     
-    // count characters and assume ~3000 chars per page
+    /* Count characters and assume ~3000 chars per page */
     int char_count = strlen(text);
     int n_pages = (char_count / 3000) + 1;
     if (n_pages < 1) n_pages = 1;
@@ -876,22 +1042,29 @@ static void on_begin_print_simple(GtkPrintOperation *operation, GtkPrintContext 
     (void)context;
 }
 
-// Print operation
+/**
+ * Opens the print dialog and prints the document.
+ *
+ * @param widget Unused (callback compatibility).
+ * @param data   GtkTextView to print.
+ *
+ * @sideeffect Opens print dialog and renders document to printer.
+ */
 void edit_print(GtkWidget *widget, gpointer data) 
 {
     (void)widget;
     GtkTextView *text_view = GTK_TEXT_VIEW(data);
     GtkTextBuffer *buffer = gtk_text_view_get_buffer(text_view);
     
-    // Create print operation
+    /* Create print operation */
     GtkPrintOperation *print = gtk_print_operation_new();
     
-    // Create print data
+    /* Create print data */
     PrintData *print_data = g_new(PrintData, 1);
     print_data->text_view = text_view;
     print_data->buffer = buffer;
     
-    // Set up print settings (simplified - no margin functions)
+    /* Set up print settings */
     GtkPrintSettings *settings = gtk_print_settings_new();
     gtk_print_settings_set_paper_size(settings, 
         gtk_paper_size_new(gtk_paper_size_get_default()));
@@ -903,11 +1076,11 @@ void edit_print(GtkWidget *widget, gpointer data)
     gtk_print_operation_set_use_full_page(print, TRUE);
     gtk_print_operation_set_embed_page_setup(print, TRUE);
     
-    // Connect signals
+    /* Connect signals */
     g_signal_connect(print, "begin-print", G_CALLBACK(on_begin_print_simple), print_data);
     g_signal_connect(print, "draw-page", G_CALLBACK(on_draw_page), print_data);
     
-    // Run print dialog
+    /* Run print dialog */
     GError *error = NULL;
     GtkPrintOperationResult res = gtk_print_operation_run(print, 
         GTK_PRINT_OPERATION_ACTION_PRINT_DIALOG,
@@ -931,12 +1104,17 @@ void edit_print(GtkWidget *widget, gpointer data)
     g_free(print_data);
 }
 
-// Initialize edit features
+/**
+ * Initializes edit features for a text buffer.
+ * Sets up undo history and connects change signal.
+ *
+ * @param buffer The GtkTextBuffer to initialize.
+ */
 void edit_init(GtkTextBuffer *buffer) 
 {
     global_buffer = buffer;
     history = edit_history_new(50);
     
-    // Connect to buffer changes for undo history
+    /* Connect to buffer changes for undo history */
     g_signal_connect_swapped(buffer, "changed", G_CALLBACK(edit_history_push), buffer);
 }

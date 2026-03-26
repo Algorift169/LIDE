@@ -3,16 +3,16 @@
 #include <stdio.h>
 #include <string.h>
 
-// Dragging variables
+/* Dragging variables */
 static int is_dragging = 0;
 static int drag_start_x, drag_start_y;
 
-// Window reference
+/* Window reference */
 static GtkWidget *stats_window = NULL;
 static BrowserWindow *main_browser = NULL;
 static guint refresh_timeout = 0;
 
-// Function prototypes
+/* Function prototypes */
 static void update_stats_list(GtkListBox *listbox);
 static gboolean refresh_stats(gpointer user_data);
 static void on_close_clicked(GtkButton *button, gpointer window);
@@ -21,7 +21,17 @@ static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpoint
 static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer window);
 static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer window);
 
-// Dragging handlers
+/* Dragging handlers */
+
+/**
+ * Callback for mouse button press on download stats window.
+ * Initiates window dragging.
+ *
+ * @param widget The window widget.
+ * @param event  Button event details.
+ * @param window The window being dragged.
+ * @return       TRUE to stop event propagation.
+ */
 static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer window)
 
 {
@@ -35,6 +45,15 @@ static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpoint
     return FALSE;
 }
 
+/**
+ * Callback for mouse button release on download stats window.
+ * Terminates window dragging.
+ *
+ * @param widget The window widget.
+ * @param event  Button event details.
+ * @param window The window being dragged (unused).
+ * @return       FALSE to allow further processing.
+ */
 static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer window)
 
 {
@@ -45,6 +64,15 @@ static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpoi
     return FALSE;
 }
 
+/**
+ * Callback for mouse motion on download stats window.
+ * Handles window dragging when active.
+ *
+ * @param widget The window widget.
+ * @param event  Motion event details.
+ * @param window The window being dragged.
+ * @return       TRUE if event was handled.
+ */
 static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer window)
 
 {
@@ -65,6 +93,12 @@ static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoin
     return FALSE;
 }
 
+/**
+ * Callback for minimize button click.
+ *
+ * @param button The button that was clicked.
+ * @param window The window to minimize.
+ */
 static void on_minimize_clicked(GtkButton *button, gpointer window)
 
 {
@@ -72,6 +106,13 @@ static void on_minimize_clicked(GtkButton *button, gpointer window)
     gtk_window_iconify(GTK_WINDOW(window));
 }
 
+/**
+ * Callback for close button click.
+ * Cleans up the refresh timeout and destroys the window.
+ *
+ * @param button The button that was clicked.
+ * @param window The window to close.
+ */
 static void on_close_clicked(GtkButton *button, gpointer window)
 
 {
@@ -84,10 +125,16 @@ static void on_close_clicked(GtkButton *button, gpointer window)
     stats_window = NULL;
 }
 
+/**
+ * Updates the download list display.
+ * Clears existing rows and rebuilds from the global downloads list.
+ *
+ * @param listbox The GtkListBox to populate.
+ */
 static void update_stats_list(GtkListBox *listbox)
 
 {
-    // Clear existing rows
+    /* Clear existing rows */
     GList *children = gtk_container_get_children(GTK_CONTAINER(listbox));
     for (GList *c = children; c; c = c->next) {
         gtk_widget_destroy(GTK_WIDGET(c->data));
@@ -113,7 +160,7 @@ static void update_stats_list(GtkListBox *listbox)
         gtk_widget_set_margin_start(row, 5);
         gtk_widget_set_margin_end(row, 5);
 
-        // Filename
+        /* Filename - bold text */
         GtkWidget *filename_label = gtk_label_new(NULL);
         char *filename_markup = g_strdup_printf("<span weight='bold'>%s</span>", item->filename);
         gtk_label_set_markup(GTK_LABEL(filename_label), filename_markup);
@@ -121,14 +168,14 @@ static void update_stats_list(GtkListBox *listbox)
         gtk_label_set_xalign(GTK_LABEL(filename_label), 0.0);
         gtk_box_pack_start(GTK_BOX(vbox), filename_label, FALSE, FALSE, 0);
 
-        // URL
+        /* URL - smaller, dimmed text */
         GtkWidget *url_label = gtk_label_new(item->url);
         gtk_label_set_xalign(GTK_LABEL(url_label), 0.0);
         gtk_widget_set_opacity(url_label, 0.7);
         gtk_box_pack_start(GTK_BOX(vbox), url_label, FALSE, FALSE, 0);
 
-        // Progress bar and status
-        if (item->status == 1) { // downloading
+        /* Progress bar and status */
+        if (item->status == 1) { /* downloading */
             GtkWidget *progress_bar = gtk_progress_bar_new();
             gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(progress_bar), item->progress / 100.0);
             char progress_text[256];
@@ -161,6 +208,12 @@ static void update_stats_list(GtkListBox *listbox)
     }
 }
 
+/**
+ * Timer callback for refreshing the download list display.
+ *
+ * @param user_data The GtkListBox to update.
+ * @return G_SOURCE_CONTINUE to keep the timer active.
+ */
 static gboolean refresh_stats(gpointer user_data)
 
 {
@@ -169,6 +222,15 @@ static gboolean refresh_stats(gpointer user_data)
     return G_SOURCE_CONTINUE;
 }
 
+/**
+ * Displays the download manager window.
+ * Shows all active and completed downloads with progress bars.
+ *
+ * @param browser BrowserWindow instance to associate with the window.
+ *
+ * @sideeffect Creates and displays a modal download manager window.
+ * @sideeffect Starts a periodic refresh timer (500ms) to update progress.
+ */
 void show_download_stats_window(BrowserWindow *browser)
 
 {
@@ -183,11 +245,11 @@ void show_download_stats_window(BrowserWindow *browser)
     gtk_window_set_title(GTK_WINDOW(stats_window), "Download Manager");
     gtk_window_set_default_size(GTK_WINDOW(stats_window), 600, 400);
     gtk_window_set_position(GTK_WINDOW(stats_window), GTK_WIN_POS_CENTER);
-    gtk_window_set_decorated(GTK_WINDOW(stats_window), FALSE); // Remove default title bar
+    gtk_window_set_decorated(GTK_WINDOW(stats_window), FALSE); /* Remove default title bar for custom one */
     gtk_window_set_keep_above(GTK_WINDOW(stats_window), TRUE);
     gtk_window_set_transient_for(GTK_WINDOW(stats_window), GTK_WINDOW(browser->window));
 
-    // Enable dragging
+    /* Enable dragging */
     gtk_widget_add_events(stats_window, GDK_BUTTON_PRESS_MASK |
                                          GDK_BUTTON_RELEASE_MASK |
                                          GDK_POINTER_MOTION_MASK);
@@ -198,7 +260,7 @@ void show_download_stats_window(BrowserWindow *browser)
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_container_add(GTK_CONTAINER(stats_window), vbox);
 
-    // Custom title bar
+    /* Custom title bar */
     GtkWidget *title_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     gtk_widget_set_name(title_bar, "title-bar");
     gtk_widget_set_size_request(title_bar, -1, 30);
@@ -211,23 +273,23 @@ void show_download_stats_window(BrowserWindow *browser)
     GtkWidget *window_buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
     gtk_box_pack_end(GTK_BOX(title_bar), window_buttons, FALSE, FALSE, 5);
 
-    // Minimize button
+    /* Minimize button */
     GtkWidget *min_btn = gtk_button_new_with_label("─");
     gtk_widget_set_size_request(min_btn, 30, 25);
     g_signal_connect(min_btn, "clicked", G_CALLBACK(on_minimize_clicked), stats_window);
     gtk_box_pack_start(GTK_BOX(window_buttons), min_btn, FALSE, FALSE, 0);
 
-    // Close button
+    /* Close button */
     GtkWidget *close_btn = gtk_button_new_with_label("✕");
     gtk_widget_set_size_request(close_btn, 30, 25);
     g_signal_connect(close_btn, "clicked", G_CALLBACK(on_close_clicked), stats_window);
     gtk_box_pack_start(GTK_BOX(window_buttons), close_btn, FALSE, FALSE, 0);
 
-    // Separator
+    /* Separator */
     GtkWidget *sep = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_box_pack_start(GTK_BOX(vbox), sep, FALSE, FALSE, 0);
 
-    // Scrolled window with listbox for downloads
+    /* Scrolled window with listbox for downloads */
     GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
                                    GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
@@ -236,7 +298,7 @@ void show_download_stats_window(BrowserWindow *browser)
     GtkWidget *listbox = gtk_list_box_new();
     gtk_container_add(GTK_CONTAINER(scrolled), listbox);
 
-    // CSS
+    /* CSS styling - dark theme with green accent */
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
         "window { background-color: #0b0f14; color: #ffffff; }\n"
@@ -252,7 +314,7 @@ void show_download_stats_window(BrowserWindow *browser)
 
     update_stats_list(GTK_LIST_BOX(listbox));
 
-    // Set up a timeout to refresh every 500 ms
+    /* Set up a timeout to refresh every 500 ms for live progress updates */
     refresh_timeout = g_timeout_add(500, refresh_stats, listbox);
 
     gtk_widget_show_all(stats_window);

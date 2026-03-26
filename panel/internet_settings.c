@@ -11,10 +11,11 @@
 static GtkCssProvider *internet_settings_provider = NULL;
 static char *config_path = NULL;
 
-// Structure to hold network settings
+/* Structure holding network interface configuration.
+ * Stores interface name, connection method (DHCP/static), and static IP parameters. */
 typedef struct {
     char interface[32];
-    char method[16];  // "dhcp" or "static"
+    char method[16];  /* "dhcp" or "static" */
     char ip_address[32];
     char netmask[32];
     char gateway[32];
@@ -30,10 +31,15 @@ static NetworkSettings current_settings = {
     .dns = ""
 };
 
-// Forward declaration for callback
+/* Forward declaration for callback */
 static void on_method_toggled(GtkToggleButton *btn, gpointer data);
 
-// Get config directory path
+/**
+ * Returns the full path to the configuration directory.
+ *
+ * @return Pointer to static string containing the directory path.
+ *         Format: $HOME/.config/blackline
+ */
 static const char* get_config_dir(void)
 {
     static char path[512];
@@ -43,7 +49,11 @@ static const char* get_config_dir(void)
     return path;
 }
 
-// Get config file path
+/**
+ * Returns the full path to the network configuration file.
+ *
+ * @return Pointer to static string containing the file path.
+ */
 static const char* get_config_file(void)
 {
     static char path[512];
@@ -51,7 +61,12 @@ static const char* get_config_file(void)
     return path;
 }
 
-// Ensure config directory exists
+/**
+ * Ensures the configuration directory exists.
+ * Creates it with 0700 permissions if missing.
+ *
+ * @sideeffect Creates directory on filesystem if not present.
+ */
 static void ensure_config_dir(void)
 {
     const char *dir = get_config_dir();
@@ -61,7 +76,12 @@ static void ensure_config_dir(void)
     }
 }
 
-// Save network settings to file
+/**
+ * Saves current network settings to configuration file.
+ *
+ * @sideeffect Writes settings to disk.
+ * @sideeffect Prints status message to stdout.
+ */
 static void save_network_settings(void)
 {
     ensure_config_dir();
@@ -82,7 +102,13 @@ static void save_network_settings(void)
     printf("Network settings saved to %s\n", get_config_file());
 }
 
-// Load network settings from file
+/**
+ * Loads network settings from configuration file.
+ * If file does not exist, defaults remain unchanged.
+ *
+ * @sideeffect Updates current_settings structure.
+ * @sideeffect Prints status message to stdout.
+ */
 static void load_network_settings(void)
 {
     FILE *f = fopen(get_config_file(), "r");
@@ -118,7 +144,14 @@ static void load_network_settings(void)
     printf("Network settings loaded from %s\n", get_config_file());
 }
 
-// Apply CSS to a specific widget only
+/**
+ * Applies custom CSS styling to a widget.
+ * Loads CSS provider lazily on first call.
+ *
+ * @param widget The widget to apply CSS to.
+ *
+ * @sideeffect Creates and populates global CSS provider if not already created.
+ */
 static void apply_widget_css(GtkWidget *widget)
 {
     if (internet_settings_provider == NULL) {
@@ -141,7 +174,13 @@ static void apply_widget_css(GtkWidget *widget)
         GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 }
 
-// Get current network interfaces
+/**
+ * Retrieves list of non-loopback network interfaces from /sys/class/net.
+ *
+ * @param count Output parameter that receives the number of interfaces.
+ * @return Array of strings containing interface names, or NULL on failure.
+ *         Caller must free each string and the array itself.
+ */
 static char** get_network_interfaces(int *count)
 {
     FILE *fp = popen("ls /sys/class/net/ 2>/dev/null | grep -v lo", "r");
@@ -163,7 +202,13 @@ static char** get_network_interfaces(int *count)
     return interfaces;
 }
 
-// Get current connection method for an interface
+/**
+ * Retrieves the current IP configuration method for an interface via NetworkManager.
+ *
+ * @param iface Network interface name.
+ * @return Static string containing "dhcp", "manual", or empty string on error.
+ *         Valid until next call to this function.
+ */
 static const char* get_connection_method(const char *iface)
 {
     static char method[32] = "dhcp";
@@ -182,17 +227,34 @@ static const char* get_connection_method(const char *iface)
     return method;
 }
 
-// Callback for method toggle
+/**
+ * Callback for DHCP/Static radio button toggles.
+ * Enables/disables static IP configuration frame based on selection.
+ *
+ * @param btn  The toggled radio button.
+ * @param data Pointer to the static IP frame widget.
+ *
+ * @sideeffect Modifies sensitivity of the static IP configuration frame.
+ */
 static void on_method_toggled(GtkToggleButton *btn, gpointer data)
 {
     GtkWidget *frame = GTK_WIDGET(data);
     gtk_widget_set_sensitive(frame, !gtk_toggle_button_get_active(btn));
 }
 
-// Show internet settings dialog
+/**
+ * Displays a modal dialog for configuring network interface settings.
+ * Supports DHCP and static IP configuration via NetworkManager.
+ *
+ * @param parent_window Parent window for the modal dialog.
+ *
+ * @sideeffect Creates and displays modal dialog. Blocks until dialog is closed.
+ * @sideeffect Executes nmcli commands to apply network changes when "Apply" is clicked.
+ * @sideeffect Saves configuration to disk and shows success message dialogs.
+ */
 void show_internet_settings(GtkWidget *parent_window)
 {
-    // Load saved settings first
+    /* Load saved settings first */
     load_network_settings();
     
     GtkWidget *dialog = gtk_dialog_new_with_buttons(
@@ -209,7 +271,7 @@ void show_internet_settings(GtkWidget *parent_window)
     gtk_window_set_default_size(GTK_WINDOW(dialog), 500, 400);
     gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_CENTER);
     
-    // Apply CSS to dialog
+    /* Apply CSS to dialog */
     apply_widget_css(dialog);
     
     GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
@@ -217,14 +279,14 @@ void show_internet_settings(GtkWidget *parent_window)
     gtk_container_set_border_width(GTK_CONTAINER(vbox), 15);
     gtk_container_add(GTK_CONTAINER(content), vbox);
     
-    // Title
+    /* Title */
     GtkWidget *title = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(title), "<b>🔧 Internet Connection Settings</b>");
     gtk_label_set_xalign(GTK_LABEL(title), 0.0);
     gtk_box_pack_start(GTK_BOX(vbox), title, FALSE, FALSE, 0);
     apply_widget_css(title);
     
-    // Interface selection
+    /* Interface selection */
     GtkWidget *iface_frame = gtk_frame_new("Network Interface");
     gtk_box_pack_start(GTK_BOX(vbox), iface_frame, FALSE, FALSE, 0);
     apply_widget_css(iface_frame);
@@ -253,7 +315,7 @@ void show_internet_settings(GtkWidget *parent_window)
     gtk_box_pack_start(GTK_BOX(iface_box), iface_combo, FALSE, FALSE, 0);
     apply_widget_css(iface_combo);
     
-    // Connection method frame
+    /* Connection method frame */
     GtkWidget *method_frame = gtk_frame_new("Connection Method");
     gtk_box_pack_start(GTK_BOX(vbox), method_frame, FALSE, FALSE, 0);
     apply_widget_css(method_frame);
@@ -273,14 +335,14 @@ void show_internet_settings(GtkWidget *parent_window)
     gtk_box_pack_start(GTK_BOX(method_box), static_radio, FALSE, FALSE, 0);
     apply_widget_css(static_radio);
     
-    // Set active based on saved settings
+    /* Set active based on saved settings */
     if (strcmp(current_settings.method, "static") == 0) {
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(static_radio), TRUE);
     } else {
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(dhcp_radio), TRUE);
     }
     
-    // Static IP settings frame
+    /* Static IP settings frame */
     GtkWidget *static_frame = gtk_frame_new("Static IP Configuration");
     gtk_box_pack_start(GTK_BOX(vbox), static_frame, FALSE, FALSE, 0);
     apply_widget_css(static_frame);
@@ -291,7 +353,7 @@ void show_internet_settings(GtkWidget *parent_window)
     gtk_container_set_border_width(GTK_CONTAINER(static_grid), 10);
     gtk_container_add(GTK_CONTAINER(static_frame), static_grid);
     
-    // IP Address
+    /* IP Address */
     GtkWidget *ip_label = gtk_label_new("IP Address:");
     gtk_grid_attach(GTK_GRID(static_grid), ip_label, 0, 0, 1, 1);
     apply_widget_css(ip_label);
@@ -302,7 +364,7 @@ void show_internet_settings(GtkWidget *parent_window)
     gtk_grid_attach(GTK_GRID(static_grid), ip_entry, 1, 0, 1, 1);
     apply_widget_css(ip_entry);
     
-    // Netmask
+    /* Netmask */
     GtkWidget *netmask_label = gtk_label_new("Netmask:");
     gtk_grid_attach(GTK_GRID(static_grid), netmask_label, 0, 1, 1, 1);
     apply_widget_css(netmask_label);
@@ -313,7 +375,7 @@ void show_internet_settings(GtkWidget *parent_window)
     gtk_grid_attach(GTK_GRID(static_grid), netmask_entry, 1, 1, 1, 1);
     apply_widget_css(netmask_entry);
     
-    // Gateway
+    /* Gateway */
     GtkWidget *gateway_label = gtk_label_new("Gateway:");
     gtk_grid_attach(GTK_GRID(static_grid), gateway_label, 0, 2, 1, 1);
     apply_widget_css(gateway_label);
@@ -324,7 +386,7 @@ void show_internet_settings(GtkWidget *parent_window)
     gtk_grid_attach(GTK_GRID(static_grid), gateway_entry, 1, 2, 1, 1);
     apply_widget_css(gateway_entry);
     
-    // DNS
+    /* DNS */
     GtkWidget *dns_label = gtk_label_new("DNS Server:");
     gtk_grid_attach(GTK_GRID(static_grid), dns_label, 0, 3, 1, 1);
     apply_widget_css(dns_label);
@@ -335,10 +397,10 @@ void show_internet_settings(GtkWidget *parent_window)
     gtk_grid_attach(GTK_GRID(static_grid), dns_entry, 1, 3, 1, 1);
     apply_widget_css(dns_entry);
     
-    // Connect callback for method toggle (using proper function)
+    /* Connect callback for method toggle */
     g_signal_connect(dhcp_radio, "toggled", G_CALLBACK(on_method_toggled), static_frame);
     
-    // Set initial sensitivity
+    /* Set initial sensitivity */
     gtk_widget_set_sensitive(static_frame, strcmp(current_settings.method, "static") == 0);
     
     gtk_widget_show_all(dialog);
@@ -348,12 +410,12 @@ void show_internet_settings(GtkWidget *parent_window)
         const char *iface = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(iface_combo));
         gboolean use_dhcp = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(dhcp_radio));
         
-        // Save current settings
+        /* Save current settings */
         strncpy(current_settings.interface, iface ? iface : "", sizeof(current_settings.interface) - 1);
         strncpy(current_settings.method, use_dhcp ? "dhcp" : "static", sizeof(current_settings.method) - 1);
         
         if (!use_dhcp) {
-            // Save static IP settings
+            /* Save static IP settings */
             const char *ip = gtk_entry_get_text(GTK_ENTRY(ip_entry));
             const char *netmask = gtk_entry_get_text(GTK_ENTRY(netmask_entry));
             const char *gateway = gtk_entry_get_text(GTK_ENTRY(gateway_entry));
@@ -365,11 +427,11 @@ void show_internet_settings(GtkWidget *parent_window)
             strncpy(current_settings.dns, dns, sizeof(current_settings.dns) - 1);
         }
         
-        // Save to file
+        /* Save to file */
         save_network_settings();
         
         if (use_dhcp) {
-            // Apply DHCP
+            /* Apply DHCP configuration */
             gchar *cmd = g_strdup_printf("nmcli connection modify '%s' ipv4.method auto && nmcli connection up '%s' 2>/dev/null", 
                                          iface, iface);
             int result = system(cmd);
@@ -392,7 +454,7 @@ void show_internet_settings(GtkWidget *parent_window)
                 gtk_widget_destroy(success);
             }
         } else {
-            // Apply static IP
+            /* Apply static IP configuration */
             const char *ip = gtk_entry_get_text(GTK_ENTRY(ip_entry));
             const char *netmask = gtk_entry_get_text(GTK_ENTRY(netmask_entry));
             const char *gateway = gtk_entry_get_text(GTK_ENTRY(gateway_entry));
@@ -429,7 +491,10 @@ void show_internet_settings(GtkWidget *parent_window)
     gtk_widget_destroy(dialog);
 }
 
-// Clean up provider
+/**
+ * Cleans up resources used by the internet settings module.
+ * Unrefs the global CSS provider if it exists.
+ */
 void internet_settings_cleanup(void)
 {
     if (internet_settings_provider) {

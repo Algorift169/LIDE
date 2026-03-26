@@ -16,16 +16,26 @@
 static Display *global_display = NULL;
 static GtkWidget *main_window = NULL;
 
-// Data structure for view toggle
+/**
+ * Data structure for view toggle operation.
+ *
+ * Holds references to widgets that need to be updated when switching
+ * between list and grid display modes.
+ */
 typedef struct {
-    GtkWidget *scrolled_window;
-    GtkWidget *container;      // current container
-    GtkWidget *old_container;   // container being replaced
-    GtkWidget *window;
-    GtkWidget *view_button;
+    GtkWidget *scrolled_window;   ///< Container that holds the tool list
+    GtkWidget *container;          ///< Current tool container widget
+    GtkWidget *old_container;      ///< Container being replaced (for cleanup)
+    GtkWidget *window;             ///< Main application window
+    GtkWidget *view_button;        ///< Toggle button to update label
 } ViewToggleData;
 
 // Launch functions 
+/**
+ * Close the tools window.
+ *
+ * Called from child processes after launching an application.
+ */
 static void close_tools_window(void)
 {
     if (main_window) {
@@ -33,6 +43,9 @@ static void close_tools_window(void)
     }
 }
 
+/**
+ * Launch the file manager and close the tools window.
+ */
 static void launch_file_manager(GtkButton *button, gpointer window) 
 
 {
@@ -50,6 +63,11 @@ static void launch_file_manager(GtkButton *button, gpointer window)
     }
 }
 
+/**
+ * Event handler for launching the file manager.
+ *
+ * @return TRUE to indicate event was handled.
+ */
 static gboolean launch_file_manager_event(GtkWidget *widget, GdkEventButton *event, gpointer window)
 
 {
@@ -69,6 +87,9 @@ static gboolean launch_file_manager_event(GtkWidget *widget, GdkEventButton *eve
     return TRUE;
 }
 
+/**
+ * Launch the text editor and close the tools window.
+ */
 static void launch_text_editor(GtkButton *button, gpointer window) 
 
 {
@@ -86,6 +107,11 @@ static void launch_text_editor(GtkButton *button, gpointer window)
     }
 }
 
+/**
+ * Event handler for launching the text editor.
+ *
+ * @return TRUE to indicate event was handled.
+ */
 static gboolean launch_text_editor_event(GtkWidget *widget, GdkEventButton *event, gpointer window)
 
 {
@@ -105,6 +131,9 @@ static gboolean launch_text_editor_event(GtkWidget *widget, GdkEventButton *even
     return TRUE;
 }
 
+/**
+ * Launch the calculator and close the tools window.
+ */
 static void launch_calculator(GtkButton *button, gpointer window) 
 
 {
@@ -122,6 +151,11 @@ static void launch_calculator(GtkButton *button, gpointer window)
     }
 }
 
+/**
+ * Event handler for launching the calculator.
+ *
+ * @return TRUE to indicate event was handled.
+ */
 static gboolean launch_calculator_event(GtkWidget *widget, GdkEventButton *event, gpointer window)
 
 {
@@ -141,6 +175,9 @@ static gboolean launch_calculator_event(GtkWidget *widget, GdkEventButton *event
     return TRUE;
 }
 
+/**
+ * Launch the system monitor and close the tools window.
+ */
 static void launch_system_monitor(GtkButton *button, gpointer window) 
 
 {
@@ -158,6 +195,11 @@ static void launch_system_monitor(GtkButton *button, gpointer window)
     }
 }
 
+/**
+ * Event handler for launching the system monitor.
+ *
+ * @return TRUE to indicate event was handled.
+ */
 static gboolean launch_system_monitor_event(GtkWidget *widget, GdkEventButton *event, gpointer window)
 
 {
@@ -178,6 +220,9 @@ static gboolean launch_system_monitor_event(GtkWidget *widget, GdkEventButton *e
 }
 
 // Web browser launcher function
+/**
+ * Launch the VoidFox web browser and close the tools window.
+ */
 static void launch_web_browser(GtkButton *button, gpointer window) 
 
 {
@@ -195,6 +240,11 @@ static void launch_web_browser(GtkButton *button, gpointer window)
     }
 }
 
+/**
+ * Event handler for launching the web browser.
+ *
+ * @return TRUE to indicate event was handled.
+ */
 static gboolean launch_web_browser_event(GtkWidget *widget, GdkEventButton *event, gpointer window)
 
 {
@@ -215,6 +265,12 @@ static gboolean launch_web_browser_event(GtkWidget *widget, GdkEventButton *even
 }
 
 // Firefox wrapper launcher function
+/**
+ * Launch the Firefox wrapper after verifying its existence.
+ *
+ * Checks for the wrapper binary in multiple locations. If not found,
+ * displays an error dialog with build instructions.
+ */
 static void launch_firefox_wrapper(GtkButton *button, gpointer window) 
 
 {
@@ -252,6 +308,11 @@ static void launch_firefox_wrapper(GtkButton *button, gpointer window)
     }
 }
 
+/**
+ * Event handler for launching the Firefox wrapper.
+ *
+ * @return TRUE to indicate event was handled.
+ */
 static gboolean launch_firefox_wrapper_event(GtkWidget *widget, GdkEventButton *event, gpointer window)
 
 {
@@ -292,6 +353,9 @@ static gboolean launch_firefox_wrapper_event(GtkWidget *widget, GdkEventButton *
 }
 
 // Terminal launcher function
+/**
+ * Launch the terminal and close the tools window.
+ */
 static void launch_terminal(GtkButton *button, gpointer window) 
 
 {
@@ -309,6 +373,11 @@ static void launch_terminal(GtkButton *button, gpointer window)
     }
 }
 
+/**
+ * Event handler for launching the terminal.
+ *
+ * @return TRUE to indicate event was handled.
+ */
 static gboolean launch_terminal_event(GtkWidget *widget, GdkEventButton *event, gpointer window)
 
 {
@@ -329,6 +398,9 @@ static gboolean launch_terminal_event(GtkWidget *widget, GdkEventButton *event, 
 }
 
 // Add this launch function after the other launch functions
+/**
+ * Launch the image viewer and close the tools window.
+ */
 static void launch_image_viewer(GtkButton *button, gpointer window) 
 
 {
@@ -346,6 +418,11 @@ static void launch_image_viewer(GtkButton *button, gpointer window)
     }
 }
 
+/**
+ * Event handler for launching the image viewer.
+ *
+ * @return TRUE to indicate event was handled.
+ */
 static gboolean launch_image_viewer_event(GtkWidget *widget, GdkEventButton *event, gpointer window)
 
 {
@@ -366,6 +443,9 @@ static gboolean launch_image_viewer_event(GtkWidget *widget, GdkEventButton *eve
 }
 
 // Settings tool launcher function
+/**
+ * Launch the settings application and close the tools window.
+ */
 static void launch_settings(GtkButton *button, gpointer window) 
 
 {
@@ -383,6 +463,11 @@ static void launch_settings(GtkButton *button, gpointer window)
     }
 }
 
+/**
+ * Event handler for launching the settings application.
+ *
+ * @return TRUE to indicate event was handled.
+ */
 static gboolean launch_settings_event(GtkWidget *widget, GdkEventButton *event, gpointer window)
 
 {
@@ -403,13 +488,20 @@ static gboolean launch_settings_event(GtkWidget *widget, GdkEventButton *event, 
 }
 
 // Minimize button handler - simple minimize
+/**
+ * Minimize the tools window.
+ */
 static void on_minimize_clicked(GtkButton *button, gpointer window) 
 {
     (void)button;
     gtk_window_iconify(GTK_WINDOW(window));
 }
 
-// Window state change handler for restore
+/**
+ * Window state change handler for restore events.
+ *
+ * @return FALSE to allow further signal propagation.
+ */
 static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *event, gpointer data) 
 
 {
@@ -437,6 +529,9 @@ static int num_tools = sizeof(tools) / sizeof(tools[0]);  // KEEP ONLY THIS ONE
 // REMOVE THIS DUPLICATE LINE:
 // static int num_tools = sizeof(tools) / sizeof(tools[0]);
 
+/**
+ * Close button handler - destroys the window.
+ */
 static void on_close_clicked(GtkButton *button, gpointer window) 
 
 {
@@ -444,7 +539,12 @@ static void on_close_clicked(GtkButton *button, gpointer window)
     gtk_window_close(GTK_WINDOW(window));
 }
 
-// Window destroy handler to clean up the atom
+/**
+ * Window destroy handler to clean up the X11 atom.
+ *
+ * Removes the _BLACKLINE_TOOLS_WINDOW property from the root window,
+ * allowing new instances to launch after this one exits.
+ */
 static void on_window_destroy(GtkWidget *widget, gpointer data) 
 
 {
@@ -461,7 +561,13 @@ static void on_window_destroy(GtkWidget *widget, gpointer data)
     }
 }
 
-// Realize callback - called after window is realized and has an XID
+/**
+ * Realize callback - sets X11 properties after window is realized.
+ *
+ * Configures window type as DOCK to prevent window manager from killing it,
+ * sets _NET_WM_PID for identification, and stores the XID on the root window
+ * for single-instance detection.
+ */
 static void on_window_realized(GtkWidget *window, gpointer data) 
 
 {
@@ -495,6 +601,16 @@ static void on_window_realized(GtkWidget *window, gpointer data)
 }
 
 // View toggle callback 
+/**
+ * Toggle between list and grid view modes.
+ *
+ * Recreates the tools container with the new mode, updates the scrolled
+ * window, button label, and window size. The old container is destroyed
+ * after replacement to prevent memory leaks.
+ *
+ * @param button The toggle button (used to update label).
+ * @param user_data ViewToggleData structure containing widget references.
+ */
 static void on_view_toggle_clicked(GtkButton *button, gpointer user_data) 
 
 {
@@ -553,6 +669,12 @@ static void on_view_toggle_clicked(GtkButton *button, gpointer user_data)
     g_print("Switched to %s mode\n", new_mode == VIEW_MODE_LIST ? "LIST" : "GRID");
 }
 
+/**
+ * Application activation callback.
+ *
+ * Creates the main window, sets up UI components, loads saved view mode,
+ * applies CSS styling, and initializes the tools container.
+ */
 static void activate(GtkApplication *app, gpointer user_data) 
 
 {
@@ -692,6 +814,15 @@ static void activate(GtkApplication *app, gpointer user_data)
 }
 
 // Single-instance check: if another instance exists, raise it and exit.
+/**
+ * Find an existing instance of the tools window.
+ *
+ * @param dpy X11 display connection.
+ * @return Window ID of existing instance, or None if none found.
+ *
+ * Reads the _BLACKLINE_TOOLS_WINDOW property from the root window.
+ * Validates that the window still exists and is mapped.
+ */
 static Window find_existing_instance(Display *dpy) 
 {
     Atom atom = XInternAtom(dpy, "_BLACKLINE_TOOLS_WINDOW", False);
@@ -729,6 +860,12 @@ static Window find_existing_instance(Display *dpy)
     return None;
 }
 
+/**
+ * Raise an existing window to the foreground.
+ *
+ * @param dpy X11 display connection.
+ * @param win Window ID to raise.
+ */
 static void raise_window(Display *dpy, Window win) 
 
 {
@@ -737,6 +874,13 @@ static void raise_window(Display *dpy, Window win)
     XFlush(dpy);
 }
 
+/**
+ * Application entry point.
+ *
+ * Performs single-instance check: if another instance is already running,
+ * raises it and exits. Otherwise, initializes GTK application and runs
+ * the main loop.
+ */
 int main(int argc, char **argv) 
 
 {

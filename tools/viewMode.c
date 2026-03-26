@@ -9,7 +9,15 @@ static ViewMode current_mode = VIEW_MODE_LIST;
 static char *config_path = NULL;
 static int is_loaded = 0;
 
-// Get config directory path
+/**
+ * Get the configuration directory path.
+ *
+ * Constructs the path "$HOME/.config/blackline" and creates the directory
+ * if it does not exist. Falls back to "/tmp" if HOME environment variable
+ * is not set.
+ *
+ * @return Static pointer to the config directory path.
+ */
 static const char* get_config_dir(void)
 
 {
@@ -33,7 +41,14 @@ static const char* get_config_dir(void)
     return config_dir;
 }
 
-// Get config file path
+/**
+ * Get the configuration file path.
+ *
+ * Constructs the full path to "tools_view_mode.conf" inside the config directory.
+ * The path is cached for subsequent calls.
+ *
+ * @return Static pointer to the config file path.
+ */
 static const char* get_config_path(void)
 
 {
@@ -45,7 +60,12 @@ static const char* get_config_path(void)
     return config_path;
 }
 
-// Save current view mode to config file
+/**
+ * Save the current view mode to the configuration file.
+ *
+ * Writes the integer value of current_mode to the config file.
+ * Called after mode changes to persist user preference.
+ */
 void view_mode_save(void)
 
 {
@@ -61,7 +81,13 @@ void view_mode_save(void)
     }
 }
 
-// Load view mode from config file
+/**
+ * Load the view mode from the configuration file.
+ *
+ * Reads the integer value from the config file and validates it against
+ * VIEW_MODE_LIST and VIEW_MODE_GRID. Falls back to LIST mode if the file
+ * does not exist or contains an invalid value.
+ */
 void view_mode_load(void)
 
 {
@@ -84,6 +110,13 @@ void view_mode_load(void)
     is_loaded = 1;
 }
 
+/**
+ * Get the current view mode.
+ *
+ * Loads the configuration file on first call if not already loaded.
+ *
+ * @return The current ViewMode (LIST or GRID).
+ */
 ViewMode view_mode_get_current(void)
 
 {
@@ -93,7 +126,13 @@ ViewMode view_mode_get_current(void)
     return current_mode;
 }
 
-
+/**
+ * Set the current view mode programmatically.
+ *
+ * @param mode The new view mode (must be VIEW_MODE_LIST or VIEW_MODE_GRID).
+ *
+ * Validates input and logs a warning if an invalid mode is provided.
+ */
 void view_mode_set_current(ViewMode mode)
 {
     if (mode == VIEW_MODE_LIST || mode == VIEW_MODE_GRID) {
@@ -104,7 +143,16 @@ void view_mode_set_current(ViewMode mode)
     }
 }
 
-
+/**
+ * Populate a container with tools in list view layout.
+ *
+ * @param container GtkBox to pack buttons into.
+ * @param tools     Array of ToolItem structures.
+ * @param num_tools Number of tools in the array.
+ * @param window    Parent window pointer passed to button callbacks.
+ *
+ * Creates a vertical list of buttons, each displaying icon and label.
+ */
 static void populate_list_view(GtkWidget *container, const ToolItem *tools, int num_tools, gpointer window)
 
 {
@@ -120,6 +168,18 @@ static void populate_list_view(GtkWidget *container, const ToolItem *tools, int 
     }
 }
 
+/**
+ * Populate a container with tools in grid view layout.
+ *
+ * @param container GtkGrid to pack items into.
+ * @param tools     Array of ToolItem structures.
+ * @param num_tools Number of tools in the array.
+ * @param window    Parent window pointer passed to event handlers.
+ *
+ * Creates a 2-column grid where each tool is displayed as a vertical box
+ * with a large icon and label. Click events are handled via button-press-event
+ * on GtkEventBox.
+ */
 static void populate_grid_view(GtkWidget *container, const ToolItem *tools, int num_tools, gpointer window)
 
 {
@@ -154,6 +214,16 @@ static void populate_grid_view(GtkWidget *container, const ToolItem *tools, int 
     gtk_grid_set_row_homogeneous(GTK_GRID(container), TRUE);
 }
 
+/**
+ * Create a container widget populated with tools in the specified view mode.
+ *
+ * @param tools     Array of ToolItem structures.
+ * @param num_tools Number of tools in the array.
+ * @param mode      The view mode to use (LIST or GRID).
+ * @param window    Parent window pointer passed to callbacks.
+ * @return Newly created GtkWidget (either GtkBox or GtkGrid) containing
+ *         all tools in the specified layout.
+ */
 GtkWidget* view_mode_create_container(const ToolItem *tools, int num_tools, ViewMode mode, gpointer window)
 
 {
@@ -175,6 +245,20 @@ GtkWidget* view_mode_create_container(const ToolItem *tools, int num_tools, View
     return container;
 }
 
+/**
+ * Toggle the view mode and replace the container.
+ *
+ * @param old_container The current container to destroy.
+ * @param tools         Array of ToolItem structures.
+ * @param num_tools     Number of tools in the array.
+ * @param parent_box    Parent GtkBox where the container is packed.
+ * @param window        Parent window pointer passed to callbacks.
+ * @return Newly created container with the toggled view mode.
+ *
+ * Destroys the old container, creates a new one with the opposite mode,
+ * packs it into the parent box at position 2, and saves the new mode.
+ * Intended for use with a toggle button that swaps the display.
+ */
 GtkWidget* view_mode_toggle(GtkWidget *old_container, const ToolItem *tools, int num_tools, GtkWidget *parent_box, gpointer window)
 
 {

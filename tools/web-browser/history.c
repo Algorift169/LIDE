@@ -9,27 +9,36 @@
 static GList *history = NULL;
 static BrowserWindow *global_browser = NULL;
 
-// Forward declarations for static functions - removed clear_history from here
+/* Forward declarations for static functions */
 static void on_history_item_clicked(GtkListBox *listbox, GtkListBoxRow *row, BrowserWindow *browser);
 static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser);
 
+/**
+ * Adds a URL to the browsing history.
+ * Prevents duplicate consecutive entries and maintains a maximum of 100 entries.
+ *
+ * @param url   URL to add to history.
+ * @param title Page title (if available).
+ *
+ * @sideeffect Updates history list and saves to disk.
+ */
 void add_to_history(const char *url, const char *title)
 {
     printf("History: adding %s (%s)\n", url, title ? title : "no title");
     
     if (!url || !*url) return;
     
-    // Don't add about:blank to history
+    /* Don't add about:blank to history */
     if (strcmp(url, "about:blank") == 0) return;
     
-    // Don't add empty URLs
+    /* Don't add empty URLs */
     if (strlen(url) < 4) return;
     
-    // Check if this URL is the same as the most recent entry (avoid duplicates)
+    /* Check if this URL is the same as the most recent entry (avoid duplicates) */
     if (history) {
         HistoryEntry *last = (HistoryEntry *)history->data;
         if (last && last->url && strcmp(last->url, url) == 0) {
-            // Update timestamp of existing entry instead of adding duplicate
+            /* Update timestamp of existing entry instead of adding duplicate */
             last->timestamp = time(NULL);
             if (title && *title) {
                 g_free(last->title);
@@ -48,7 +57,7 @@ void add_to_history(const char *url, const char *title)
     
     history = g_list_prepend(history, entry);
     
-    // Keep history size manageable (last 100 entries)
+    /* Keep history size manageable (last 100 entries) */
     if (g_list_length(history) > 100) {
         GList *last = g_list_last(history);
         HistoryEntry *old = (HistoryEntry *)last->data;
@@ -62,6 +71,14 @@ void add_to_history(const char *url, const char *title)
     printf("History: saved, now %d entries\n", g_list_length(history));
 }
 
+/**
+ * Callback for history list item activation.
+ * Loads the URL associated with the clicked history entry.
+ *
+ * @param listbox The GtkListBox containing history entries.
+ * @param row     The activated row.
+ * @param browser BrowserWindow instance.
+ */
 static void on_history_item_clicked(GtkListBox *listbox, GtkListBoxRow *row, BrowserWindow *browser)
 {
     (void)listbox;
@@ -71,6 +88,15 @@ static void on_history_item_clicked(GtkListBox *listbox, GtkListBoxRow *row, Bro
     }
 }
 
+/**
+ * Clears all browsing history.
+ *
+ * @param button  The button that was clicked (unused).
+ * @param browser BrowserWindow instance for UI updates.
+ *
+ * @sideeffect Frees all history entries and saves empty history.
+ * @sideeffect Shows confirmation dialog.
+ */
 void clear_history(GtkButton *button, BrowserWindow *browser)
 {
     (void)button;
@@ -87,7 +113,7 @@ void clear_history(GtkButton *button, BrowserWindow *browser)
     
     save_history();
     
-    // Show confirmation
+    /* Show confirmation */
     GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(browser->window),
                                               GTK_DIALOG_MODAL,
                                               GTK_MESSAGE_INFO,
@@ -96,10 +122,17 @@ void clear_history(GtkButton *button, BrowserWindow *browser)
     gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
     
-    // Refresh the history tab if it's open
+    /* Refresh the history tab if it's open */
     update_history_tab(browser);
 }
 
+/**
+ * Callback for tab close button.
+ * Removes the specified tab from the notebook.
+ *
+ * @param button  The close button that was clicked.
+ * @param browser BrowserWindow instance.
+ */
 static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
 {
     GtkWidget *tab_child = g_object_get_data(G_OBJECT(button), "tab-child");
@@ -111,9 +144,16 @@ static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
     }
 }
 
+/**
+ * Updates or refreshes the history tab to reflect current history.
+ *
+ * @param browser BrowserWindow instance.
+ *
+ * @sideeffect If history tab is open, removes and recreates it with updated data.
+ */
 void update_history_tab(BrowserWindow *browser)
 {
-    // Find and refresh the history tab if it's open
+    /* Find and refresh the history tab if it's open */
     GtkWidget *notebook = browser->notebook;
     int n_pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(notebook));
     
@@ -127,7 +167,7 @@ void update_history_tab(BrowserWindow *browser)
                 if (GTK_IS_LABEL(c->data)) {
                     const char *text = gtk_label_get_text(GTK_LABEL(c->data));
                     if (text && strcmp(text, "History") == 0) {
-                        // Found the history tab - remove and recreate it
+                        /* Found the history tab - remove and recreate it */
                         gtk_notebook_remove_page(GTK_NOTEBOOK(notebook), i);
                         g_list_free(children);
                         show_history_tab(browser);
@@ -140,6 +180,14 @@ void update_history_tab(BrowserWindow *browser)
     }
 }
 
+/**
+ * Creates and displays the history tab.
+ * Shows all visited pages in reverse chronological order with timestamps.
+ *
+ * @param browser BrowserWindow instance.
+ *
+ * @sideeffect Adds a new tab to the notebook with history list.
+ */
 void show_history_tab(BrowserWindow *browser)
 {
     global_browser = browser;
@@ -147,7 +195,7 @@ void show_history_tab(BrowserWindow *browser)
     GtkWidget *tab_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(tab_content), 20);
     
-    // Header with title and clear button
+    /* Header with title and clear button */
     GtkWidget *header_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     gtk_box_pack_start(GTK_BOX(tab_content), header_box, FALSE, FALSE, 0);
     
@@ -155,7 +203,7 @@ void show_history_tab(BrowserWindow *browser)
     gtk_label_set_markup(GTK_LABEL(title), "<span size='20000' weight='bold'>History</span>");
     gtk_box_pack_start(GTK_BOX(header_box), title, FALSE, FALSE, 0);
     
-    // Clear history button
+    /* Clear history button */
     GtkWidget *clear_btn = gtk_button_new_with_label("Clear History");
     g_signal_connect(clear_btn, "clicked", G_CALLBACK(clear_history), browser);
     gtk_box_pack_end(GTK_BOX(header_box), clear_btn, FALSE, FALSE, 0);
@@ -176,7 +224,7 @@ void show_history_tab(BrowserWindow *browser)
         gtk_container_add(GTK_CONTAINER(row), label);
         gtk_list_box_insert(GTK_LIST_BOX(listbox), row, -1);
     } else {
-        // Show history in reverse chronological order
+        /* Show history in reverse chronological order */
         for (GList *l = history; l; l = l->next) {
             HistoryEntry *entry = (HistoryEntry *)l->data;
             
@@ -219,7 +267,7 @@ void show_history_tab(BrowserWindow *browser)
     
     gtk_widget_show_all(tab_content);
     
-    // Create tab label with close button
+    /* Create tab label with close button */
     GtkWidget *tab_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     GtkWidget *tab_label = gtk_label_new("History");
     GtkWidget *close_btn = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
@@ -237,6 +285,12 @@ void show_history_tab(BrowserWindow *browser)
     gtk_notebook_set_current_page(GTK_NOTEBOOK(browser->notebook), page_num);
 }
 
+/**
+ * Saves browsing history to disk.
+ * Format: timestamp|title|url per line.
+ *
+ * @sideeffect Writes to HISTORY_FILE.
+ */
 void save_history(void)
 {
     FILE *f = fopen(HISTORY_FILE, "w");
@@ -256,6 +310,13 @@ void save_history(void)
     printf("History: saved to %s\n", HISTORY_FILE);
 }
 
+/**
+ * Loads browsing history from disk.
+ * Reads HISTORY_FILE and populates the history list.
+ *
+ * @sideeffect Appends loaded history entries to global history list.
+ * @note Call during application initialization to restore previous browsing history.
+ */
 void load_history(void)
 {
     FILE *f = fopen(HISTORY_FILE, "r");

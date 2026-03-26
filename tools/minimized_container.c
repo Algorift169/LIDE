@@ -12,14 +12,26 @@ static GtkWidget *window = NULL;
 static GtkWidget *listbox = NULL;
 static Window container_xid = 0; // To Store window ID
 
-// Structure to track minimized windows
+/**
+ * Structure to track a minimized window.
+ *
+ * @xid   X11 window ID of the minimized window.
+ * @title Window title (owned by the structure, freed on removal).
+ * @row   GTK list box row widget associated with this entry.
+ */
 typedef struct {
     Window xid;
     char *title;
     GtkWidget *row;
 } MinimizedWindow;
 
-// Function to get window title
+/**
+ * Retrieve the window title from X11.
+ *
+ * @param xid X11 window identifier.
+ * @return Newly allocated string containing the title, or NULL if unavailable.
+ *         Caller must free with g_free().
+ */
 static char* get_window_title(Window xid) 
 
 {
@@ -40,7 +52,16 @@ static char* get_window_title(Window xid)
     return NULL; 
 }
 
-// Check if window should be ignored 
+/**
+ * Determine whether a window should be excluded from the minimized list.
+ *
+ * @param xid   X11 window identifier.
+ * @param title Window title (may be NULL).
+ * @return TRUE if window should be ignored, FALSE otherwise.
+ *
+ * Excludes the container window itself and system windows identified by
+ * specific title patterns (BlackLine Panel, BlackLine Tools, Minimized Apps).
+ */
 static gboolean should_ignore_window(Window xid, const char *title)
 
 {
@@ -68,7 +89,14 @@ static gboolean should_ignore_window(Window xid, const char *title)
     return FALSE;
 }
 
-// Function to remove window from minimized list
+/**
+ * Remove a window from the minimized list and destroy its row widget.
+ *
+ * @param xid X11 window identifier to remove.
+ *
+ * Side effect: Frees the MinimizedWindow structure and its title,
+ * removes the row from the listbox.
+ */
 static void remove_minimized_window(Window xid) 
 
 {
@@ -86,7 +114,15 @@ static void remove_minimized_window(Window xid)
     }
 }
 
-// Function to restore a minimized window and close container
+/**
+ * Restore a minimized window and hide the container.
+ *
+ * @param button The button that triggered the callback (unused).
+ * @param data   X11 window ID cast to gpointer.
+ *
+ * Maps and raises the window. After restoration, the container is hidden
+ * automatically to return focus to the restored application.
+ */
 static void restore_window(GtkButton *button, gpointer data) 
 
 {
@@ -107,7 +143,15 @@ static void restore_window(GtkButton *button, gpointer data)
     }
 }
 
-// Function to close a minimized window completely
+/**
+ * Close a minimized window using the WM_DELETE_WINDOW protocol.
+ *
+ * @param button The button that triggered the callback (unused).
+ * @param data   X11 window ID cast to gpointer.
+ *
+ * Sends a client message to request orderly window termination.
+ * The window will be removed from the list when DestroyNotify arrives.
+ */
 static void close_window(GtkButton *button, gpointer data) 
 
 {
@@ -136,7 +180,16 @@ static void close_window(GtkButton *button, gpointer data)
     }
 }
 
-// Function to close all minimized windows
+/**
+ * Close all minimized windows and hide the container.
+ *
+ * @param button The button that triggered the callback (unused).
+ * @param data   Unused.
+ *
+ * Iterates through the minimized list and sends WM_DELETE_WINDOW to each.
+ * The list is not cleared immediately; windows are removed individually
+ * as DestroyNotify events are processed.
+ */
 static void close_all_windows(GtkButton *button, gpointer data) 
 
 {
@@ -179,7 +232,19 @@ static void close_all_windows(GtkButton *button, gpointer data)
     }
 }
 
-// Function to add a window to minimized list
+/**
+ * Add a window to the minimized list and create its UI row.
+ *
+ * @param xid X11 window identifier to add.
+ *
+ * Steps:
+ * - Retrieve window title; if unavailable or matches ignore criteria, abort.
+ * - Check for duplicate entries.
+ * - Create a list box row with restore and close buttons.
+ * - Store the entry in the global list.
+ *
+ * Side effect: Allocates a MinimizedWindow structure; ownership of title transfers.
+ */
 static void add_minimized_window(Window xid) 
 
 {
@@ -253,7 +318,17 @@ static void add_minimized_window(Window xid)
     // }
 }
 
-// X11 event handler 
+/**
+ * X11 event handler called via GIO watch on the X display connection.
+ *
+ * @param source    GIOChannel source (unused).
+ * @param condition GIOCondition (unused).
+ * @param data      User data (unused).
+ * @return TRUE to keep the watch active.
+ *
+ * Processes X events on the main loop thread. Handles UnmapNotify,
+ * MapNotify, and DestroyNotify to track window state changes.
+ */
 static gboolean x11_event_watch(GIOChannel *source, GIOCondition condition, gpointer data) 
 
 {
@@ -293,7 +368,15 @@ static gboolean x11_event_watch(GIOChannel *source, GIOCondition condition, gpoi
     return TRUE;
 }
 
-// Timeout fallback to poll X events
+/**
+ * Fallback timer to poll X events (every 100ms).
+ *
+ * @param data Unused.
+ * @return G_SOURCE_CONTINUE to keep the timer active.
+ *
+ * Provides redundancy in case the GIO watch fails to capture all events.
+ * Processes the same event types as x11_event_watch.
+ */
 static gboolean timeout_check_xevents(gpointer data) 
 
 {
@@ -332,6 +415,16 @@ static gboolean timeout_check_xevents(gpointer data)
 static int is_dragging = 0;
 static int drag_start_x, drag_start_y;
 
+/**
+ * Handle mouse button press for window dragging.
+ *
+ * @param widget The widget that received the event (unused).
+ * @param event  GDK button event.
+ * @param data   The container window (GtkWidget*).
+ * @return TRUE to stop further event propagation.
+ *
+ * Initiates drag operation on left button press.
+ */
 static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data) 
 
 {
@@ -348,6 +441,9 @@ static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpoint
     return FALSE;
 }
 
+/**
+ * Handle mouse button release to end window dragging.
+ */
 static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer data) 
 
 {
@@ -358,6 +454,16 @@ static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpoi
     return FALSE;
 }
 
+/**
+ * Handle mouse motion to drag the window.
+ *
+ * @param widget The widget that received the event (unused).
+ * @param event  GDK motion event.
+ * @param data   The container window (GtkWidget*).
+ * @return TRUE if the event was handled.
+ *
+ * Updates window position based on mouse movement during drag.
+ */
 static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer data) 
 
 {
@@ -378,6 +484,9 @@ static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoin
     return FALSE;
 }
 
+/**
+ * Hide the minimized container when the close button is clicked.
+ */
 static void on_close_clicked(GtkButton *button, gpointer data) 
 
 {
@@ -386,7 +495,14 @@ static void on_close_clicked(GtkButton *button, gpointer data)
     gtk_widget_hide(win);
 }
 
-// Show the minimized container
+/**
+ * Toggle visibility of the minimized container.
+ *
+ * @param button The toggle button (unused).
+ * @param data   Unused.
+ *
+ * If visible, hides the container; if hidden, presents it.
+ */
 static void show_minimized_container(GtkButton *button, gpointer data) 
 
 {
@@ -404,7 +520,18 @@ static void show_minimized_container(GtkButton *button, gpointer data)
     }
 }
 
-// Initialize the minimized container 
+/**
+ * Initialize the minimized container window and X11 event monitoring.
+ *
+ * Steps:
+ * - Open X display and select SubstructureNotifyMask on root window.
+ * - Set up GIO watch on X11 socket and fallback timer.
+ * - Create GTK window with drag support and UI components.
+ * - Store container XID for self-ignoring logic.
+ * - Initially hide the window.
+ *
+ * Must be called after GTK initialization.
+ */
 void minimized_container_initialize(void) 
 
 {
@@ -505,7 +632,11 @@ void minimized_container_initialize(void)
     fprintf(stderr, "Minimized container initialized and hidden\n");
 }
 
-// Get the toggle button for the panel
+/**
+ * Create a toggle button for the panel that shows/hides the minimized container.
+ *
+ * @return A new GTK button widget, ready to be added to a panel.
+ */
 GtkWidget* minimized_container_get_toggle_button(void) 
 
 {

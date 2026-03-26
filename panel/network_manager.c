@@ -11,13 +11,19 @@
 #include <linux/wireless.h>
 #include <ifaddrs.h>
 
-// Helper function to scan WiFi networks using iwlist
+/**
+ * Scans for available WiFi networks using iwlist.
+ * Attempts multiple common interface names (wlan0, wlp2s0, wlp3s0).
+ *
+ * @return GList containing WiFiNetwork structures.
+ *         Caller is responsible for freeing list and each network's SSID.
+ */
 static GList* scan_wifi_networks(void)
 {
     GList *networks = NULL;
     FILE *fp = popen("iwlist wlan0 scan 2>/dev/null", "r");
     if (!fp) {
-        // Try alternative interfaces
+        /* Try alternative interfaces */
         fp = popen("iwlist wlp2s0 scan 2>/dev/null", "r");
         if (!fp) {
             fp = popen("iwlist wlp3s0 scan 2>/dev/null", "r");
@@ -29,7 +35,7 @@ static GList* scan_wifi_networks(void)
     WiFiNetwork *current_net = NULL;
 
     while (fgets(line, sizeof(line), fp)) {
-        // Check for new cell
+        /* New cell entry indicates end of previous network */
         if (strstr(line, "Cell ")) {
             if (current_net) {
                 networks = g_list_append(networks, current_net);
@@ -38,7 +44,7 @@ static GList* scan_wifi_networks(void)
             current_net->signal_strength = 0;
             current_net->is_secure = FALSE;
         }
-        // Get ESSID
+        /* Extract SSID from quoted string */
         else if (strstr(line, "ESSID:") && current_net) {
             char *start = strchr(line, '"');
             char *end = strrchr(line, '"');
@@ -47,14 +53,14 @@ static GList* scan_wifi_networks(void)
                 current_net->ssid = g_strdup(start + 1);
             }
         }
-        // Get encryption status
+        /* Determine encryption status */
         else if (strstr(line, "Encryption key:on") && current_net) {
             current_net->is_secure = TRUE;
         }
         else if (strstr(line, "Encryption key:off") && current_net) {
             current_net->is_secure = FALSE;
         }
-        // Get signal quality
+        /* Parse signal quality as percentage */
         else if (strstr(line, "Quality=") && current_net) {
             int qual, max;
             if (sscanf(line, " Quality=%d/%d", &qual, &max) == 2) {
@@ -71,13 +77,23 @@ static GList* scan_wifi_networks(void)
     return networks;
 }
 
-// Check if connected to internet
+/**
+ * Checks internet connectivity by pinging Google DNS.
+ *
+ * @return 1 if ping succeeds, 0 otherwise.
+ */
 static int check_internet_connectivity(void)
 {
     return (system("ping -W 1 -c 1 8.8.8.8 > /dev/null 2>&1") == 0);
 }
 
-// Get current connection info
+/**
+ * Retrieves current network connection information.
+ * Collects interface name, IP address, MAC address, connection type, and signal strength.
+ *
+ * @return ConnectionInfo structure with allocated string fields.
+ *         Caller must free interface_name, ip_address, mac_address, and ssid.
+ */
 static ConnectionInfo get_current_connection_info(void)
 {
     ConnectionInfo info;
@@ -91,10 +107,10 @@ static ConnectionInfo get_current_connection_info(void)
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
         if (ifa->ifa_addr == NULL) continue;
         
-        // Skip loopback
+        /* Skip loopback interface */
         if (strcmp(ifa->ifa_name, "lo") == 0) continue;
         
-        // Check for IPv4
+        /* Process IPv4 interfaces only */
         if (ifa->ifa_addr->sa_family == AF_INET) {
             struct sockaddr_in *addr = (struct sockaddr_in*)ifa->ifa_addr;
             char ip[INET_ADDRSTRLEN];
@@ -103,14 +119,14 @@ static ConnectionInfo get_current_connection_info(void)
             info.interface_name = g_strdup(ifa->ifa_name);
             info.ip_address = g_strdup(ip);
             
-            // Determine connection type
+            /* Determine connection type from interface naming convention */
             if (strncmp(ifa->ifa_name, "eth", 3) == 0) {
                 info.type = CONN_TYPE_ETHERNET;
             } else if (strncmp(ifa->ifa_name, "wlan", 4) == 0 || 
                        strncmp(ifa->ifa_name, "wlp", 3) == 0) {
                 info.type = CONN_TYPE_WIFI;
                 
-                // Get WiFi signal strength using iwconfig
+                /* Query WiFi signal strength via iwconfig */
                 char cmd[256];
                 char result[256];
                 snprintf(cmd, sizeof(cmd), "iwconfig %s 2>/dev/null | grep 'Quality='", ifa->ifa_name);
@@ -126,7 +142,7 @@ static ConnectionInfo get_current_connection_info(void)
                 }
             }
             
-            // Get MAC address
+            /* Read MAC address from sysfs */
             char mac_path[256];
             char mac_line[32];
             snprintf(mac_path, sizeof(mac_path), "/sys/class/net/%s/address", ifa->ifa_name);
@@ -140,7 +156,7 @@ static ConnectionInfo get_current_connection_info(void)
                 fclose(mac_fp);
             }
             
-            break;
+            break;  /* Use first active IPv4 interface */
         }
     }
     
@@ -148,10 +164,17 @@ static ConnectionInfo get_current_connection_info(void)
     return info;
 }
 
-// Forward declaration for callback
+/* Forward declaration for callback */
 static void on_connect_button_clicked(GtkButton *btn, gpointer user_data);
 
-// Create WiFi network row widget
+/**
+ * Creates a row widget for displaying a WiFi network.
+ * Includes signal strength icon, SSID, security indicator, and connect button.
+ *
+ * @param net WiFiNetwork data for this row.
+ * @param nm  NetworkManager instance for callback context.
+ * @return    GtkWidget containing the complete row.
+ */
 static GtkWidget* create_wifi_network_row(WiFiNetwork *net, NetworkManager *nm)
 {
     GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
@@ -160,7 +183,7 @@ static GtkWidget* create_wifi_network_row(WiFiNetwork *net, NetworkManager *nm)
     gtk_widget_set_margin_top(row, 5);
     gtk_widget_set_margin_bottom(row, 5);
     
-    // Signal strength icon
+    /* Select icon based on signal strength percentage */
     const char *signal_icon;
     if (net->signal_strength > 80) signal_icon = "󰤨";
     else if (net->signal_strength > 60) signal_icon = "󰤥";
@@ -172,19 +195,19 @@ static GtkWidget* create_wifi_network_row(WiFiNetwork *net, NetworkManager *nm)
     gtk_widget_set_name(signal_label, "network-icon");
     gtk_box_pack_start(GTK_BOX(row), signal_label, FALSE, FALSE, 0);
     
-    // SSID
+    /* Network SSID */
     GtkWidget *ssid_label = gtk_label_new(net->ssid ? net->ssid : "Unknown");
     gtk_label_set_xalign(GTK_LABEL(ssid_label), 0);
     gtk_box_pack_start(GTK_BOX(row), ssid_label, TRUE, TRUE, 0);
     
-    // Security icon
+    /* Lock icon for secured networks */
     if (net->is_secure) {
         GtkWidget *lock_label = gtk_label_new("🔒");
         gtk_widget_set_name(lock_label, "network-icon");
         gtk_box_pack_start(GTK_BOX(row), lock_label, FALSE, FALSE, 5);
     }
     
-    // Connect button
+    /* Connect button stores SSID and security status as object data */
     GtkWidget *connect_btn = gtk_button_new_with_label("Connect");
     g_object_set_data_full(G_OBJECT(connect_btn), "ssid", g_strdup(net->ssid), g_free);
     g_object_set_data(G_OBJECT(connect_btn), "is_secure", GINT_TO_POINTER(net->is_secure));
@@ -195,7 +218,17 @@ static GtkWidget* create_wifi_network_row(WiFiNetwork *net, NetworkManager *nm)
     return row;
 }
 
-// Connect button callback
+/**
+ * Callback for network connect button.
+ * Prompts for password if network is secured, then attempts connection via nmcli.
+ *
+ * @param btn  Connect button that was clicked.
+ * @param user_data NetworkManager instance.
+ *
+ * @sideeffect Executes nmcli command to connect to WiFi network.
+ * @sideeffect Shows password dialog for secured networks.
+ * @sideeffect Triggers network_manager_refresh after connection attempt.
+ */
 static void on_connect_button_clicked(GtkButton *btn, gpointer user_data)
 {
     NetworkManager *nm = (NetworkManager*)user_data;
@@ -207,7 +240,7 @@ static void on_connect_button_clicked(GtkButton *btn, gpointer user_data)
         nm->selected_ssid = g_strdup(ssid);
         
         if (is_secure) {
-            // Show password dialog
+            /* Create password entry dialog for secured networks */
             GtkWidget *dialog = gtk_dialog_new_with_buttons(
                 "WiFi Password",
                 NULL,
@@ -249,7 +282,7 @@ static void on_connect_button_clicked(GtkButton *btn, gpointer user_data)
             
             gtk_widget_destroy(dialog);
         } else {
-            // Connect to open network
+            /* Connect to open network without password */
             char cmd[256];
             snprintf(cmd, sizeof(cmd), "nmcli dev wifi connect '%s' 2>/dev/null", ssid);
             system(cmd);
@@ -259,14 +292,21 @@ static void on_connect_button_clicked(GtkButton *btn, gpointer user_data)
     }
 }
 
-// Create the network manager popover
+/**
+ * Creates the main popover widget containing network controls.
+ * Includes airplane mode switch, connection status, refresh button,
+ * WiFi network list, and connection details display.
+ *
+ * @param nm NetworkManager instance for storing widget references.
+ * @return  GtkWidget containing the complete popover.
+ */
 static GtkWidget* create_network_popover(NetworkManager *nm)
 {
     GtkWidget *popover = gtk_popover_new(NULL);
     GtkWidget *main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(main_box), 15);
     
-    // Header with airplane mode toggle
+    /* Header with title and airplane mode switch */
     GtkWidget *header_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     
     GtkWidget *title = gtk_label_new(NULL);
@@ -278,10 +318,9 @@ static GtkWidget* create_network_popover(NetworkManager *nm)
     
     gtk_box_pack_start(GTK_BOX(main_box), header_box, FALSE, FALSE, 0);
     
-    // Separator
     gtk_box_pack_start(GTK_BOX(main_box), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), FALSE, FALSE, 5);
     
-    // Current connection status
+    /* Current connection status row */
     nm->status_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     gtk_widget_set_margin_start(nm->status_box, 5);
     gtk_widget_set_margin_end(nm->status_box, 5);
@@ -296,11 +335,11 @@ static GtkWidget* create_network_popover(NetworkManager *nm)
     
     gtk_box_pack_start(GTK_BOX(main_box), nm->status_box, FALSE, FALSE, 0);
     
-    // Refresh button
+    /* Refresh button for manual network scan */
     nm->refresh_button = gtk_button_new_with_label("↻ Refresh");
     gtk_box_pack_start(GTK_BOX(main_box), nm->refresh_button, FALSE, FALSE, 5);
     
-    // WiFi networks list
+    /* Available networks section */
     GtkWidget *wifi_label = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(wifi_label), "<b>Available Networks</b>");
     gtk_widget_set_margin_top(wifi_label, 10);
@@ -315,7 +354,7 @@ static GtkWidget* create_network_popover(NetworkManager *nm)
     gtk_container_add(GTK_CONTAINER(scrolled), nm->wifi_list_box);
     gtk_box_pack_start(GTK_BOX(main_box), scrolled, TRUE, TRUE, 0);
     
-    // Connection details
+    /* Connection details section (IP, MAC, signal) */
     nm->details_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     gtk_widget_set_margin_top(nm->details_box, 10);
     
@@ -330,12 +369,19 @@ static GtkWidget* create_network_popover(NetworkManager *nm)
     return popover;
 }
 
-// Update network info display
+/**
+ * Updates the UI with current network connection information.
+ * Refreshes status icon, connection text, and details display.
+ *
+ * @param nm NetworkManager instance containing current connection data.
+ *
+ * @sideeffect Updates multiple UI widgets in the popover.
+ */
 static void update_network_display(NetworkManager *nm)
 {
     ConnectionInfo info = get_current_connection_info();
     
-    // Free old data
+    /* Free previous connection data */
     if (nm->current_connection.interface_name) g_free(nm->current_connection.interface_name);
     if (nm->current_connection.ip_address) g_free(nm->current_connection.ip_address);
     if (nm->current_connection.mac_address) g_free(nm->current_connection.mac_address);
@@ -343,7 +389,7 @@ static void update_network_display(NetworkManager *nm)
     
     nm->current_connection = info;
     
-    // Update icon based on connection type and strength
+    /* Select appropriate status icon based on connection state */
     const char *icon;
     if (nm->airplane_mode) {
         icon = "󰀝";
@@ -363,7 +409,7 @@ static void update_network_display(NetworkManager *nm)
     
     gtk_label_set_text(GTK_LABEL(nm->network_icon), icon);
     
-    // Update connection status text
+    /* Build status text */
     char status_text[256];
     if (nm->airplane_mode) {
         snprintf(status_text, sizeof(status_text), "Airplane Mode");
@@ -380,7 +426,7 @@ static void update_network_display(NetworkManager *nm)
     }
     gtk_label_set_text(GTK_LABEL(nm->network_label), status_text);
     
-    // Update details
+    /* Build detailed connection information */
     char details[1024] = "";
     if (info.interface_name) {
         snprintf(details + strlen(details), sizeof(details) - strlen(details),
@@ -402,17 +448,24 @@ static void update_network_display(NetworkManager *nm)
     gtk_label_set_text(GTK_LABEL(nm->connection_details_label), details);
 }
 
-// Refresh WiFi networks list
+/**
+ * Refreshes the list of available WiFi networks.
+ * Clears existing list and performs a new scan.
+ *
+ * @param nm NetworkManager instance containing the container widget.
+ *
+ * @sideeffect Destroys and recreates all WiFi network rows.
+ */
 static void refresh_wifi_list(NetworkManager *nm)
 {
-    // Clear existing list
+    /* Clear existing list */
     GList *children = gtk_container_get_children(GTK_CONTAINER(nm->wifi_list_box));
     for (GList *child = children; child; child = child->next) {
         gtk_widget_destroy(GTK_WIDGET(child->data));
     }
     g_list_free(children);
     
-    // Scan for networks
+    /* Scan for networks */
     GList *networks = scan_wifi_networks();
     
     if (!networks) {
@@ -433,21 +486,41 @@ static void refresh_wifi_list(NetworkManager *nm)
     gtk_widget_show_all(nm->wifi_list_box);
 }
 
-// Refresh callback
+/**
+ * Callback for refresh button click.
+ *
+ * @param button GtkButton that was clicked.
+ * @param nm     NetworkManager instance.
+ */
 static void on_refresh_clicked(GtkButton *button, NetworkManager *nm)
 {
     (void)button;
     network_manager_refresh(nm);
 }
 
-// Airplane mode toggle callback
+/**
+ * Callback for airplane mode switch toggle.
+ * Enables/disables WiFi and networking via nmcli.
+ *
+ * @param sw    GtkSwitch that was toggled.
+ * @param state New state of the switch.
+ * @param nm    NetworkManager instance.
+ *
+ * @sideeffect Executes nmcli commands to control radio state.
+ */
 static void on_airplane_mode_toggled(GtkSwitch *sw, gboolean state, NetworkManager *nm)
 {
     (void)sw;
     network_manager_toggle_airplane_mode(nm, state);
 }
 
-// Initialize network manager
+/**
+ * Creates and initializes a new NetworkManager instance.
+ * Sets up the popover UI and starts periodic refresh timer.
+ *
+ * @return Allocated NetworkManager structure.
+ *         Caller must free with network_manager_cleanup().
+ */
 NetworkManager* network_manager_new(void)
 {
     NetworkManager *nm = g_new0(NetworkManager, 1);
@@ -457,27 +530,38 @@ NetworkManager* network_manager_new(void)
     nm->airplane_mode = FALSE;
     nm->selected_ssid = NULL;
     
-    // Connect signals
+    /* Connect signal handlers */
     g_signal_connect(nm->refresh_button, "clicked", G_CALLBACK(on_refresh_clicked), nm);
     g_signal_connect(nm->airplane_mode_switch, "state-set", G_CALLBACK(on_airplane_mode_toggled), nm);
     
-    // Initial refresh
+    /* Initial data fetch */
     network_manager_refresh(nm);
     
-    // Set up periodic updates
+    /* Schedule periodic updates every 2 seconds */
     nm->update_timeout_id = g_timeout_add_seconds(2, (GSourceFunc)network_manager_refresh, nm);
     
     return nm;
 }
 
-// Show popover
+/**
+ * Shows the network manager popover relative to a widget.
+ *
+ * @param nm          NetworkManager instance.
+ * @param relative_to Widget to anchor the popover to.
+ */
 void network_manager_show_popover(NetworkManager *nm, GtkWidget *relative_to)
 {
     gtk_popover_set_relative_to(GTK_POPOVER(nm->popover), relative_to);
     gtk_popover_popup(GTK_POPOVER(nm->popover));
 }
 
-// Refresh all network info
+/**
+ * Refreshes all network information.
+ * Updates status display and WiFi list if not in airplane mode.
+ *
+ * @param nm NetworkManager instance.
+ * @return  G_SOURCE_CONTINUE to keep timer active, G_SOURCE_REMOVE if nm is NULL.
+ */
 gboolean network_manager_refresh(NetworkManager *nm)
 {
     if (!nm) return G_SOURCE_REMOVE;
@@ -491,7 +575,12 @@ gboolean network_manager_refresh(NetworkManager *nm)
     return G_SOURCE_CONTINUE;
 }
 
-// Get status icon for panel
+/**
+ * Returns the current network status icon for panel display.
+ *
+ * @param nm NetworkManager instance.
+ * @return Static string containing icon character.
+ */
 const char* network_manager_get_status_icon(NetworkManager *nm)
 {
     if (!nm) return "󰤮";
@@ -512,7 +601,12 @@ const char* network_manager_get_status_icon(NetworkManager *nm)
     return "󰤨";
 }
 
-// Get status text for panel
+/**
+ * Returns the current network status text for panel display.
+ *
+ * @param nm NetworkManager instance.
+ * @return Static string containing status text.
+ */
 const char* network_manager_get_status_text(NetworkManager *nm)
 {
     if (!nm) return "No Connection";
@@ -528,7 +622,15 @@ const char* network_manager_get_status_text(NetworkManager *nm)
     return "Connected";
 }
 
-// Toggle airplane mode
+/**
+ * Toggles airplane mode.
+ * Enables/disables WiFi and all networking via nmcli.
+ *
+ * @param nm      NetworkManager instance.
+ * @param enabled TRUE to enable airplane mode, FALSE to disable.
+ *
+ * @sideeffect Executes nmcli commands to control network state.
+ */
 void network_manager_toggle_airplane_mode(NetworkManager *nm, gboolean enabled)
 {
     if (!nm) return;
@@ -546,7 +648,12 @@ void network_manager_toggle_airplane_mode(NetworkManager *nm, gboolean enabled)
     network_manager_refresh(nm);
 }
 
-// Cleanup
+/**
+ * Cleans up NetworkManager resources.
+ * Removes timeout, destroys popover, frees allocated strings and structure.
+ *
+ * @param nm NetworkManager instance to clean up.
+ */
 void network_manager_cleanup(NetworkManager *nm)
 {
     if (!nm) return;

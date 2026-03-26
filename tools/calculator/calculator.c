@@ -15,14 +15,24 @@
 #define M_E 2.71828182845904523536
 #endif
 
-// Dragging handlers
+/**
+ * Callback for mouse button press on calculator window.
+ * Initiates window dragging or resizing based on cursor position.
+ *
+ * @param widget The window widget.
+ * @param event  Button event details.
+ * @param data   Calculator instance.
+ * @return       TRUE to stop event propagation.
+ *
+ * @sideeffect Sets is_dragging or is_resizing flags.
+ */
 gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data)
 
 {
     Calculator *calc = (Calculator *)data;
 
     if (event->button == 1) {
-        // Check if cursor is on an edge (for resizing)
+        /* Check if cursor is on an edge (for resizing) */
         calc->resize_edge = detect_resize_edge_absolute(GTK_WINDOW(calc->window), event->x_root, event->y_root);
 
         if (calc->resize_edge != RESIZE_NONE) {
@@ -39,6 +49,17 @@ gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data
     return FALSE;
 }
 
+/**
+ * Callback for mouse button release on calculator window.
+ * Terminates window dragging or resizing operations.
+ *
+ * @param widget The window widget.
+ * @param event  Button event details.
+ * @param data   Calculator instance.
+ * @return       TRUE to stop event propagation.
+ *
+ * @sideeffect Clears dragging and resizing flags.
+ */
 gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer data)
 
 {
@@ -53,12 +74,23 @@ gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer da
     return FALSE;
 }
 
+/**
+ * Callback for mouse motion on calculator window.
+ * Handles window dragging, resizing, and cursor updates.
+ *
+ * @param widget The window widget.
+ * @param event  Motion event details.
+ * @param data   Calculator instance.
+ * @return       TRUE if event was handled.
+ *
+ * @sideeffect Updates window position/size and cursor shape.
+ */
 gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer data)
 
 {
     Calculator *calc = (Calculator *)data;
 
-    // Update cursor for resize hints
+    /* Update cursor for resize hints when not actively dragging/resizing */
     if (!calc->is_dragging && !calc->is_resizing) {
         int resize_edge = detect_resize_edge_absolute(GTK_WINDOW(calc->window), event->x_root, event->y_root);
         update_resize_cursor(widget, resize_edge);
@@ -92,7 +124,16 @@ gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer dat
     return FALSE;
 }
 
-// Window control callbacks
+/* Window control callbacks */
+
+/**
+ * Callback for minimize button click.
+ *
+ * @param button The button that was clicked.
+ * @param data   Calculator instance.
+ *
+ * @sideeffect Iconifies the calculator window.
+ */
 static void on_minimize_clicked(GtkButton *button, gpointer data) 
 
 {
@@ -101,6 +142,14 @@ static void on_minimize_clicked(GtkButton *button, gpointer data)
     gtk_window_iconify(GTK_WINDOW(calc->window));
 }
 
+/**
+ * Callback for close button click.
+ *
+ * @param button The button that was clicked.
+ * @param data   Calculator instance.
+ *
+ * @sideeffect Closes the calculator window.
+ */
 static void on_close_clicked(GtkButton *button, gpointer data) 
 
 {
@@ -109,7 +158,13 @@ static void on_close_clicked(GtkButton *button, gpointer data)
     gtk_window_close(GTK_WINDOW(calc->window));
 }
 
-// Calculator functions
+/* Calculator functions */
+
+/**
+ * Updates the calculator display with current input or error message.
+ *
+ * @param calc Calculator instance.
+ */
 static void update_display(Calculator *calc) 
 
 {
@@ -120,6 +175,13 @@ static void update_display(Calculator *calc)
     }
 }
 
+/**
+ * Appends a character or string to the current input.
+ * Handles decimal point prevention and leading zero logic.
+ *
+ * @param calc Calculator instance.
+ * @param text String to append (typically "0"-"9" or ".").
+ */
 static void append_to_input(Calculator *calc, const char *text) 
 
 {
@@ -132,11 +194,11 @@ static void append_to_input(Calculator *calc, const char *text)
         strcpy(calc->current_input, text);
         calc->new_input = FALSE;
     } else {
-        // Prevent multiple decimals
+        /* Prevent multiple decimals */
         if (strcmp(text, ".") == 0 && strchr(calc->current_input, '.') != NULL) {
             return;
         }
-        // Prevent multiple zeros at start
+        /* Prevent multiple zeros at start */
         if (strcmp(calc->current_input, "0") == 0 && strcmp(text, "0") != 0 && strcmp(text, ".") != 0) {
             strcpy(calc->current_input, text);
         } else {
@@ -146,6 +208,12 @@ static void append_to_input(Calculator *calc, const char *text)
     update_display(calc);
 }
 
+/**
+ * Callback for number button clicks.
+ *
+ * @param button The button that was clicked.
+ * @param data   Calculator instance.
+ */
 void number_clicked(GtkButton *button, gpointer data) 
 
 {
@@ -154,6 +222,13 @@ void number_clicked(GtkButton *button, gpointer data)
     append_to_input(calc, text);
 }
 
+/**
+ * Callback for operator button clicks (+, -, *, /).
+ * Stores the current value and operator for later calculation.
+ *
+ * @param button The button that was clicked.
+ * @param data   Calculator instance.
+ */
 void operator_clicked(GtkButton *button, gpointer data) 
 
 {
@@ -169,6 +244,12 @@ void operator_clicked(GtkButton *button, gpointer data)
     }
 }
 
+/**
+ * Callback for function button clicks (1/x, x², √, sin, cos, tan, log, ln, π, e).
+ *
+ * @param button The button that was clicked.
+ * @param data   Calculator instance.
+ */
 void function_clicked(GtkButton *button, gpointer data) 
 
 {
@@ -201,7 +282,7 @@ void function_clicked(GtkButton *button, gpointer data)
         else calc->error_state = TRUE;
     }
     else if (strcmp(func, "x^y") == 0) {
-        // Store first number and wait for second
+        /* Store first number and wait for second */
         calc->last_value = value;
         calc->last_operator = '^';
         calc->new_input = TRUE;
@@ -220,6 +301,15 @@ void function_clicked(GtkButton *button, gpointer data)
     update_display(calc);
 }
 
+/**
+ * Callback for equals button click.
+ * Performs the stored operation on the current and stored values.
+ *
+ * @param button The button that was clicked.
+ * @param data   Calculator instance.
+ *
+ * @sideeffect Updates history display.
+ */
 void equals_clicked(GtkButton *button, gpointer data) 
 
 {
@@ -244,7 +334,7 @@ void equals_clicked(GtkButton *button, gpointer data)
     }
     
     if (!calc->error_state) {
-        // Save to history
+        /* Save to history */
         char history[512];
         if (calc->last_operator) {
             snprintf(history, sizeof(history), "%g %c %g = %g\n%s", 
@@ -264,6 +354,13 @@ void equals_clicked(GtkButton *button, gpointer data)
     update_display(calc);
 }
 
+/**
+ * Callback for clear button click.
+ * Resets calculator state to default.
+ *
+ * @param button The button that was clicked.
+ * @param data   Calculator instance.
+ */
 void clear_clicked(GtkButton *button, gpointer data) 
 
 {
@@ -278,6 +375,13 @@ void clear_clicked(GtkButton *button, gpointer data)
     update_display(calc);
 }
 
+/**
+ * Callback for backspace button click.
+ * Removes the last character from the current input.
+ *
+ * @param button The button that was clicked.
+ * @param data   Calculator instance.
+ */
 void backspace_clicked(GtkButton *button, gpointer data) 
 
 {
@@ -296,7 +400,16 @@ void backspace_clicked(GtkButton *button, gpointer data)
     update_display(calc);
 }
 
-// FIXED MEMORY FUNCTIONS
+/* FIXED MEMORY FUNCTIONS */
+
+/**
+ * Callback for memory button clicks (MC, MR, M+, M-).
+ *
+ * @param button The button that was clicked.
+ * @param data   Calculator instance.
+ *
+ * @sideeffect Updates memory value based on action.
+ */
 void memory_clicked(GtkButton *button, gpointer data) 
 
 {
@@ -306,30 +419,37 @@ void memory_clicked(GtkButton *button, gpointer data)
     double current_val = strtod(calc->current_input, NULL);
     double mem_val = strtod(calc->memory, NULL);
     
-    if (strcmp(action, "MC") == 0) {  // Memory Clear
+    if (strcmp(action, "MC") == 0) {  /* Memory Clear */
         strcpy(calc->memory, "0");
-        g_print("Memory cleared: %s\n", calc->memory); // Debug
+        g_print("Memory cleared: %s\n", calc->memory); /* Debug */
     } 
-    else if (strcmp(action, "MR") == 0) {  // Memory Recall
+    else if (strcmp(action, "MR") == 0) {  /* Memory Recall */
         snprintf(calc->current_input, sizeof(calc->current_input), "%g", mem_val);
         calc->new_input = TRUE;
         update_display(calc);
-        g_print("Memory recalled: %s\n", calc->memory); // Debug
+        g_print("Memory recalled: %s\n", calc->memory); /* Debug */
     } 
-    else if (strcmp(action, "M+") == 0) {  // Memory Add
+    else if (strcmp(action, "M+") == 0) {  /* Memory Add */
         double new_mem = mem_val + current_val;
         snprintf(calc->memory, sizeof(calc->memory), "%g", new_mem);
         calc->new_input = TRUE;
-        g_print("Memory added: %s + %g = %s\n", calc->memory, current_val, calc->memory); // Debug
+        g_print("Memory added: %s + %g = %s\n", calc->memory, current_val, calc->memory); /* Debug */
     } 
-    else if (strcmp(action, "M-") == 0) {  // Memory Subtract
+    else if (strcmp(action, "M-") == 0) {  /* Memory Subtract */
         double new_mem = mem_val - current_val;
         snprintf(calc->memory, sizeof(calc->memory), "%g", new_mem);
         calc->new_input = TRUE;
-        g_print("Memory subtracted: %s - %g = %s\n", calc->memory, current_val, calc->memory); // Debug
+        g_print("Memory subtracted: %s - %g = %s\n", calc->memory, current_val, calc->memory); /* Debug */
     }
 }
 
+/**
+ * Callback for mode toggle button.
+ * Switches between basic and scientific calculator modes.
+ *
+ * @param button The button that was clicked.
+ * @param data   Calculator instance.
+ */
 void toggle_mode(GtkButton *button, gpointer data) 
 
 {
@@ -338,14 +458,22 @@ void toggle_mode(GtkButton *button, gpointer data)
     if (calc->mode == MODE_BASIC) {
         calc->mode = MODE_SCIENTIFIC;
         gtk_button_set_label(button, "Basic");
-        g_print("Switched to Scientific mode\n"); // Debug
+        g_print("Switched to Scientific mode\n"); /* Debug */
     } else {
         calc->mode = MODE_BASIC;
         gtk_button_set_label(button, "Scientific");
-        g_print("Switched to Basic mode\n"); // Debug
+        g_print("Switched to Basic mode\n"); /* Debug */
     }
 }
 
+/**
+ * Creates the calculator button grid.
+ * Populates the grid with basic calculator buttons.
+ *
+ * @param calc Calculator instance containing the button grid widget.
+ *
+ * @sideeffect Creates and populates calc->button_grid with buttons.
+ */
 static void create_button_grid(Calculator *calc) 
 
 {
@@ -353,7 +481,7 @@ static void create_button_grid(Calculator *calc)
     gtk_grid_set_row_spacing(GTK_GRID(calc->button_grid), 2);
     gtk_grid_set_column_spacing(GTK_GRID(calc->button_grid), 2);
     
-    // Basic calculator buttons
+    /* Basic calculator buttons */
     const char *basic_buttons[] = {
         "MC", "MR", "M+", "M-",
         "7", "8", "9", "/",
@@ -368,7 +496,7 @@ static void create_button_grid(Calculator *calc)
         GtkWidget *button = gtk_button_new_with_label(basic_buttons[i]);
         gtk_widget_set_size_request(button, 60, 40);
         
-        // Connect signals based on button type
+        /* Connect signals based on button type */
         if (strcmp(basic_buttons[i], "=") == 0) {
             g_signal_connect(button, "clicked", G_CALLBACK(equals_clicked), calc);
         }
@@ -401,6 +529,15 @@ static void create_button_grid(Calculator *calc)
     }
 }
 
+/**
+ * Application activation callback.
+ * Creates and displays the calculator window.
+ *
+ * @param app        The GtkApplication instance.
+ * @param user_data  User data (unused).
+ *
+ * @sideeffect Creates calculator UI and stores instance in window data.
+ */
 static void activate(GtkApplication *app, gpointer user_data) 
 
 {
@@ -409,12 +546,12 @@ static void activate(GtkApplication *app, gpointer user_data)
     memset(calc, 0, sizeof(Calculator));
     
     strcpy(calc->current_input, "0");
-    strcpy(calc->memory, "0");  // Initialize memory to 0
+    strcpy(calc->memory, "0");  /* Initialize memory to 0 */
     strcpy(calc->last_result, "0");
     calc->new_input = TRUE;
     calc->mode = MODE_BASIC;
     
-    // Main window
+    /* Main window */
     calc->window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(calc->window), "BlackLine Calculator");
     gtk_window_set_default_size(GTK_WINDOW(calc->window), 300, 450);
@@ -422,7 +559,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_window_set_decorated(GTK_WINDOW(calc->window), TRUE);
     gtk_window_set_resizable(GTK_WINDOW(calc->window), TRUE);
     
-    // Enable events for dragging
+    /* Enable events for dragging */
     gtk_widget_add_events(calc->window, GDK_BUTTON_PRESS_MASK | 
                                          GDK_BUTTON_RELEASE_MASK | 
                                          GDK_POINTER_MOTION_MASK);
@@ -430,11 +567,11 @@ static void activate(GtkApplication *app, gpointer user_data)
     g_signal_connect(calc->window, "button-release-event", G_CALLBACK(on_button_release), calc);
     g_signal_connect(calc->window, "motion-notify-event", G_CALLBACK(on_motion_notify), calc);
     
-    // Main vertical box
+    /* Main vertical box */
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_container_add(GTK_CONTAINER(calc->window), vbox);
     
-    // Custom title bar
+    /* Custom title bar */
     GtkWidget *title_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     gtk_widget_set_name(title_bar, "title-bar");
     gtk_widget_set_size_request(title_bar, -1, 30);
@@ -457,22 +594,22 @@ static void activate(GtkApplication *app, gpointer user_data)
     g_signal_connect(close_btn, "clicked", G_CALLBACK(on_close_clicked), calc);
     gtk_box_pack_start(GTK_BOX(button_box), close_btn, FALSE, FALSE, 0);
     
-    // Separator
+    /* Separator */
     GtkWidget *sep = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_box_pack_start(GTK_BOX(vbox), sep, FALSE, FALSE, 0);
     
-    // Display area
+    /* Display area */
     GtkWidget *display_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     gtk_box_pack_start(GTK_BOX(vbox), display_box, FALSE, FALSE, 10);
     
-    // History display
+    /* History display */
     calc->history_display = gtk_label_new("");
     gtk_label_set_xalign(GTK_LABEL(calc->history_display), 1.0);
     gtk_widget_set_margin_start(calc->history_display, 10);
     gtk_widget_set_margin_end(calc->history_display, 10);
     gtk_box_pack_start(GTK_BOX(display_box), calc->history_display, FALSE, FALSE, 0);
     
-    // Main display
+    /* Main display */
     calc->display = gtk_label_new("0");
     gtk_label_set_xalign(GTK_LABEL(calc->display), 1.0);
     gtk_widget_set_margin_start(calc->display, 10);
@@ -480,21 +617,21 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_widget_set_margin_top(calc->display, 5);
     gtk_widget_set_margin_bottom(calc->display, 5);
     
-    // Style the display
+    /* Style the display */
     GtkWidget *display_frame = gtk_frame_new(NULL);
     gtk_container_add(GTK_CONTAINER(display_frame), calc->display);
     gtk_box_pack_start(GTK_BOX(display_box), display_frame, FALSE, FALSE, 0);
     
-    // Mode toggle button
+    /* Mode toggle button */
     calc->mode_button = gtk_button_new_with_label("Scientific");
     g_signal_connect(calc->mode_button, "clicked", G_CALLBACK(toggle_mode), calc);
     gtk_box_pack_start(GTK_BOX(vbox), calc->mode_button, FALSE, FALSE, 5);
     
-    // Button grid
+    /* Button grid */
     create_button_grid(calc);
     gtk_box_pack_start(GTK_BOX(vbox), calc->button_grid, TRUE, TRUE, 5);
     
-    // css
+    /* CSS */
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
         "window { background-color: #000000; color: #ffffff; }\n"
@@ -514,6 +651,13 @@ static void activate(GtkApplication *app, gpointer user_data)
     g_object_set_data_full(G_OBJECT(calc->window), "calculator", calc, g_free);
 }
 
+/**
+ * Application entry point.
+ *
+ * @param argc Argument count from command line.
+ * @param argv Argument vector from command line.
+ * @return     Exit status from g_application_run().
+ */
 int main(int argc, char **argv) 
 
 {

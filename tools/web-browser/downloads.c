@@ -12,7 +12,7 @@
 GList *downloads = NULL;
 BrowserWindow *global_browser = NULL;
 
-// Forward declarations for static functions
+/* Forward declarations for static functions */
 static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser);
 static void open_download_folder(GtkButton *button, DownloadItem *item);
 static void remove_download(DownloadItem *item);
@@ -20,7 +20,12 @@ static void clear_completed_downloads(GtkButton *button, BrowserWindow *browser)
 static void on_download_finished(DownloadItem *item);
 static void on_download_failed(DownloadItem *item);
 
-// Create downloads directory if it doesn't exist
+/**
+ * Creates the downloads directory if it does not exist.
+ * Directory is created with 0700 permissions (owner read/write/execute only).
+ *
+ * @sideeffect Creates directory ./Downloads in the current working directory.
+ */
 static void ensure_download_dir(void)
 
 {
@@ -30,7 +35,14 @@ static void ensure_download_dir(void)
     }
 }
 
-// Extract filename from URL
+/**
+ * Extracts a filename from a URL.
+ * Strips query parameters and returns the last path component.
+ *
+ * @param url The URL to extract filename from.
+ * @return Newly allocated string containing the filename.
+ *         Defaults to "download.bin" on failure.
+ */
 static char* get_filename_from_url(const char *url)
 
 {
@@ -38,7 +50,7 @@ static char* get_filename_from_url(const char *url)
     
     const char *last_slash = strrchr(url, '/');
     if (last_slash && *(last_slash + 1)) {
-        // Remove query parameters
+        /* Remove query parameters */
         char *filename = g_strdup(last_slash + 1);
         char *question = strchr(filename, '?');
         if (question) *question = '\0';
@@ -47,11 +59,21 @@ static char* get_filename_from_url(const char *url)
     return g_strdup("download.bin");
 }
 
-// Callbacks for download signals
+/* Callbacks for download signals */
+
+/**
+ * Callback for download completion.
+ * Updates the download item status to complete and saves to disk.
+ *
+ * @param item The DownloadItem that finished.
+ *
+ * @sideeffect Marks item as complete (status=2) with 100% progress.
+ * @sideeffect Saves downloads to file and updates UI.
+ */
 static void on_download_finished(DownloadItem *item)
 
 {
-    item->status = 2; // complete
+    item->status = 2; /* complete */
     item->progress = 100.0;
     save_downloads();
     
@@ -60,10 +82,19 @@ static void on_download_finished(DownloadItem *item)
     }
 }
 
+/**
+ * Callback for download failure.
+ * Updates the download item status to failed and stores error message.
+ *
+ * @param item The DownloadItem that failed.
+ *
+ * @sideeffect Marks item as failed (status=3) with error message.
+ * @sideeffect Saves downloads to file and updates UI.
+ */
 static void on_download_failed(DownloadItem *item)
 
 {
-    item->status = 3; // failed
+    item->status = 3; /* failed */
     item->error_message = g_strdup("Download failed");
     save_downloads();
     
@@ -72,7 +103,16 @@ static void on_download_failed(DownloadItem *item)
     }
 }
 
-// Add a new download
+/**
+ * Adds a new download to the download manager.
+ * Creates a DownloadItem, sets up destination, and connects signals.
+ *
+ * @param download The WebKitDownload object.
+ * @param browser  BrowserWindow instance for UI updates.
+ *
+ * @sideeffect Creates a download directory if needed.
+ * @sideeffect Appends to global downloads list and saves to file.
+ */
 void add_download(WebKitDownload *download, BrowserWindow *browser)
 
 {
@@ -81,7 +121,7 @@ void add_download(WebKitDownload *download, BrowserWindow *browser)
     
     DownloadItem *item = g_new0(DownloadItem, 1);
     
-    // Get the URI from the download request
+    /* Get the URI from the download request */
     WebKitURIRequest *request = webkit_download_get_request(download);
     if (request) {
         const gchar *uri = webkit_uri_request_get_uri(request);
@@ -98,12 +138,12 @@ void add_download(WebKitDownload *download, BrowserWindow *browser)
     }
     
     item->progress = 0;
-    item->status = 1; // downloading (start immediately)
+    item->status = 1; /* downloading (start immediately) */
     item->received = 0;
     item->total = 0;
     item->download = g_object_ref(download);
     
-    // Set destination
+    /* Set destination path */
     char *dest_path = g_build_filename(DOWNLOAD_DIR, item->filename, NULL);
     item->destination = dest_path;
     webkit_download_set_destination(download, dest_path);
@@ -111,16 +151,24 @@ void add_download(WebKitDownload *download, BrowserWindow *browser)
     
     downloads = g_list_append(downloads, item);
     
-    // Simple signal connections
+    /* Connect simple signal handlers */
     g_signal_connect_swapped(download, "finished", G_CALLBACK(on_download_finished), item);
     g_signal_connect_swapped(download, "failed", G_CALLBACK(on_download_failed), item);
     
     save_downloads();
     
-    // Refresh the downloads tab if it's open
+    /* Refresh the downloads tab if it's open */
     update_downloads_tab(browser);
 }
 
+/**
+ * Opens the downloads folder in the system file manager.
+ *
+ * @param button The button that was clicked (unused).
+ * @param item   The DownloadItem (unused, folder is global).
+ *
+ * @sideeffect Executes xdg-open to open the download directory.
+ */
 static void open_download_folder(GtkButton *button, DownloadItem *item)
 
 {
@@ -131,6 +179,14 @@ static void open_download_folder(GtkButton *button, DownloadItem *item)
     g_free(cmd);
 }
 
+/**
+ * Removes a download from the manager.
+ *
+ * @param item The DownloadItem to remove.
+ *
+ * @sideeffect Removes item from global list and frees all associated memory.
+ * @sideeffect Saves remaining downloads to file.
+ */
 static void remove_download(DownloadItem *item)
 
 {
@@ -144,6 +200,13 @@ static void remove_download(DownloadItem *item)
     save_downloads();
 }
 
+/**
+ * Callback for tab close button.
+ * Removes the specified tab from the notebook.
+ *
+ * @param button  The close button that was clicked.
+ * @param browser BrowserWindow instance.
+ */
 static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
 
 {
@@ -156,6 +219,15 @@ static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
     }
 }
 
+/**
+ * Clears completed and failed downloads from the list.
+ * Keeps only active (downloading) items.
+ *
+ * @param button  The button that was clicked.
+ * @param browser BrowserWindow instance.
+ *
+ * @sideeffect Removes non-active downloads and saves the list.
+ */
 static void clear_completed_downloads(GtkButton *button, BrowserWindow *browser)
 
 {
@@ -164,7 +236,7 @@ static void clear_completed_downloads(GtkButton *button, BrowserWindow *browser)
     
     for (GList *l = downloads; l; l = l->next) {
         DownloadItem *item = l->data;
-        if (item->status == 1) { // Keep if downloading
+        if (item->status == 1) { /* Keep if downloading */
             new_list = g_list_append(new_list, item);
         } else {
             if (item->download) g_object_unref(item->download);
@@ -183,10 +255,17 @@ static void clear_completed_downloads(GtkButton *button, BrowserWindow *browser)
     update_downloads_tab(browser);
 }
 
+/**
+ * Updates or creates the downloads tab to reflect current state.
+ *
+ * @param browser BrowserWindow instance.
+ *
+ * @sideeffect Refreshes existing downloads tab or creates a new one.
+ */
 void update_downloads_tab(BrowserWindow *browser)
 
 {
-    // Find and refresh the downloads tab if it's open
+    /* Find and refresh the downloads tab if it's open */
     GtkWidget *notebook = browser->notebook;
     int n_pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(notebook));
     
@@ -200,7 +279,7 @@ void update_downloads_tab(BrowserWindow *browser)
                 if (GTK_IS_LABEL(c->data)) {
                     const char *text = gtk_label_get_text(GTK_LABEL(c->data));
                     if (text && strcmp(text, "Downloads") == 0) {
-                        // Found the downloads tab - remove and recreate it
+                        /* Found the downloads tab - remove and recreate it */
                         gtk_notebook_remove_page(GTK_NOTEBOOK(notebook), i);
                         g_list_free(children);
                         show_downloads_tab(browser);
@@ -212,10 +291,17 @@ void update_downloads_tab(BrowserWindow *browser)
         }
     }
     
-    // If we get here, the downloads tab isn't open, so we'll create a new one
+    /* If we get here, the downloads tab isn't open, so we'll create a new one */
     show_downloads_tab(browser);
 }
 
+/**
+ * Creates and displays the downloads management tab.
+ *
+ * @param browser BrowserWindow instance.
+ *
+ * @sideeffect Adds a new tab to the notebook with download list.
+ */
 void show_downloads_tab(BrowserWindow *browser)
 
 {
@@ -225,7 +311,7 @@ void show_downloads_tab(BrowserWindow *browser)
     GtkWidget *tab_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(tab_content), 20);
     
-    // Header with title and clear button
+    /* Header with title and clear button */
     GtkWidget *header_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     gtk_box_pack_start(GTK_BOX(tab_content), header_box, FALSE, FALSE, 0);
     
@@ -233,7 +319,7 @@ void show_downloads_tab(BrowserWindow *browser)
     gtk_label_set_markup(GTK_LABEL(title), "<span size='20000' weight='bold'>Downloads</span>");
     gtk_box_pack_start(GTK_BOX(header_box), title, FALSE, FALSE, 0);
     
-    // Clear completed button
+    /* Clear completed button */
     GtkWidget *clear_btn = gtk_button_new_with_label("Clear Completed");
     g_signal_connect(clear_btn, "clicked", G_CALLBACK(clear_completed_downloads), browser);
     gtk_box_pack_end(GTK_BOX(header_box), clear_btn, FALSE, FALSE, 0);
@@ -265,7 +351,7 @@ void show_downloads_tab(BrowserWindow *browser)
             gtk_widget_set_margin_start(row, 5);
             gtk_widget_set_margin_end(row, 5);
             
-            // Filename and URL
+            /* Filename and URL */
             GtkWidget *filename_label = gtk_label_new(NULL);
             char *filename_markup = g_strdup_printf("<span weight='bold'>%s</span>", item->filename);
             gtk_label_set_markup(GTK_LABEL(filename_label), filename_markup);
@@ -278,7 +364,7 @@ void show_downloads_tab(BrowserWindow *browser)
             gtk_widget_set_opacity(url_label, 0.7);
             gtk_box_pack_start(GTK_BOX(vbox), url_label, FALSE, FALSE, 0);
             
-            // Status
+            /* Status text */
             GtkWidget *status_label = gtk_label_new(NULL);
             char status_text[256];
             
@@ -296,18 +382,18 @@ void show_downloads_tab(BrowserWindow *browser)
             gtk_label_set_xalign(GTK_LABEL(status_label), 0.0);
             gtk_box_pack_start(GTK_BOX(vbox), status_label, FALSE, FALSE, 0);
             
-            // Action buttons
+            /* Action buttons */
             GtkWidget *button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
             gtk_box_pack_start(GTK_BOX(vbox), button_box, FALSE, FALSE, 0);
             
             if (item->status == 2) {
-                // Open folder button for completed downloads
+                /* Open folder button for completed downloads */
                 GtkWidget *open_btn = gtk_button_new_with_label("Open Folder");
                 g_signal_connect(open_btn, "clicked", G_CALLBACK(open_download_folder), item);
                 gtk_box_pack_start(GTK_BOX(button_box), open_btn, FALSE, FALSE, 0);
             }
             
-            // Remove button for all items
+            /* Remove button for all items */
             GtkWidget *remove_btn = gtk_button_new_with_label("Remove");
             g_signal_connect_swapped(remove_btn, "clicked", G_CALLBACK(remove_download), item);
             gtk_box_pack_start(GTK_BOX(button_box), remove_btn, FALSE, FALSE, 0);
@@ -318,7 +404,7 @@ void show_downloads_tab(BrowserWindow *browser)
     
     gtk_widget_show_all(tab_content);
     
-    // Create tab label with close button
+    /* Create tab label with close button */
     GtkWidget *tab_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     GtkWidget *tab_label = gtk_label_new("Downloads");
     GtkWidget *close_btn = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
@@ -336,6 +422,12 @@ void show_downloads_tab(BrowserWindow *browser)
     gtk_notebook_set_current_page(GTK_NOTEBOOK(browser->notebook), page_num);
 }
 
+/**
+ * Saves all downloads to disk.
+ * Format: filename|url|destination|status per line.
+ *
+ * @sideeffect Writes to DOWNLOADS_FILE.
+ */
 void save_downloads(void)
 {
     FILE *f = fopen(DOWNLOADS_FILE, "w");
@@ -352,6 +444,13 @@ void save_downloads(void)
     fclose(f);
 }
 
+/**
+ * Loads downloads from disk.
+ * Reads DOWNLOADS_FILE and populates the downloads list.
+ *
+ * @sideeffect Appends loaded downloads to global downloads list.
+ * @note Call during application initialization to restore previous downloads.
+ */
 void load_downloads(void)
 {
     FILE *f = fopen(DOWNLOADS_FILE, "r");
@@ -364,7 +463,7 @@ void load_downloads(void)
         
         DownloadItem *item = g_new0(DownloadItem, 1);
         
-        // Parse: filename|url|destination|status
+        /* Parse: filename|url|destination|status */
         char *p = line;
         char *sep = strchr(p, '|');
         if (!sep) { g_free(item); continue; }

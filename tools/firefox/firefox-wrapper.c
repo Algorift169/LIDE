@@ -7,14 +7,21 @@
 #include <signal.h>
 #include <errno.h>
 
-// Dragging variables
+/* Dragging variables */
 static int is_dragging = 0;
 static int drag_start_x, drag_start_y;
 static pid_t firefox_pid = 0;
 static GtkWidget *status_label = NULL;
 static GtkWidget *launch_btn = NULL;
 
-// Window control callbacks
+/* Window control callbacks */
+
+/**
+ * Callback for minimize button click.
+ *
+ * @param button The button that was clicked.
+ * @param window The window to minimize.
+ */
 static void on_minimize_clicked(GtkButton *button, gpointer window)
 
 {
@@ -22,6 +29,13 @@ static void on_minimize_clicked(GtkButton *button, gpointer window)
     gtk_window_iconify(GTK_WINDOW(window));
 }
 
+/**
+ * Callback for maximize/restore button click.
+ * Toggles between maximized and restored states.
+ *
+ * @param button The button that was clicked.
+ * @param window The window to maximize or restore.
+ */
 static void on_maximize_clicked(GtkButton *button, gpointer window)
 
 {
@@ -35,7 +49,15 @@ static void on_maximize_clicked(GtkButton *button, gpointer window)
     }
 }
 
-// Track window state changes
+/**
+ * Callback for window state changes.
+ * Updates the maximize button label when window is maximized or restored.
+ *
+ * @param window The window whose state changed.
+ * @param event  Window state event details.
+ * @param data   Maximize button widget.
+ * @return       FALSE to allow further processing.
+ */
 static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *event, gpointer data)
 
 {
@@ -52,6 +74,13 @@ static gboolean on_window_state_changed(GtkWidget *window, GdkEventWindowState *
     return FALSE;
 }
 
+/**
+ * Callback for close button click.
+ * Terminates Firefox process if running before closing window.
+ *
+ * @param button The button that was clicked.
+ * @param window The window to close.
+ */
 static void on_close_clicked(GtkButton *button, gpointer window)
 
 {
@@ -63,7 +92,17 @@ static void on_close_clicked(GtkButton *button, gpointer window)
     gtk_window_close(GTK_WINDOW(window));
 }
 
-// Dragging handlers
+/* Dragging handlers */
+
+/**
+ * Callback for mouse button press on window.
+ * Initiates window dragging.
+ *
+ * @param widget The window widget.
+ * @param event  Button event details.
+ * @param window The window being dragged.
+ * @return       TRUE to stop event propagation.
+ */
 static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer window)
 
 {
@@ -78,6 +117,15 @@ static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpoint
     return FALSE;
 }
 
+/**
+ * Callback for mouse button release on window.
+ * Terminates window dragging.
+ *
+ * @param widget The window widget.
+ * @param event  Button event details.
+ * @param window The window being dragged (unused).
+ * @return       FALSE to allow further processing.
+ */
 static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer window)
 
 {
@@ -88,6 +136,15 @@ static gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpoi
     return FALSE;
 }
 
+/**
+ * Callback for mouse motion on window.
+ * Handles window dragging when active.
+ *
+ * @param widget The window widget.
+ * @param event  Motion event details.
+ * @param window The window being dragged.
+ * @return       TRUE if event was handled.
+ */
 static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer window)
 
 {
@@ -108,7 +165,11 @@ static gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpoin
     return FALSE;
 }
 
-// Check if Firefox is installed
+/**
+ * Checks if Firefox is installed on the system.
+ *
+ * @return 1 if firefox or firefox-esr is found in PATH, 0 otherwise.
+ */
 static int is_firefox_installed(void)
 
 {
@@ -116,20 +177,33 @@ static int is_firefox_installed(void)
             system("which firefox-esr > /dev/null 2>&1") == 0);
 }
 
-// Check if process is running
+/**
+ * Checks if a process with the given PID is currently running.
+ *
+ * @param pid Process ID to check.
+ * @return 1 if process exists, 0 otherwise.
+ */
 static int is_process_running(pid_t pid)
 
 {
     return (kill(pid, 0) == 0);
 }
 
-// Launch Firefox
+/**
+ * Launches Firefox browser as a child process.
+ *
+ * @param button The button that was clicked.
+ * @param window Parent window for dialogs.
+ *
+ * @sideeffect Forks a child process to run Firefox.
+ * @sideeffect Updates UI status and button sensitivity.
+ */
 static void launch_firefox(GtkButton *button, gpointer window)
 
 {
     (void)button;
     
-    // Check if Firefox is installed
+    /* Check if Firefox is installed */
     if (!is_firefox_installed()) {
         GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(window),
                                                   GTK_DIALOG_MODAL,
@@ -145,7 +219,7 @@ static void launch_firefox(GtkButton *button, gpointer window)
         return;
     }
     
-    // Check if Firefox is already running
+    /* Check if Firefox is already running */
     if (firefox_pid > 0 && is_process_running(firefox_pid)) {
         GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(window),
                                                   GTK_DIALOG_MODAL,
@@ -158,39 +232,45 @@ static void launch_firefox(GtkButton *button, gpointer window)
         return;
     }
     
-    // Reset PID if process is not running
+    /* Reset PID if process is not running */
     if (firefox_pid > 0 && !is_process_running(firefox_pid)) {
         firefox_pid = 0;
     }
     
     pid_t pid = fork();
     if (pid == 0) {
-        // Child process
+        /* Child process */
         setsid();
         
-        // Launch Firefox normally (no custom profile)
+        /* Launch Firefox normally (no custom profile) */
         execlp("firefox", "firefox", "--new-window", "https://www.google.com", NULL);
         
-        // If firefox fails, try firefox-esr
+        /* If firefox fails, try firefox-esr */
         execlp("firefox-esr", "firefox-esr", "--new-window", "https://www.google.com", NULL);
         
         exit(1);
     } else if (pid > 0) {
         firefox_pid = pid;
         
-        // Update status
+        /* Update status */
         if (status_label) {
             gtk_label_set_text(GTK_LABEL(status_label), "Firefox launched successfully!");
         }
         
-        // Disable launch button temporarily
+        /* Disable launch button temporarily */
         gtk_widget_set_sensitive(launch_btn, FALSE);
     } else {
         perror("Fork failed");
     }
 }
 
-// Monitor Firefox process
+/**
+ * Timer callback that monitors Firefox process status.
+ * Re-enables launch button when Firefox exits.
+ *
+ * @param data Unused.
+ * @return G_SOURCE_CONTINUE to keep timer active.
+ */
 static gboolean monitor_firefox_process(gpointer data)
 
 {
@@ -209,6 +289,15 @@ static gboolean monitor_firefox_process(gpointer data)
     return G_SOURCE_CONTINUE;
 }
 
+/**
+ * Application activation callback.
+ * Creates and displays the Firefox launcher window.
+ *
+ * @param app        The GtkApplication instance.
+ * @param user_data  User data (unused).
+ *
+ * @sideeffect Creates launcher UI and starts process monitor.
+ */
 static void activate(GtkApplication *app, gpointer user_data)
 
 {
@@ -221,7 +310,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_window_set_decorated(GTK_WINDOW(window), FALSE);
     gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
 
-    // Enable dragging
+    /* Enable dragging */
     gtk_widget_add_events(window, GDK_BUTTON_PRESS_MASK |
                                    GDK_BUTTON_RELEASE_MASK |
                                    GDK_POINTER_MOTION_MASK);
@@ -232,7 +321,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_container_add(GTK_CONTAINER(window), vbox);
 
-    // Custom title bar
+    /* Custom title bar */
     GtkWidget *title_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     gtk_widget_set_name(title_bar, "title-bar");
     gtk_widget_set_size_request(title_bar, -1, 35);
@@ -245,35 +334,35 @@ static void activate(GtkApplication *app, gpointer user_data)
     GtkWidget *window_buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
     gtk_box_pack_end(GTK_BOX(title_bar), window_buttons, FALSE, FALSE, 5);
 
-    // Minimize button
+    /* Minimize button */
     GtkWidget *min_btn = gtk_button_new_with_label("─");
     gtk_widget_set_size_request(min_btn, 35, 25);
     g_signal_connect(min_btn, "clicked", G_CALLBACK(on_minimize_clicked), window);
     gtk_box_pack_start(GTK_BOX(window_buttons), min_btn, FALSE, FALSE, 0);
 
-    // Maximize button
+    /* Maximize button */
     GtkWidget *max_btn = gtk_button_new_with_label("□");
     gtk_widget_set_size_request(max_btn, 35, 25);
     g_signal_connect(max_btn, "clicked", G_CALLBACK(on_maximize_clicked), window);
     g_signal_connect(window, "window-state-event", G_CALLBACK(on_window_state_changed), max_btn);
     gtk_box_pack_start(GTK_BOX(window_buttons), max_btn, FALSE, FALSE, 0);
 
-    // Close button
+    /* Close button */
     GtkWidget *close_btn = gtk_button_new_with_label("✕");
     gtk_widget_set_size_request(close_btn, 35, 25);
     g_signal_connect(close_btn, "clicked", G_CALLBACK(on_close_clicked), window);
     gtk_box_pack_start(GTK_BOX(window_buttons), close_btn, FALSE, FALSE, 0);
 
-    // Separator
+    /* Separator */
     GtkWidget *sep1 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_box_pack_start(GTK_BOX(vbox), sep1, FALSE, FALSE, 0);
 
-    // Content area
+    /* Content area */
     GtkWidget *content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 20);
     gtk_container_set_border_width(GTK_CONTAINER(content), 25);
     gtk_box_pack_start(GTK_BOX(vbox), content, TRUE, TRUE, 0);
 
-    // Firefox logo
+    /* Firefox logo */
     GtkWidget *logo_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     gtk_box_pack_start(GTK_BOX(content), logo_box, FALSE, FALSE, 0);
     
@@ -287,14 +376,14 @@ static void activate(GtkApplication *app, gpointer user_data)
         "<span font='32' weight='bold' foreground='#ff6600'>Firefox</span>");
     gtk_box_pack_start(GTK_BOX(logo_box), title_large, FALSE, FALSE, 0);
 
-    // Description
+    /* Description */
     GtkWidget *desc = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(desc), 
         "<span size='12000'>Mozilla Firefox Web Browser</span>\n\n"
         "<span>Fast. Private. Yours.</span>");
     gtk_box_pack_start(GTK_BOX(content), desc, FALSE, FALSE, 10);
 
-    // Features list
+    /* Features list */
     GtkWidget *features = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(features), 
         "• Lightning fast performance\n"
@@ -304,18 +393,18 @@ static void activate(GtkApplication *app, gpointer user_data)
         "• Thousands of add-ons");
     gtk_box_pack_start(GTK_BOX(content), features, FALSE, FALSE, 10);
 
-    // Launch button
+    /* Launch button */
     launch_btn = gtk_button_new_with_label("🚀 Launch Firefox");
     gtk_widget_set_size_request(launch_btn, 250, 45);
     g_signal_connect(launch_btn, "clicked", G_CALLBACK(launch_firefox), window);
     gtk_box_pack_start(GTK_BOX(content), launch_btn, FALSE, FALSE, 20);
 
-    // Status label
+    /* Status label */
     status_label = gtk_label_new("Click Launch to start Firefox");
     gtk_widget_set_opacity(status_label, 0.7);
     gtk_box_pack_start(GTK_BOX(content), status_label, FALSE, FALSE, 5);
 
-    // Firefox theme
+    /* Firefox theme */
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
         "window { background-color: #0b0f14; color: #ffffff; }\n"
@@ -332,10 +421,17 @@ static void activate(GtkApplication *app, gpointer user_data)
 
     gtk_widget_show_all(window);
     
-    // Set up process monitor
+    /* Set up process monitor */
     g_timeout_add(1000, monitor_firefox_process, NULL);
 }
 
+/**
+ * Application entry point.
+ *
+ * @param argc Argument count from command line.
+ * @param argv Argument vector from command line.
+ * @return     Exit status from g_application_run().
+ */
 int main(int argc, char **argv)
 
 {

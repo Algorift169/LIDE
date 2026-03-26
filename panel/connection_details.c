@@ -3,7 +3,21 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Show connection details in a dialog
+/**
+ * Displays a modal dialog showing network configuration information.
+ * Retrieves hostname, IP address, gateway, and DNS server via shell commands.
+ *
+ * @param parent_window The parent GtkWidget to attach the dialog to.
+ *                      The dialog will be modal relative to this window.
+ *
+ * @sideeffect Creates and runs a modal dialog. Blocks execution until dialog is closed.
+ * @sideeffect Executes multiple external commands (hostname, hostname -I, ip route, cat)
+ *             via popen() to gather network information.
+ * @sideeffect Applies custom CSS styling to the dialog window and labels.
+ * @memory     Allocated strings are freed; dialog is destroyed after use.
+ * @security   Executes system commands without sanitization. Assumes standard Linux
+ *             network utilities are available in PATH.
+ */
 void show_connection_details(GtkWidget *parent_window)
 {
     GtkWidget *dialog = gtk_dialog_new_with_buttons(
@@ -22,14 +36,15 @@ void show_connection_details(GtkWidget *parent_window)
     gtk_container_set_border_width(GTK_CONTAINER(vbox), 15);
     gtk_container_add(GTK_CONTAINER(content), vbox);
     
-    // Get network information
+    /* Collect network information via shell commands.
+     * Commands are piped through popen() and output is trimmed. */
     char hostname[256] = "unknown";
     char ip_addr[256] = "unknown";
     char netmask[256] = "unknown";
     char gateway[256] = "unknown";
     char dns[256] = "unknown";
     
-    // Get hostname
+    /* Retrieve system hostname. */
     FILE *fp = popen("hostname 2>/dev/null", "r");
     if (fp) {
         if (fgets(hostname, sizeof(hostname)-1, fp)) {
@@ -38,7 +53,7 @@ void show_connection_details(GtkWidget *parent_window)
         pclose(fp);
     }
     
-    // Get IP address
+    /* Retrieve first non-loopback IP address. */
     fp = popen("hostname -I 2>/dev/null | awk '{print $1}'", "r");
     if (fp) {
         if (fgets(ip_addr, sizeof(ip_addr)-1, fp)) {
@@ -47,7 +62,7 @@ void show_connection_details(GtkWidget *parent_window)
         pclose(fp);
     }
     
-    // Get gateway
+    /* Retrieve default gateway from routing table. */
     fp = popen("ip route | grep default | awk '{print $3}'", "r");
     if (fp) {
         if (fgets(gateway, sizeof(gateway)-1, fp)) {
@@ -56,7 +71,7 @@ void show_connection_details(GtkWidget *parent_window)
         pclose(fp);
     }
     
-    // Get DNS
+    /* Retrieve primary nameserver from resolv.conf. */
     fp = popen("cat /etc/resolv.conf 2>/dev/null | grep nameserver | head -1 | awk '{print $2}'", "r");
     if (fp) {
         if (fgets(dns, sizeof(dns)-1, fp)) {
@@ -65,13 +80,13 @@ void show_connection_details(GtkWidget *parent_window)
         pclose(fp);
     }
     
-    // Create labels with information
+    /* Build dialog UI with collected network information. */
     GtkWidget *title = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(title), "<b>🖥️  Network Configuration</b>");
     gtk_label_set_xalign(GTK_LABEL(title), 0.0);
     gtk_box_pack_start(GTK_BOX(vbox), title, FALSE, FALSE, 0);
     
-    // Hostname
+    /* Hostname row */
     GtkWidget *hostname_label = gtk_label_new(NULL);
     gchar *hostname_text = g_strdup_printf("<b>Hostname:</b> %s", hostname);
     gtk_label_set_markup(GTK_LABEL(hostname_label), hostname_text);
@@ -79,7 +94,7 @@ void show_connection_details(GtkWidget *parent_window)
     gtk_box_pack_start(GTK_BOX(vbox), hostname_label, FALSE, FALSE, 0);
     g_free(hostname_text);
     
-    // IP Address
+    /* IP address row */
     GtkWidget *ip_label = gtk_label_new(NULL);
     gchar *ip_text = g_strdup_printf("<b>IP Address:</b> %s", ip_addr);
     gtk_label_set_markup(GTK_LABEL(ip_label), ip_text);
@@ -87,7 +102,7 @@ void show_connection_details(GtkWidget *parent_window)
     gtk_box_pack_start(GTK_BOX(vbox), ip_label, FALSE, FALSE, 0);
     g_free(ip_text);
     
-    // Gateway
+    /* Gateway row - fallback to "N/A" if not configured */
     GtkWidget *gw_label = gtk_label_new(NULL);
     gchar *gw_text = g_strdup_printf("<b>Gateway:</b> %s", strlen(gateway) > 0 ? gateway : "N/A");
     gtk_label_set_markup(GTK_LABEL(gw_label), gw_text);
@@ -95,7 +110,7 @@ void show_connection_details(GtkWidget *parent_window)
     gtk_box_pack_start(GTK_BOX(vbox), gw_label, FALSE, FALSE, 0);
     g_free(gw_text);
     
-    // DNS
+    /* DNS row - fallback to "Auto" if not configured */
     GtkWidget *dns_label = gtk_label_new(NULL);
     gchar *dns_text = g_strdup_printf("<b>DNS Server:</b> %s", strlen(dns) > 0 ? dns : "Auto");
     gtk_label_set_markup(GTK_LABEL(dns_label), dns_text);
@@ -103,11 +118,11 @@ void show_connection_details(GtkWidget *parent_window)
     gtk_box_pack_start(GTK_BOX(vbox), dns_label, FALSE, FALSE, 0);
     g_free(dns_text);
     
-    // Spacer
+    /* Expander to push content upward */
     GtkWidget *spacer = gtk_label_new(NULL);
     gtk_box_pack_start(GTK_BOX(vbox), spacer, TRUE, TRUE, 0);
     
-    // Apply styling
+    /* Apply custom dark theme styling to dialog */
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
         "window { background-color: #0b0f14; color: #ffffff; }"

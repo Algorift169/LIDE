@@ -5,19 +5,29 @@
 #include <time.h>
 #include <glib.h>
 
-// Network stats structure
+/* Network statistics structure.
+ * Holds byte counts and calculated speeds for all active interfaces. */
 typedef struct {
-    unsigned long long rx_bytes;
-    unsigned long long tx_bytes;
-    double upload_speed;
-    double download_speed;
-    time_t last_update;
+    unsigned long long rx_bytes;     /* Total received bytes across all active interfaces */
+    unsigned long long tx_bytes;     /* Total transmitted bytes across all active interfaces */
+    double upload_speed;             /* Current upload speed in bytes per second */
+    double download_speed;           /* Current download speed in bytes per second */
+    time_t last_update;              /* Timestamp of last statistics update */
 } NetworkStats;
 
 static NetworkStats stats = {0};
-static int initialized = 0;
+static int initialized = 0;          /* Flag indicating whether stats have been initialized */
 
-// Read network stats from /proc/net/dev
+/**
+ * Reads network byte counts from /proc/net/dev.
+ * Aggregates receive and transmit bytes across all non-loopback interfaces.
+ *
+ * @param rx Output parameter for total received bytes.
+ * @param tx Output parameter for total transmitted bytes.
+ * @return   0 on success, -1 on file open failure.
+ *
+ * @sideeffect Opens and reads /proc/net/dev.
+ */
 static int read_network_stats(unsigned long long *rx, unsigned long long *tx)
 {
     FILE *fp = fopen("/proc/net/dev", "r");
@@ -26,7 +36,7 @@ static int read_network_stats(unsigned long long *rx, unsigned long long *tx)
     char line[256];
     unsigned long long total_rx = 0, total_tx = 0;
 
-    // Skip first two header lines
+    /* Skip header lines */
     fgets(line, sizeof(line), fp);
     fgets(line, sizeof(line), fp);
 
@@ -35,11 +45,14 @@ static int read_network_stats(unsigned long long *rx, unsigned long long *tx)
         unsigned long long r_bytes, r_packets, r_errs, r_drop, r_fifo, r_frame, r_compressed, r_multicast;
         unsigned long long t_bytes, t_packets, t_errs, t_drop, t_fifo, t_colls, t_carrier, t_compressed;
 
+        /* Parse all 16 fields from /proc/net/dev line.
+         * Format: interface: rx_bytes rx_packets rx_errs rx_drop rx_fifo rx_frame rx_compressed rx_multicast
+         *          tx_bytes tx_packets tx_errs tx_drop tx_fifo tx_colls tx_carrier tx_compressed */
         sscanf(line, "%31s %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu",
                iface, &r_bytes, &r_packets, &r_errs, &r_drop, &r_fifo, &r_frame, &r_compressed, &r_multicast,
                &t_bytes, &t_packets, &t_errs, &t_drop, &t_fifo, &t_colls, &t_carrier, &t_compressed);
 
-        // Skip loopback interface
+        /* Exclude loopback interface from total calculation */
         if (strcmp(iface, "lo:") != 0) {
             total_rx += r_bytes;
             total_tx += t_bytes;
@@ -53,7 +66,14 @@ static int read_network_stats(unsigned long long *rx, unsigned long long *tx)
     return 0;
 }
 
-// Initialize network stats
+/**
+ * Initializes network statistics monitoring.
+ * Captures baseline byte counts and sets initial timestamp.
+ * Must be called before any other network_stats functions.
+ *
+ * @sideeffect Sets initialized flag to 1.
+ * @sideeffect Reads initial byte counts from /proc/net/dev.
+ */
 void network_stats_init(void)
 {
     read_network_stats(&stats.rx_bytes, &stats.tx_bytes);
@@ -63,7 +83,13 @@ void network_stats_init(void)
     initialized = 1;
 }
 
-// Update network stats (calculate speeds)
+/**
+ * Updates network statistics and calculates current speeds.
+ * Should be called periodically (e.g., every second) for accurate speed measurements.
+ *
+ * @sideeffect Updates rx_bytes, tx_bytes, last_update, upload_speed, and download_speed.
+ * @sideeffect Reads /proc/net/dev to obtain new byte counts.
+ */
 void network_stats_update(void)
 {
     if (!initialized) return;
@@ -73,8 +99,8 @@ void network_stats_update(void)
         time_t now = time(NULL);
         double elapsed = difftime(now, stats.last_update);
 
+        /* Calculate speeds in bytes per second if elapsed time is positive */
         if (elapsed > 0 && stats.last_update > 0) {
-            // Calculate speeds in bytes per second
             stats.download_speed = (new_rx - stats.rx_bytes) / elapsed;
             stats.upload_speed = (new_tx - stats.tx_bytes) / elapsed;
         }
@@ -85,19 +111,32 @@ void network_stats_update(void)
     }
 }
 
-// Get upload speed (KB/s)
+/**
+ * Retrieves current upload speed.
+ *
+ * @return Upload speed in kilobytes per second (KB/s).
+ *         Returns 0 if not initialized.
+ */
 double network_stats_get_upload(void)
 {
-    return stats.upload_speed / 1024.0; // Convert to KB/s
+    return stats.upload_speed / 1024.0; /* Convert bytes to KB */
 }
 
-// Get download speed (KB/s)
+/**
+ * Retrieves current download speed.
+ *
+ * @return Download speed in kilobytes per second (KB/s).
+ *         Returns 0 if not initialized.
+ */
 double network_stats_get_download(void)
 {
-    return stats.download_speed / 1024.0; // Convert to KB/s
+    return stats.download_speed / 1024.0; /* Convert bytes to KB */
 }
 
-// Cleanup network stats
+/**
+ * Cleans up network statistics monitoring.
+ * Resets initialization flag.
+ */
 void network_stats_cleanup(void)
 {
     initialized = 0;

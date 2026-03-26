@@ -23,32 +23,37 @@
     </div>
 
     <script>
+        /**
+         * Performs search or URL navigation.
+         * If the input contains a dot and no spaces, treats it as a URL.
+         * Otherwise, performs a Google search.
+         */
         function search() {
             const query = document.getElementById('search').value.trim();
             if (!query) return;
             
-            // Check if it's a URL (contains a dot and no spaces)
+            /* Check if it's a URL (contains a dot and no spaces) */
             if (query.includes('.') && !query.includes(' ')) {
-                // Add protocol if missing
+                /* Add protocol if missing */
                 if (!query.startsWith('http://') && !query.startsWith('https://')) {
                     window.location.href = 'http://' + query;
                 } else {
                     window.location.href = query;
                 }
             } else {
-                // Search using Google
+                /* Search using Google */
                 window.location.href = 'https://www.google.com/search?q=' + encodeURIComponent(query);
             }
         }
 
-        // Handle Enter key
+        /* Handle Enter key in search input */
         document.getElementById('search').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 search();
             }
         });
 
-        // Focus search box on load
+        /* Focus search box on page load */
         window.addEventListener('load', function() {
             document.getElementById('search').focus();
         });

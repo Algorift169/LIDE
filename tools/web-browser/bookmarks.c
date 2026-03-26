@@ -7,7 +7,13 @@
 
 static GList *bookmarks = NULL;
 
-// Bookmark menu item callback
+/**
+ * Callback for bookmark menu item activation.
+ * Loads the URL associated with the clicked bookmark.
+ *
+ * @param item    The menu item that was activated.
+ * @param browser BrowserWindow instance.
+ */
 static void on_bookmark_clicked(GtkMenuItem *item, BrowserWindow *browser)
 
 {
@@ -17,7 +23,15 @@ static void on_bookmark_clicked(GtkMenuItem *item, BrowserWindow *browser)
     }
 }
 
-// Add current page to bookmarks
+/**
+ * Callback for Add Bookmark menu item.
+ * Shows a dialog to add the current page to bookmarks.
+ *
+ * @param item    The menu item.
+ * @param browser BrowserWindow instance.
+ *
+ * @sideeffect Adds bookmark to list and saves to file on confirmation.
+ */
 static void on_add_bookmark_clicked(GtkMenuItem *item, BrowserWindow *browser)
 
 {
@@ -34,7 +48,7 @@ static void on_add_bookmark_clicked(GtkMenuItem *item, BrowserWindow *browser)
     const char *title = webkit_web_view_get_title(tab->web_view);
     
     if (url && *url) {
-        // Create dialog for bookmark name
+        /* Create dialog for bookmark name */
         GtkWidget *dialog = gtk_dialog_new_with_buttons("Add Bookmark",
                                                         GTK_WINDOW(browser->window),
                                                         GTK_DIALOG_MODAL,
@@ -80,7 +94,13 @@ static void on_add_bookmark_clicked(GtkMenuItem *item, BrowserWindow *browser)
     }
 }
 
-// Manage bookmarks
+/**
+ * Callback for Manage Bookmarks menu item.
+ * Shows the bookmarks management tab.
+ *
+ * @param item    The menu item.
+ * @param browser BrowserWindow instance.
+ */
 static void on_manage_bookmarks_clicked(GtkMenuItem *item, BrowserWindow *browser)
 
 {
@@ -88,7 +108,13 @@ static void on_manage_bookmarks_clicked(GtkMenuItem *item, BrowserWindow *browse
     show_bookmarks_tab(browser);
 }
 
-// Close tab callback
+/**
+ * Callback for tab close button.
+ * Removes the associated tab from the notebook.
+ *
+ * @param button  The close button that was clicked.
+ * @param browser BrowserWindow instance.
+ */
 static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
 {
     GtkWidget *tab_child = g_object_get_data(G_OBJECT(button), "tab-child");
@@ -100,7 +126,13 @@ static void on_close_tab_clicked(GtkButton *button, BrowserWindow *browser)
     }
 }
 
-// Create bookmarks menu
+/**
+ * Creates the bookmarks menu.
+ * Includes "Add Bookmark", "Manage Bookmarks", and a list of saved bookmarks.
+ *
+ * @param browser BrowserWindow instance for callbacks.
+ * @return GtkWidget containing the complete bookmarks menu.
+ */
 GtkWidget* create_bookmarks_menu(BrowserWindow *browser)
 
 {
@@ -117,7 +149,7 @@ GtkWidget* create_bookmarks_menu(BrowserWindow *browser)
     GtkWidget *sep = gtk_separator_menu_item_new();
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), sep);
     
-    // Add saved bookmarks
+    /* Add saved bookmarks */
     for (GList *l = bookmarks; l; l = l->next) {
         Bookmark *bm = l->data;
         
@@ -132,7 +164,12 @@ GtkWidget* create_bookmarks_menu(BrowserWindow *browser)
     return menu;
 }
 
-// Show bookmarks tab
+/**
+ * Displays the bookmarks management tab.
+ * Shows all saved bookmarks with options to open them.
+ *
+ * @param browser BrowserWindow instance.
+ */
 void show_bookmarks_tab(BrowserWindow *browser)
 
 {
@@ -177,7 +214,7 @@ void show_bookmarks_tab(BrowserWindow *browser)
     
     gtk_widget_show_all(tab_content);
     
-    // Create tab label with close button
+    /* Create tab label with close button */
     GtkWidget *tab_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     GtkWidget *tab_label = gtk_label_new("Bookmarks");
     GtkWidget *close_btn = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
@@ -195,16 +232,25 @@ void show_bookmarks_tab(BrowserWindow *browser)
     gtk_notebook_set_current_page(GTK_NOTEBOOK(browser->notebook), page_num);
 }
 
+/**
+ * Adds a bookmark to the internal list.
+ *
+ * @param browser BrowserWindow instance (unused).
+ * @param url     URL to bookmark.
+ * @param title   Display title for the bookmark.
+ *
+ * @sideeffect Appends to global bookmarks list if URL not already present.
+ */
 void add_bookmark(BrowserWindow *browser, const char *url, const char *title)
 
 {
     (void)browser;
     
-    // Check if already exists
+    /* Check if already exists */
     for (GList *l = bookmarks; l; l = l->next) {
         Bookmark *bm = l->data;
         if (strcmp(bm->url, url) == 0) {
-            return; // Already bookmarked
+            return; /* Already bookmarked */
         }
     }
     
@@ -215,6 +261,12 @@ void add_bookmark(BrowserWindow *browser, const char *url, const char *title)
     bookmarks = g_list_append(bookmarks, bm);
 }
 
+/**
+ * Displays the bookmarks menu anchored to a button.
+ *
+ * @param menu   The menu to display.
+ * @param button The button to anchor the menu to.
+ */
 void show_bookmarks_menu(GtkWidget *menu, GtkWidget *button)
 
 {
@@ -224,6 +276,12 @@ void show_bookmarks_menu(GtkWidget *menu, GtkWidget *button)
                              NULL);
 }
 
+/**
+ * Saves bookmarks to file.
+ * Format: title|url per line.
+ *
+ * @sideeffect Writes to BOOKMARKS_FILE.
+ */
 void save_bookmarks(void)
 
 {
@@ -238,6 +296,12 @@ void save_bookmarks(void)
     fclose(f);
 }
 
+/**
+ * Loads bookmarks from file.
+ * Reads BOOKMARKS_FILE and populates the bookmarks list.
+ *
+ * @sideeffect Appends loaded bookmarks to global bookmarks list.
+ */
 void load_bookmarks(void)
 
 {
