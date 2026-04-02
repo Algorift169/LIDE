@@ -59,6 +59,7 @@ SETTINGS_SOURCES = tools/settings/settings.c \
                    tools/settings/display/orientation.c \
                    tools/settings/display/refresh_rate.c \
                    tools/settings/display/resolution.c \
+                   tools/settings/display/wallpaper_settings.c \
                    tools/settings/sound/sound_tab.c \
                    tools/settings/sound/test_sound_tab.c \
                    tools/settings/sound/output/output_volume.c \
@@ -72,6 +73,7 @@ SETTINGS_HEADERS = tools/settings/display/displaySettings.h \
                    tools/settings/display/orientation.h \
                    tools/settings/display/refresh_rate.h \
                    tools/settings/display/resolution.h \
+                   tools/settings/display/wallpaper_settings.h \
                    tools/settings/sound/sound.h \
                    tools/settings/sound/test_sound_tab.h \
                    tools/settings/sound/output/output.h \
@@ -131,9 +133,9 @@ blackline-launcher: $(LAUNCHER_SOURCES) $(LAUNCHER_HEADERS)
 blackline-tools: $(TOOLS_SOURCES) $(TOOLS_HEADERS)
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $(TOOLS_SOURCES) $(GTK_LIBS) $(X11_LIBS) $(MATH_LIBS)
 
-# Background
+# Background - includes glib for config file support
 blackline-background: tools/background.c
-	$(CC) $(CFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) $(shell pkg-config --cflags glib-2.0) -o $@ $< $(shell pkg-config --libs glib-2.0)
 
 # File Manager - includes window_resize.c and recycle_bin for trash functionality
 FM_SOURCES = tools/file-manager/fm.c \

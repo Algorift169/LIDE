@@ -11,6 +11,8 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <pwd.h>
+#include <sys/select.h>
+#include <sys/time.h>
 
 // Atoms for window states
 static Atom wm_state;
@@ -152,6 +154,8 @@ static char clipboard_path[1024] = "";
 static int clipboard_is_cut = 0;
 static Pixmap wallpaper_pixmap = None;
 static GC wallpaper_gc = None;
+// Track the current wallpaper path used by the WM
+static char wm_current_wallpaper[1024] = "";
 static Window active_menu = None;
 static DesktopIcon *selected_icon = NULL;
 static Window focused_window = None;
@@ -584,6 +588,55 @@ static void set_wallpaper(Display *d, Window win)
     XSetWindowBackgroundPixmap(d, win, wallpaper_pixmap);
     XClearWindow(d, win);
     XFlush(d);
+}
+
+/**
+ * Check the config file for a wallpaper path and reload if changed.
+ * Reads ~/.config/blackline/current_wallpaper.conf and updates
+ * `wallpaper_pixmap` when the value differs from `wm_current_wallpaper`.
+ */
+static void wm_reload_wallpaper_if_changed(Display *d, int screen, Window root)
+{
+    char config_path[1024];
+    const char *home = getenv("HOME");
+    if (!home) home = "/root";
+    snprintf(config_path, sizeof(config_path), "%s/.config/blackline/current_wallpaper.conf", home);
+
+    FILE *f = fopen(config_path, "r");
+    if (!f) {
+        return;
+    }
+
+    char path[1024] = "";
+    if (fgets(path, sizeof(path), f) != NULL) {
+        size_t len = strlen(path);
+        if (len > 0 && path[len-1] == '\n') path[len-1] = '\0';
+    }
+    fclose(f);
+
+    if (path[0] == '\0') return;
+
+    if (strcmp(path, wm_current_wallpaper) == 0) return;
+
+    // Free previous pixmap
+    if (wallpaper_pixmap != None) {
+        XFreePixmap(d, wallpaper_pixmap);
+        wallpaper_pixmap = None;
+    }
+
+    // Try to load the new wallpaper image
+    Pixmap new_pm = load_wallpaper_imlib2(d, screen, root, path);
+    if (new_pm == None) {
+        // Fallback to solid wallpaper
+        new_pm = create_solid_wallpaper(d, screen, root);
+    }
+
+    wallpaper_pixmap = new_pm;
+    strncpy(wm_current_wallpaper, path, sizeof(wm_current_wallpaper) - 1);
+    wm_current_wallpaper[sizeof(wm_current_wallpaper)-1] = '\0';
+
+    // Apply immediately
+    set_wallpaper(d, desktop_window);
 }
 
 // ==================== DESKTOP FUNCTIONS ====================
@@ -1389,11 +1442,26 @@ int main(void)
     XSync(d, False);
     
     XEvent ev;
-    
+    int xfd = ConnectionNumber(d);
+
     while (1)
     {
-        XNextEvent(d, &ev);
-        
+        // Wait for X events or timeout to check wallpaper config
+        fd_set in;
+        FD_ZERO(&in);
+        FD_SET(xfd, &in);
+        struct timeval tv;
+        tv.tv_sec = 1; tv.tv_usec = 0; // 1s timeout
+
+        int sel = select(xfd + 1, &in, NULL, NULL, &tv);
+        if (sel > 0 && FD_ISSET(xfd, &in)) {
+            XNextEvent(d, &ev);
+        } else {
+            // Timeout or interrupted - reload wallpaper if config changed
+            wm_reload_wallpaper_if_changed(d, screen, root);
+            continue;
+        }
+
         switch(ev.type) {
             case MapRequest: {
                 XWindowAttributes attr;

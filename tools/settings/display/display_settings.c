@@ -2,6 +2,7 @@
 #include "orientation.h"
 #include "refresh_rate.h"
 #include "resolution.h"
+#include "wallpaper_settings.h"
 
 /**
  * Creates the display settings tab widget.
@@ -36,6 +37,13 @@ GtkWidget *display_settings_tab_new(void)
     GtkWidget *res_box = resolution_widget_new();
     gtk_container_add(GTK_CONTAINER(res_frame), res_box);
     gtk_box_pack_start(GTK_BOX(vbox), res_frame, FALSE, FALSE, 0);
+
+    /* Wallpaper section - allows user to select and apply wallpapers from ./images/wallpapers/ */
+    // See wallpaper_settings_widget_new() for implementation details.
+    GtkWidget *wallpaper_frame = gtk_frame_new("Wallpaper");
+    GtkWidget *wallpaper_box = wallpaper_settings_widget_new();
+    gtk_container_add(GTK_CONTAINER(wallpaper_frame), wallpaper_box);
+    gtk_box_pack_start(GTK_BOX(vbox), wallpaper_frame, FALSE, FALSE, 0);
 
     return vbox;
 }
