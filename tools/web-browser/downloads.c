@@ -9,6 +9,18 @@
 #define DOWNLOADS_FILE "downloads.txt"
 #define DOWNLOAD_DIR "Downloads"
 
+
+/*
+ * downloads.c
+ * 
+ * Download management with progress tracking
+Tracks active downloads, manages file paths, and provides download history UI.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 GList *downloads = NULL;
 BrowserWindow *global_browser = NULL;
 

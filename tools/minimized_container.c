@@ -6,6 +6,19 @@
 #include <gdk/gdkx.h>
 #include <X11/Xlib.h>
 
+
+/*
+ * minimized_container.c
+ * 
+ * Minimized window container/taskbar implementation
+Manages minimized window list, presents iconic representations, and
+handles window restore operations.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static Display *xdisplay = NULL;
 static GList *minimized_windows = NULL;
 static GtkWidget *window = NULL;

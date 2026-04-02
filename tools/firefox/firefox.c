@@ -1,6 +1,19 @@
 #include "firefox.h"
 
 /* Dragging variables */
+
+/*
+ * firefox.c
+ * 
+ * Firefox application launcher and process manager
+Launches Firefox subprocess, manages plugin functionality, and integrates
+with LIDE desktop environment.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static int is_dragging = 0;
 static int drag_start_x, drag_start_y;
 

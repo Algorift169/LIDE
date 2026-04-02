@@ -1,5 +1,12 @@
 #include "panel.h"
 
+/*
+ * clock.c
+ * 
+ * System clock widget with continuous time display. GLib timeout-driven
+ * updates reading system time formatted to GtkLabel.
+ */
+
 /**
  * Timer callback that updates a label with the current system time.
  * Formats the time as HH:MM:SS using local time.

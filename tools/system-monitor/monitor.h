@@ -16,6 +16,13 @@
 #define _GNU_SOURCE  /* For DT_DIR */
 #define HISTORY_SIZE 60  /* Number of data points for history graphs */
 
+/*
+ * monitor.h
+ * 
+ * System monitor interface with resource utilization metrics.
+ * Displays CPU, memory, and process statistics via GTK UI.
+ */
+
 /**
  * CPU statistics structure.
  * Stores CPU times from /proc/stat and calculated usage percentage.

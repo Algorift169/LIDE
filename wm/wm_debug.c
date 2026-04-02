@@ -2,6 +2,19 @@
 #include <stdio.h>
 #include <time.h>
 
+
+/*
+ * wm_debug.c
+ * 
+ * Debugging and diagnostics for the window manager
+Provides inspection of X11 event queue, window property dump,
+focus state tracking, and event logging utilities.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static FILE *log_file = NULL;
 
 /**

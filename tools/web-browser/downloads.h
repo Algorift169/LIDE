@@ -6,6 +6,16 @@
 #include "voidfox.h"
 
 /**
+
+/*
+ * downloads.h
+ * 
+ * Download manager interface definitions
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+
  * Download item structure.
  * Represents a single file download with its state and metadata.
  */

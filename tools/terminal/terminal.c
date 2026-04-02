@@ -7,6 +7,18 @@
 #include "window_resize.h"
 
 /**
+ * terminal.c
+ * 
+ * Terminal emulator implementation using VTE.
+ * Provides command-line shell access with VTE widget. Supports
+ * color output, keyboard shortcuts, and copy/paste.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
+/**
  * Terminal application state structure.
  * Encapsulates all UI components and window state.
  */

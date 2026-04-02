@@ -1,6 +1,18 @@
 #include "orientation.h"
 
+
+/*
+ * orientation.c
+ * 
+ * Screen orientation management (landscape/portrait/rotated)
+Applies orientation transformations via xrandr.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
 /**
+
  * Creates the orientation selection widget.
  * Provides radio buttons for selecting screen orientation modes:
  * - Landscape (normal)

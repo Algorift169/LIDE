@@ -3,6 +3,17 @@
 
 #include <gtk/gtk.h>
 
+
+
+/*
+ * resolution.h
+ * 
+ * Screen resolution interface definitions
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
 /**
  * Creates the resolution selection widget.
  * Provides a combo box with common display resolutions.

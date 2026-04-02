@@ -2,6 +2,19 @@
 #include <X11/XKBlib.h>
 
 /**
+
+/*
+ * keybinds.c
+ * 
+ * Keyboard binding registration and event dispatch
+Registers Mod4+key combinations for WM control (terminal, focus cycle,
+window close, exit). Parses keysym atoms and executes bound commands.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
  * Grab keyboard shortcuts on the root window.
  *
  * Registers the following key bindings:

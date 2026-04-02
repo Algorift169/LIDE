@@ -6,7 +6,18 @@
 /* Tab-specific functionality and utilities */
 
 /**
- * Tab structure.
+
+/*
+ * tab.h
+ * 
+ * Browser tab interface definitions
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
+ /**Tab structure.
  * Represents a single browser tab with its WebView and UI elements.
  */
 typedef struct {

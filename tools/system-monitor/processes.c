@@ -1,5 +1,18 @@
 #include "monitor.h"
 #include <sys/stat.h>  
+#include <glib.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <stdlib.h>
+
+/**
+ * processes.c
+ *
+ * Process management utilities for the system monitor.
+ * Provides functions to read process information from /proc.
+ */
 
 /**
  * Helper: reads the /proc/[pid]/stat file for a given process.
@@ -8,21 +21,21 @@
  * @param buf  Output buffer for the stat line.
  * @param size Size of the output buffer.
  * @return     0 on success, -1 on failure.
- *
  * @sideeffect Opens and reads the process stat file.
  */
-static int read_proc_stat(pid_t pid, char *buf, size_t size) 
-
-{
+int read_proc_stat(pid_t pid, char *buf, size_t size) {
     char path[256];
     snprintf(path, sizeof(path), "/proc/%d/stat", pid);
-    FILE *fp = fopen(path, "r");
-    if (!fp) return -1;
-    if (!fgets(buf, size, fp)) {
-        fclose(fp);
+
+    FILE *file = fopen(path, "r");
+    if (!file) return -1;
+
+    if (!fgets(buf, size, file)) {
+        fclose(file);
         return -1;
     }
-    fclose(fp);
+
+    fclose(file);
     return 0;
 }
 
@@ -102,16 +115,18 @@ static int is_directory(const char *path) {
  * @return Total memory in bytes, or 0 on failure.
  */
 static guint64 get_total_memory(void) {
-    static guint64 total = 0;
-    if (total != 0) return total;
-    FILE *fp = fopen("/proc/meminfo", "r");
-    if (!fp) return 0;
     char line[256];
-    while (fgets(line, sizeof(line), fp)) {
-        if (sscanf(line, "MemTotal: %llu kB", &total) == 1) break;
+    unsigned long total = 0;
+
+    FILE *file = fopen("/proc/meminfo", "r");
+    if (!file) return 0;
+
+    while (fgets(line, sizeof(line), file)) {
+        if (sscanf(line, "MemTotal: %lu kB", &total) == 1) break;
     }
-    fclose(fp);
-    return total;
+
+    fclose(file);
+    return (guint64)total;
 }
 
 /**

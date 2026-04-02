@@ -1,3 +1,10 @@
+/*
+ * panel.h
+ * 
+ * System panel/taskbar interface. Displays clock, battery status, network
+ * connectivity, and provides quick access to system settings.
+ */
+
 #ifndef LIDE_PANEL_H
 #define LIDE_PANEL_H
 

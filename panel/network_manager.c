@@ -11,6 +11,13 @@
 #include <linux/wireless.h>
 #include <ifaddrs.h>
 
+/*
+ * network_manager.c
+ * 
+ * Network connection manager via NetworkManager/nmcli. Handles WiFi scanning,
+ * connection establishment, and status polling using NetworkManager D-Bus interface.
+ */
+
 /**
  * Scans for available WiFi networks using iwlist.
  * Attempts multiple common interface names (wlan0, wlp2s0, wlp3s0).

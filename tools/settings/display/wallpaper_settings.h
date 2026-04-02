@@ -3,7 +3,18 @@
 
 #include <gtk/gtk.h>
 
+
+/*
+ * wallpaper_settings.h
+ * 
+ * Wallpaper settings interface definitions
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
 /**
+
  * Creates the wallpaper selection widget.
  * Scans ./images/wallpapers/ directory for wal*.png files and provides
  * a combo box to select and apply wallpapers.

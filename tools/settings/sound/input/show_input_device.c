@@ -3,6 +3,18 @@
 #include <pulse/glib-mainloop.h>
 #include <gtk/gtk.h>
 
+
+/*
+ * show_input_device.c
+ * 
+ * Audio input device list and selection
+Enumerates available input devices and selects default input.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static GtkWidget *device_combo = NULL;
 static pa_context *context = NULL;
 

@@ -5,6 +5,18 @@
 
 #define BOOKMARKS_FILE "bookmarks.txt"
 
+/**
+ * bookmarks.c
+ * 
+ * Bookmark storage and UI implementation.
+ * Manages bookmarked sites with persistent storage. Provides bookmark
+ * menu and bookmark management UI.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static GList *bookmarks = NULL;
 
 /**

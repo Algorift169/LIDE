@@ -1,3 +1,10 @@
+/*
+ * internet_settings.h
+ * 
+ * Internet settings interface. Provides DHCP and static IP configuration
+ * controls for network interfaces via NetworkManager integration.
+ */
+
 #ifndef INTERNET_SETTINGS_H
 #define INTERNET_SETTINGS_H
 

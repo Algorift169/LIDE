@@ -4,6 +4,19 @@
 #include <sys/wait.h>
 #include <signal.h>
 
+
+/*
+ * session.c
+ * 
+ * X11 session management and environment initialization
+Loads user preferences, initializes X11 server connection, manages
+window manager process lifecycle, and handles graceful shutdown.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static pid_t wm_pid = 0;    /* Process ID of the window manager process */
 static pid_t panel_pid = 0; /* Process ID of the panel process */
 

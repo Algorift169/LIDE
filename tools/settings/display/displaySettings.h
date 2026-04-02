@@ -3,6 +3,17 @@
 
 #include <gtk/gtk.h>
 
+
+
+/*
+ * displaySettings.h
+ * 
+ * Display settings interface definitions
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
 /**
  * Creates the display settings tab widget.
  * Provides a composite UI containing orientation, refresh rate, and resolution controls.

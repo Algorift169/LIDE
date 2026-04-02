@@ -3,7 +3,18 @@
 
 #include <gtk/gtk.h>
 
+/*
+ * output.h
+ * 
+ * Audio output interface definitions
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 /**
+
  * Creates the output volume control widget.
  * Displays a scale for master volume and a balance control.
  *

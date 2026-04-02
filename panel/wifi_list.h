@@ -1,3 +1,10 @@
+/*
+ * wifi_list.h
+ * 
+ * WiFi network list interface. Displays available wireless networks
+ * with signal strength and security information.
+ */
+
 #ifndef WIFI_LIST_H
 #define WIFI_LIST_H
 

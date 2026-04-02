@@ -7,6 +7,19 @@
 #include <dirent.h>
 
 /**
+
+/*
+ * launcher.h
+ * 
+ * Application launcher interface and type definitions
+Defines AppEntry structure for application registry. Declares callbacks
+for search filtering, application execution, and list sorting.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
  * Application entry structure.
  * Stores the display name and executable command for each launcher item.
  */

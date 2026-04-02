@@ -9,6 +9,19 @@
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
+
+/*
+ * calculator.c
+ * 
+ * GTK-based scientific calculator implementation
+Provides basic arithmetic, trigonometric, logarithmic, and bitwise
+operations. Supports operator precedence and expression evaluation.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 #endif
 
 #ifndef M_E

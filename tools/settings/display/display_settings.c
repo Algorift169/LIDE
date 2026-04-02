@@ -4,7 +4,19 @@
 #include "resolution.h"
 #include "wallpaper_settings.h"
 
+
+/*
+ * display_settings.c
+ * 
+ * Display configuration UI (resolution, refresh rate, orientation)
+Provides interface for monitor configuration via xrandr.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
 /**
+
  * Creates the display settings tab widget.
  * Provides controls for orientation, refresh rate, and resolution settings.
  *

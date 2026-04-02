@@ -12,6 +12,19 @@
 #include "window_resize.h"
 
 /* Text buffer */
+
+/*
+ * editor.c
+ * 
+ * Text editor main window and event loop
+Initializes editor UI, connects signal handlers, and manages
+file dialog interactions.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static GtkTextBuffer *buffer = NULL;
 static char *current_filename = NULL;
 static char *current_folder = NULL;

@@ -9,6 +9,19 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 /* Forward declaration of browser function */
+
+/*
+ * fm.c
+ * 
+ * File manager implementation with directory browsing
+Provides file listing, thumbnail generation, sorting operations,
+and directory navigation.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 void browser_open_file(FileManager *fm, const gchar *path);
 
 /* Clipboard for cut/copy */

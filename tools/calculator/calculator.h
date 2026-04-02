@@ -8,6 +8,19 @@
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
+
+/*
+ * calculator.h
+ * 
+ * Calculator widget interface definitions
+Defines calculator operation modes (basic, scientific, programming),
+display state, and button layout structure.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 #endif
 
 #ifndef M_E

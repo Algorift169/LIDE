@@ -5,6 +5,18 @@
 #include <string.h>
 #include <glib.h>
 
+
+
+/*
+ * refresh_rate.c
+ * 
+ * Display refresh rate management via xrandr
+Queries available refresh rates and applies user selections.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
 /**
  * Structure to hold refresh rate data
  */

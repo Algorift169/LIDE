@@ -3,6 +3,18 @@
 #include <pulse/glib-mainloop.h>
 #include <gtk/gtk.h>
 
+
+/*
+ * show_output_device.c
+ * 
+ * Audio output device list and selection
+Enumerates playback devices (speakers, HDMI, USB). Sets default output.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static GtkWidget *device_combo = NULL;
 static pa_context *context = NULL;
 

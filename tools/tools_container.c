@@ -9,6 +9,19 @@
 #include "auto.h"
 
 /* Forward declaration for auto.c */
+
+/*
+ * tools_container.c
+ * 
+ * Tools dock/launcher container UI
+Provides persistent dock for quick access to application tools. Implements
+drag-and-drop icon management and custom launcher UI.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 void set_tools_window(GtkWidget *window);
 
 // Global display connection for cleanup

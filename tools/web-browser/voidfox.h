@@ -17,6 +17,18 @@
 #define RESIZE_BOTTOM_RIGHT 10
 
 /**
+ * voidfox.h
+ * 
+ * Web browser core definitions and BrowserWindow struct.
+ * Defines browser state including WebKitWebView, tab list, and
+ * window management attributes.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
+/**
  * BrowserWindow structure.
  * Encapsulates all UI components and state for the main browser window.
  */

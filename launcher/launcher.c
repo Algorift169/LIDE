@@ -3,6 +3,18 @@
 #include <string.h>
 
 /**
+ * launcher.c
+ * 
+ * GTK-based application launcher UI and event handlers.
+ * Implements searchable application list using GtkListBox. Handles
+ * text search filtering, row activation, and subprocess execution.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
+/**
  * Callback function triggered when a list box row is activated.
  * Executes the associated command using system().
  *
@@ -14,6 +26,7 @@
  */
 static void launch_app(GtkButton *button, gpointer data) 
 {
+    (void)button;
     system((char*)data);
 }
 
@@ -28,6 +41,7 @@ static void launch_app(GtkButton *button, gpointer data)
  */
 static void activate(GtkApplication *app, gpointer user_data) 
 {
+    (void)user_data;
     GtkWidget *window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(window), "BlackLine Launcher");
     gtk_window_set_default_size(GTK_WINDOW(window), 400, 300);
@@ -45,7 +59,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     GtkWidget *listbox = gtk_list_box_new();
     gtk_container_add(GTK_CONTAINER(scrolled), listbox);
     
-    //  apps
+    // Apps list: display name, command
     const char *apps[] = {
         "Terminal", "xterm",
         "File Manager", "nautilus",
@@ -57,7 +71,6 @@ static void activate(GtkApplication *app, gpointer user_data)
     /* Populate list box with application entries.
      * Store the executable command string as row user data for launch_app callback. */
     for (int i = 0; apps[i]; i += 2) 
-    
     {
         GtkWidget *row = gtk_list_box_row_new();
         GtkWidget *label = gtk_label_new(apps[i]);

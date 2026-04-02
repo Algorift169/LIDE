@@ -4,6 +4,19 @@
 #include <string.h>
 
 /**
+
+/*
+ * wallpaper.c
+ * 
+ * Desktop wallpaper management and rendering
+Loads and caches wallpaper images, applies transformations (scale/fit),
+and updates desktop background using X11 pixmap operations.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
  * Main entry point for the wallpaper setter utility.
  *
  * Attempts to set a wallpaper image using feh. If the image file is not

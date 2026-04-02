@@ -14,6 +14,20 @@
 #include <sys/select.h>
 #include <sys/time.h>
 
+
+/*
+ * wm.c
+ * 
+ * Window manager implementation
+Core X11 event loop, client window management (add/remove), focus handling,
+wallpaper loading via Imlib2, desktop icon management, and context menu
+rendering. Implements EWMH-compliant maximize/unmaximize semantics.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 // Atoms for window states
 static Atom wm_state;
 static Atom wm_change_state;

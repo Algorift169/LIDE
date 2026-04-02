@@ -1,6 +1,18 @@
 #include "sound.h"
 #include <gtk/gtk.h>
 
+
+/*
+ * alern_sounds.c
+ * 
+ * Alert sound library and playback system
+Manages system notification sounds, error beeps, and warning tones.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 GtkWidget *alert_sounds_widget_new(void) {
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     gtk_container_set_border_width(GTK_CONTAINER(vbox), 10);

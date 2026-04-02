@@ -5,6 +5,19 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+
+/*
+ * viewMode.c
+ * 
+ * Desktop view mode switching and management
+Toggles between icon view, list view, and detail view for desktop objects.
+Persists user preferences.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static ViewMode current_mode = VIEW_MODE_LIST;
 static char *config_path = NULL;
 static int is_loaded = 0;

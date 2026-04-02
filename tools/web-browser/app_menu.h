@@ -5,6 +5,16 @@
 #include "voidfox.h"
 
 /**
+ * app_menu.h
+ * 
+ * Application menu interface definitions.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
+/**
  * Creates the application menu with all menu items.
  * Provides access to browser features including:
  * - File operations (new window, private window)

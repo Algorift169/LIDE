@@ -1,3 +1,10 @@
+/*
+ * wifi_connect.h
+ * 
+ * WiFi connection interface. Handles network credential input and
+ * connection establishment via NetworkManager.
+ */
+
 #ifndef WIFI_CONNECT_H
 #define WIFI_CONNECT_H
 

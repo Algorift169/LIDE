@@ -8,6 +8,19 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
+
+
+/*
+ * image-viewer.c
+ * 
+ * Image viewer implementation using GdkPixbuf/Imlib2
+Provides image display with scaling, rotation, and slideshow functionality.
+Supports JPEG, PNG, GIF, and other common formats.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
 /**
  * Dialog mode enumeration.
  * Determines whether the file dialog is used for opening or saving.

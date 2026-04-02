@@ -2,6 +2,18 @@
 #include <gtk/gtk.h>
 
 /**
+ * window_resize.c
+ * 
+ * Window resize event handling and edge detection.
+ * Implements mouse-driven window resizing from edges/corners. Detects
+ * resize regions via cursor position analysis.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
+/**
  * Detect which resize edge or corner is near the cursor using absolute screen coordinates.
  *
  * @param window        GTK window to query for position and size.

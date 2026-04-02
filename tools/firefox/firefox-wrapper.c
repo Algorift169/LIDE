@@ -8,6 +8,19 @@
 #include <errno.h>
 
 /* Dragging variables */
+
+/*
+ * firefox-wrapper.c
+ * 
+ * Firefox wrapper/launcher utility
+Spawns Firefox subprocess with argument passing. Handles IPC between
+LIDE and Firefox for integration.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static int is_dragging = 0;
 static int drag_start_x, drag_start_y;
 static pid_t firefox_pid = 0;

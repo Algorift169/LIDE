@@ -1,5 +1,12 @@
 #include "monitor.h"
 
+/*
+ * memory.c
+ * 
+ * Memory usage monitoring and display. Parses /proc/meminfo for RAM
+ * statistics and updates memory graph with utilization data.
+ */
+
 /**
  * Updates memory usage statistics from /proc/meminfo.
  * Reads total, free, available, and cached memory values.

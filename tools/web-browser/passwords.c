@@ -5,6 +5,19 @@
 
 #define PASSWORDS_FILE "passwords.txt"
 
+
+/*
+ * passwords.c
+ * 
+ * User credential storage and autofill engine
+Stores website credentials securely. Implements autofill on login forms
+and password strength validation.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static GList *passwords = NULL;
 
 /* Forward declarations */

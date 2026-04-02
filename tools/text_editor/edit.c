@@ -6,6 +6,19 @@
 #include <ctype.h>
 
 /* Global edit history */
+
+/*
+ * edit.c
+ * 
+ * Core text editing logic and buffer management
+Manages text buffer state, clipboard integration, undo/redo stack,
+and document modification tracking.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static EditHistory *history = NULL;
 static GtkTextBuffer *global_buffer = NULL;
 static FindReplaceData *find_replace_data = NULL;

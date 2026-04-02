@@ -1,6 +1,18 @@
 #include "voidfox.h"
 
 /**
+ * voidfox.c
+ * 
+ * Web browser main implementation using WebKit2.
+ * Provides multi-tab browsing, history, bookmarks, downloads,
+ * and security features (passwords, certificates).
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
+/**
  * Application activation callback.
  * Wrapper that forwards to voidfox_activate function.
  *

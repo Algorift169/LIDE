@@ -4,6 +4,18 @@
 #include <string.h>
 
 /* Dragging variables */
+
+/*
+ * download-stats.c
+ * 
+ * Download statistics visualization and analytics
+Displays download activity graphs, throughput metrics, and file statistics.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static int is_dragging = 0;
 static int drag_start_x, drag_start_y;
 

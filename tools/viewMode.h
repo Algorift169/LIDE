@@ -4,6 +4,17 @@
 #include <gtk/gtk.h>
 
 /**
+
+/*
+ * viewMode.h
+ * 
+ * View mode interface definitions
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
  * View mode enumeration for tool display layout.
  *
  * LIST mode displays tools as a vertical list of buttons.

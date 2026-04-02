@@ -5,7 +5,14 @@
 #include <time.h>
 #include <glib.h>
 
-/* Network statistics structure.
+/*
+ * network_stats.c
+ * 
+ * Network statistics collection and display. Measures bandwidth utilization
+ * by parsing /proc/net/dev. Periodically updates byte counters for active interfaces.
+ */
+
+/* Network interface statistics structure.
  * Holds byte counts and calculated speeds for all active interfaces. */
 typedef struct {
     unsigned long long rx_bytes;     /* Total received bytes across all active interfaces */

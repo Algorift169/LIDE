@@ -4,7 +4,16 @@
 #include <gtk/gtk.h>
 #include "voidfox.h"
 
-/**
+/*
+ * passwords.h
+ * 
+ * Password manager interface definitions
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+/** 
  * Password entry structure.
  * Represents a saved credential for a website.
  */

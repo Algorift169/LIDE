@@ -2,6 +2,19 @@
 #include "window_resize.h"
 
 /* Data history for graphs */
+
+/*
+ * monitor.c
+ * 
+ * System resource monitor implementation
+Provides CPU utilization, memory usage, and process list UI. Polls
+/proc filesystem for system metrics.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 double cpu_history[HISTORY_SIZE] = {0};
 int cpu_history_index = 0;
 double mem_history[HISTORY_SIZE] = {0};

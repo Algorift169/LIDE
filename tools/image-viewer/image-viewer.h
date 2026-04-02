@@ -4,6 +4,16 @@
 #include <gtk/gtk.h>
 
 /**
+ * image-viewer.h
+ * 
+ * Image viewer interface and image display definitions.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
+/**
  * Launches the BlackLine Image Viewer as a separate process.
  * Spawns a new instance of the image viewer application using g_spawn_async.
  *

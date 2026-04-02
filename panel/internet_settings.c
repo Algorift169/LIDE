@@ -8,6 +8,19 @@
 #define CONFIG_DIR "/.config/blackline"
 #define NETWORK_CONFIG_FILE "/network_settings.conf"
 
+
+/*
+ * internet_settings.c
+ * 
+ * Internet/network settings UI component
+Provides controls for WiFi enable/disable, brightness adjustment,
+and network configuration interface.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static GtkCssProvider *internet_settings_provider = NULL;
 static char *config_path = NULL;
 

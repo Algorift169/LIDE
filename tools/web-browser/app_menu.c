@@ -10,7 +10,21 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+
 /* External references (declared in voidfox.h) */
+
+/*
+ * app_menu.c
+ * 
+ * Application menu construction and event dispatch
+Builds hierarchical menu structure for File/Edit/View/Help. Routes
+menu item selections to corresponding handlers.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 extern void show_bookmarks_tab(BrowserWindow *browser);
 extern void show_history_tab(BrowserWindow *browser);
 extern void show_downloads_tab(BrowserWindow *browser);

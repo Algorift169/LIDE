@@ -4,6 +4,13 @@
 #include <string.h>
 #include <unistd.h>
 
+/*
+ * download.c
+ * 
+ * Download statistics tracking for network transfers. Monitors active downloads,
+ * measures data transfer rates, and maintains history of completed downloads.
+ */
+
 /* Structure holding network interface receive statistics.
  * Stores current and previous byte counts to calculate download speed. */
 typedef struct {

@@ -4,6 +4,16 @@
 #include <gtk/gtk.h>
 
 /**
+ * edit.h
+ * 
+ * Document editing interface definitions.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
+/**
  * Edit operation types enumeration.
  * Identifies the type of edit operation for potential future extensions.
  */

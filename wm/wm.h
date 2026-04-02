@@ -20,6 +20,20 @@
 #define TITLEBAR_HEIGHT 25
 
 /**
+
+/*
+ * wm.h
+ * 
+ * Window manager core definitions and X11 client management interface
+Defines linked list structures for managed windows, titlebar frames, and 
+focus/border state. Declares public interface for keyboard event handling,
+window lifecycle operations, and border color management.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
  * Linked list node representing a managed client window.
  *
  * @window      X11 window ID of the client window.

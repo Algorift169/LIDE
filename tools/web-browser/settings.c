@@ -12,6 +12,19 @@
 #define SETTINGS_FILE "voidfox_settings.txt"
 #define CONFIG_DIR ".config/lide/voidfox"
 
+
+/*
+ * settings.c
+ * 
+ * System settings application main window and tab management
+Provides tabbed interface for display, sound, and system settings.
+Routes configuration changes to respective handlers.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 Settings settings;
 
 /* Default values */

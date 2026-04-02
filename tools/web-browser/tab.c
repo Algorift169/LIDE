@@ -3,6 +3,19 @@
 /* Tab utility functions */
 
 /**
+
+/*
+ * tab.c
+ * 
+ * Browser tab management and switching logic
+Manages tab list, implements tab creation/deletion/switching,
+and maintains per-tab state (URL, history, title).
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ /** 
+
  * Gets the currently active browser tab.
  *
  * @param browser BrowserWindow instance.

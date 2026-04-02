@@ -10,6 +10,17 @@
 #include <sys/stat.h>
 
 /**
+
+/*
+ * firefox.h
+ * 
+ * Firefox integration interface definitions
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
  * Firefox browser window structure.
  * Encapsulates all UI components and state for a browser tab/window.
  */

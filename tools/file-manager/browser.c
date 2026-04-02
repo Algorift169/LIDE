@@ -10,6 +10,18 @@
 /* Helper functions for formatting */
 
 /**
+ * browser.c
+ * 
+ * Browser rendering and navigation engine.
+ * Core WebKit2 integration for page loading, DOM access, and
+ * JavaScript execution.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
+/**
  * Formats file size to human-readable string.
  *
  * @param size Size in bytes.
@@ -17,7 +29,6 @@
  *         Caller must free with g_free().
  */
 static gchar *format_size(goffset size) 
-
 {
     if (size < 1024) return g_strdup_printf("%ld B", (long)size);
     if (size < 1024 * 1024) return g_strdup_printf("%.1f KB", size / 1024.0);
@@ -33,7 +44,6 @@ static gchar *format_size(goffset size)
  *         Caller must free with g_free().
  */
 static gchar *format_time(GDateTime *dt) 
-
 {
     return g_date_time_format(dt, "%Y-%m-%d %H:%M");
 }
@@ -46,7 +56,6 @@ static gchar *format_time(GDateTime *dt)
  * @return TRUE if file has image extension, FALSE otherwise.
  */
 static gboolean is_image_file(const gchar *filename) 
-
 {
     const gchar *ext = strrchr(filename, '.');
     if (!ext) return FALSE;
@@ -81,7 +90,6 @@ static gboolean is_image_file(const gchar *filename)
  * @return TRUE if file has text extension, FALSE otherwise.
  */
 static gboolean is_text_file(const gchar *filename) 
-
 {
     const gchar *ext = strrchr(filename, '.');
     if (!ext) return FALSE;
@@ -131,7 +139,6 @@ static gboolean is_text_file(const gchar *filename)
  * @sideeffect Launches external process in background.
  */
 static void open_file_with_app(GtkWindow *parent, const gchar *path) 
-
 {
     (void)parent; /* Unused parameter */
     

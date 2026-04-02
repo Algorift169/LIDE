@@ -4,6 +4,18 @@
 #include <gtk/gtk.h>
 
 /**
+ * auto.h
+ * 
+ * Automatic window management and positioning interface.
+ * Declares callbacks for dynamic window snapping, auto-arrangement,
+ * and layout optimization algorithms.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
+/**
  * Structure representing a tool item in the tools container.
  *
  * Contains all necessary information to display and launch an application.

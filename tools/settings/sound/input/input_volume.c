@@ -3,6 +3,18 @@
 #include <pulse/glib-mainloop.h>
 #include <gtk/gtk.h>
 
+
+/*
+ * input_volume.c
+ * 
+ * Input audio volume level control
+Adjusts mic input gain via ALSA/PulseAudio control API.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static GtkWidget *input_scale = NULL;
 static pa_context *context = NULL;
 

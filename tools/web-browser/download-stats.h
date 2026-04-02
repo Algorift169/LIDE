@@ -5,6 +5,16 @@
 #include "voidfox.h"
 
 /**
+
+/*
+ * download-stats.h
+ * 
+ * Download statistics interface definitions
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+
  * Displays the download manager window.
  * Shows all active and completed downloads with real-time progress bars.
  *

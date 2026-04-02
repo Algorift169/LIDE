@@ -6,6 +6,17 @@
 #include <time.h>
 
 /**
+
+/*
+ * history.h
+ * 
+ * Browsing history interface definitions
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+/** 
  * History entry structure.
  * Represents a single visited page in browsing history.
  */

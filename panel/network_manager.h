@@ -8,6 +8,18 @@
 /* Define IFNAMSIZ if not defined */
 #ifndef IFNAMSIZ
 #define IFNAMSIZ 16
+
+/*
+ * network_manager.h
+ * 
+ * Network manager interface definitions
+Declares callbacks for WiFi network discovery and connection operations.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 #endif
 
 #include <stdio.h>

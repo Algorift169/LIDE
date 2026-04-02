@@ -3,6 +3,17 @@
 
 #include <gtk/gtk.h>
 
+
+
+/*
+ * orientation.h
+ * 
+ * Screen orientation interface definitions
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
 /**
  * Creates the orientation selection widget.
  * Provides radio buttons for selecting screen orientation modes:

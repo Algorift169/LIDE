@@ -5,6 +5,19 @@
 #include <string.h>
 #include <glib.h>
 
+
+/*
+ * background.c
+ * 
+ * Background daemon process for system services
+Forks background tasks, establishes signal handlers for clean termination,
+and manages auxiliary system services.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 int running = 1;
 
 /**

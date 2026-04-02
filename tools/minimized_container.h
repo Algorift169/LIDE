@@ -4,6 +4,13 @@
 #include <gtk/gtk.h>
 #include <X11/Xlib.h>
 
+/*
+ * minimized_container.h
+ * 
+ * Minimized container interface definitions. Manages the taskbar for
+ * minimized windows, allowing quick access and restoration of hidden windows.
+ */
+
 /**
  * Initialize the minimized container system.
  *

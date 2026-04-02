@@ -4,14 +4,25 @@
 #include <string.h>
 
 /**
+ * image-viewer-launcher.c
+ * 
+ * Image viewer application launcher and file association.
+ * Handles command-line image file arguments and desktop integration.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
+/**
  * Launches the BlackLine image viewer as a separate process.
  * Uses g_spawn_async to safely pass filename arguments without shell interpretation.
  *
  * @param filename Path to the image file to open.
  *                 If NULL, function returns without launching.
  *
- * @sideeffect Forks a child process and executes blackline-image-viewer.
- * @sideeffect Any spawn errors are silently ignored (error freed internally).
+ * @note Forks a child process and executes blackline-image-viewer.
+ * @note Any spawn errors are silently ignored (error freed internally).
  */
 void launch_image_viewer(const char *filename)
 {

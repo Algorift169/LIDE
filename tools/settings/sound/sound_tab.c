@@ -6,6 +6,18 @@
 #include <string.h>
 #include <unistd.h>
 
+
+/*
+ * sound_tab.c
+ * 
+ * Sound settings UI tab implementation
+Provides controls for input/output device selection and volume adjustment.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static GtkWidget *volume_scale = NULL;
 static GtkWidget *mute_check = NULL;
 static GtkWidget *volume_label = NULL;

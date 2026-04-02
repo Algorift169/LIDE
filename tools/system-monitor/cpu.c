@@ -1,5 +1,12 @@
 #include "monitor.h"
 
+/*
+ * cpu.c
+ * 
+ * CPU usage monitoring and display. Parses /proc/stat for per-core CPU
+ * utilization and displays usage history graph.
+ */
+
 /**
  * Reads CPU times from /proc/stat.
  * Parses the first line containing aggregated CPU statistics.
@@ -19,16 +26,16 @@ static void read_cpu_times(guint64 *user, guint64 *nice, guint64 *system, guint6
                            guint64 *iowait, guint64 *irq, guint64 *softirq, guint64 *steal)
                            
                            {
-    FILE *fp = fopen("/proc/stat", "r");
-    if (!fp) return;
+    char buf[1024];
+    FILE *file = fopen("/proc/stat", "r");
+    if (!file) return;
 
-    char buf[256];
-    if (fgets(buf, sizeof(buf), fp)) 
-    {
-        sscanf(buf, "cpu %llu %llu %llu %llu %llu %llu %llu %llu",
+    if (fgets(buf, sizeof(buf), file)) {
+        sscanf(buf, "cpu %lu %lu %lu %lu %lu %lu %lu %lu",
                user, nice, system, idle, iowait, irq, softirq, steal);
     }
-    fclose(fp);
+
+    fclose(file);
 }
 
 /**

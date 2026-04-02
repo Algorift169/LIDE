@@ -4,6 +4,16 @@
 #include <glib.h>
 
 /**
+ * recycle_bin.h
+ * 
+ * Trash/recycle bin interface definitions.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
+/**
  * Checks if the given path is the user's trash directory.
  *
  * @param path The path to check.

@@ -4,7 +4,22 @@
 #include <stdio.h>
 
 /**
+ * recycle_bin.c
+ * 
+ * Recycle bin implementation for file deletion.
+ * Maintains trash directory, tracks deleted files, and provides restore
+ * and permanent deletion operations.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
+/**
  * Checks if the given path is the user's trash directory.
+ *
+ * @param path The path to check.
+ * @return TRUE if path matches the trash directory, FALSE otherwise.
  */
 gboolean is_trash_directory(const gchar *path)
 {
@@ -22,6 +37,8 @@ gboolean is_trash_directory(const gchar *path)
 /**
  * Helper to recursively delete a directory and its contents.
  * Used for emptying trash.
+ *
+ * @param dir_path The directory path to delete contents from.
  */
 static void delete_directory_contents(const gchar *dir_path)
 {
@@ -42,6 +59,8 @@ static void delete_directory_contents(const gchar *dir_path)
 
 /**
  * Permanently empties the trash.
+ *
+ * @return TRUE if the trash was successfully emptied, FALSE otherwise.
  */
 gboolean empty_trash(void)
 {

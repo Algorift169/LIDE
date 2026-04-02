@@ -8,6 +8,16 @@
 #include <stdlib.h>
 
 /**
+ * text_editor.h
+ *
+ * Text editor interface and plugin system definitions.
+ * Declares text editing callbacks, syntax highlighting hooks,
+ * and file I/O operations.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for a system architecture overview.
+ *
  * Editor main application structure.
  * Encapsulates all UI components and state for the text editor.
  */

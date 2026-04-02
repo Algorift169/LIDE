@@ -23,6 +23,19 @@
 #include "../tools/system-monitor/monitor.h"
 
 /* Define the global variables expected by the system monitor code */
+
+/*
+ * panel.c
+ * 
+ * System panel implementation with status indicators
+GTK-based taskbar with clock, battery meter, WiFi indicator, and network
+stats display. Polls sysfs for power state and nmcli for network status.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 double cpu_history[HISTORY_SIZE] = {0};
 int cpu_history_index = 0;
 double mem_history[HISTORY_SIZE] = {0};

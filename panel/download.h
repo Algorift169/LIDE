@@ -3,6 +3,17 @@
 
 #include <glib.h>
 
+
+/*
+ * download.h
+ * 
+ * Download tracking interface definitions
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 #ifdef __cplusplus
 extern "C" {
 #endif

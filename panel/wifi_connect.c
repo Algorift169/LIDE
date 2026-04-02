@@ -5,6 +5,19 @@
 #include <unistd.h>
 
 /* Forward declaration for callback */
+
+/*
+ * wifi_connect.c
+ * 
+ * WiFi connection establishment and credential handling
+Accepts SSID and passphrase, initiates connection via nmcli. Handles
+WPA2/WPA3 authentication and connection state monitoring.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static void on_show_password_toggled(GtkToggleButton *btn, gpointer entry);
 static GtkCssProvider *wifi_connect_provider = NULL;
 

@@ -1,3 +1,10 @@
+/*
+ * connection_details.h
+ * 
+ * Connection details display interface. Shows network configuration
+ * information including hostname, IP address, gateway, and DNS servers.
+ */
+
 #ifndef CONNECTION_DETAILS_H
 #define CONNECTION_DETAILS_H
 

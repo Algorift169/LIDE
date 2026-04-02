@@ -1,6 +1,19 @@
 #include "extensions.h"
 
 /* Define all available themes */
+
+/*
+ * extensions.c
+ * 
+ * Extension loading and management system
+Loads WebKit userscripts/userstyles. Manages extension list
+and provides extension configuration UI.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static const BrowserTheme themes[] = {
     /* 1. VoidFox Dark (Default) - Dark terminal-like theme */
     {

@@ -8,7 +8,19 @@
 #include <dirent.h>
 #include <unistd.h>
 
+
+/*
+ * wallpaper_settings.c
+ * 
+ * Wallpaper selection and application UI
+Provides wallpaper browser, preview, and application to desktop.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
 /**
+
  * Structure to hold wallpaper data
  */
 typedef struct {

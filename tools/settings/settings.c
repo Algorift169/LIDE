@@ -9,6 +9,19 @@
 #include "display/displaySettings.h"
 #include "sound/sound.h"
 
+
+/*
+ * settings.c
+ * 
+ * System settings application main window and tab management
+Provides tabbed interface for display, sound, and system settings.
+Routes configuration changes to respective handlers.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 // static int is_dragging = 0;
 // static int drag_start_x, drag_start_y;
 // static int window_start_x, window_start_y;

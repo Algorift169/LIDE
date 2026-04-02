@@ -11,6 +11,19 @@
 #include <unistd.h> // for readlink, access
 #include <stdlib.h> // for realpath
 
+
+/*
+ * browser.c
+ * 
+ * Browser rendering and navigation engine
+Core WebKit2 integration for page loading, DOM access, and
+JavaScript execution.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static void on_close_clicked(GtkButton *button, gpointer window);
 
 

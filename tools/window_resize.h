@@ -3,6 +3,17 @@
 
 #include <gtk/gtk.h>
 
+
+/*
+ * window_resize.h
+ * 
+ * Window resize interface definitions
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 // Resize edge detection constants
 #define RESIZE_BORDER 8  // pixels from edge to detect resize
 #define RESIZE_NONE 0

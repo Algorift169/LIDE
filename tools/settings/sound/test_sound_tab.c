@@ -10,6 +10,18 @@
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
+
+/*
+ * test_sound_tab.c
+ * 
+ * Sound testing UI and audio device diagnostic
+Plays test sounds to verify audio output configuration.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 #endif
 
 static GtkWidget *waveform_drawing_area = NULL;

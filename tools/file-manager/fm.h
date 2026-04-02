@@ -10,6 +10,18 @@
 #include <sys/statvfs.h>
 
 /**
+ * fm.h
+ * 
+ * File manager interface and type definitions.
+ * Declares file browser UI callbacks, file operation handlers, and
+ * directory navigation interface.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
+/**
  * File Manager main structure.
  * Encapsulates all UI components and state for the file manager.
  */

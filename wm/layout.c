@@ -1,6 +1,19 @@
 #include "wm.h"
 
 /**
+
+/*
+ * layout.c
+ * 
+ * Window layout and tiling algorithms
+Implements tiling layout modes with configurable split behavior and
+size constraints. Maintains geometry invariants across layout transitions.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
  * Create a synthetic titlebar window for a client window.
  *
  * @param client The client window ID (unused, kept for API consistency).

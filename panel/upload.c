@@ -4,6 +4,13 @@
 #include <string.h>
 #include <unistd.h>
 
+/*
+ * upload.c
+ * 
+ * Upload statistics tracking for network transfers. Mirrors download tracking
+ * for outbound transfers. Maintains upload history and throughput metrics.
+ */
+
 /* Structure holding network interface transmit statistics.
  * Stores current and previous byte counts to calculate upload speed. */
 typedef struct {

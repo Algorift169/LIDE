@@ -6,6 +6,19 @@
 #include <glib.h>
 
 /* Forward declaration for callback */
+
+/*
+ * wifi_list.c
+ * 
+ * WiFi network list UI with signal strength display
+Scans WiFi networks using nmcli scan and displays SSID/signal/security
+implementation in a GtkTreeView.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static void on_network_button_clicked(GtkButton *btn, gpointer data);
 static void on_wifi_toggle_clicked(GtkButton *btn, gpointer data);
 static void refresh_network_list(GtkWidget *dialog, GtkWidget *scroll, GtkWidget *parent_window);

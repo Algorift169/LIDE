@@ -3,6 +3,18 @@
 #include <pulse/glib-mainloop.h>
 #include <gtk/gtk.h>
 
+
+/*
+ * output_volume.c
+ * 
+ * Output audio volume level control
+Adjusts speaker/headphone output volume via PulseAudio.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static pa_glib_mainloop *mainloop = NULL;
 static pa_context *context = NULL;
 static GtkWidget *volume_scale = NULL;

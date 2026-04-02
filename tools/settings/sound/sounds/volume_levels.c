@@ -1,6 +1,18 @@
 #include "sound.h"
 #include <gtk/gtk.h>
 
+
+/*
+ * volume_levels.c
+ * 
+ * Volume level presets and standardized values
+Defines standard volume levels for consistent audio experience.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 GtkWidget *volume_levels_widget_new(void) {
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     gtk_container_set_border_width(GTK_CONTAINER(vbox), 10);

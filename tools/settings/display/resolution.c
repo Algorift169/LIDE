@@ -5,6 +5,19 @@
 #include <string.h>
 #include <glib.h>
 
+
+
+/*
+ * resolution.c
+ * 
+ * Screen resolution management via xrandr
+Reads available resolutions from xrandr. Applies user-selected
+resolution changes.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
 /**
  * Structure to hold resolution data
  */

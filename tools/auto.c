@@ -7,6 +7,19 @@
 #include <unistd.h>
 
 /* Global window reference for closing from child processes */
+
+/*
+ * auto.c
+ * 
+ * Automatic window arrangement and docking logic
+Implements window snap-to-edge, auto-tiling, and worksp ace management
+algorithms for efficient desktop usage.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static GtkWidget *tools_window = NULL;
 
 /**

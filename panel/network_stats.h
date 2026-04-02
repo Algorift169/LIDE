@@ -1,4 +1,10 @@
-/* tools/network_stats.h */
+/*
+ * network_stats.h
+ * 
+ * Network statistics interface and type definitions.
+ * Monitors network bandwidth on active interfaces via /proc/net/dev.
+ */
+
 #ifndef NETWORK_STATS_H
 #define NETWORK_STATS_H
 

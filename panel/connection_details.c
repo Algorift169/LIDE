@@ -3,6 +3,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+/*
+ * connection_details.c
+ * 
+ * Connection details display. Gathers network configuration data from
+ * system commands and presents in a modal dialog.
+ */
+
 /**
  * Displays a modal dialog showing network configuration information.
  * Retrieves hostname, IP address, gateway, and DNS server via shell commands.

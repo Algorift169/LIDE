@@ -6,6 +6,19 @@
 
 #define HISTORY_FILE "history.txt"
 
+
+/*
+ * history.c
+ * 
+ * Browsing history persistence and UI
+Records visited pages with timestamp. Provides history UI for
+recent browsing and history search.
+ *
+ * This module is part of the LIDE desktop environment system.
+ * See the main window manager (wm/) and session management (session/)
+ * for system architecture overview.
+ */
+
 static GList *history = NULL;
 static BrowserWindow *global_browser = NULL;
 
