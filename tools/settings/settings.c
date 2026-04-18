@@ -9,6 +9,7 @@
 #include "display/displaySettings.h"
 #include "sound/sound.h"
 #include "power/p_settings.h"
+#include "network/network.h"
 
 /*
  * settings.c
@@ -202,13 +203,7 @@ static GtkWidget *mouse_tab_new(void)
 static GtkWidget *network_tab_new(void)
 
 {
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-    gtk_container_set_border_width(GTK_CONTAINER(box), 20);
-    
-    GtkWidget *label = gtk_label_new("Network settings not implemented yet.");
-    gtk_box_pack_start(GTK_BOX(box), label, TRUE, TRUE, 0);
-    
-    return box;
+    return network_settings_tab_new();
 }
 
 static GtkWidget *power_tab_new(void)

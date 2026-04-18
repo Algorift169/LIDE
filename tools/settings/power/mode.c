@@ -74,9 +74,7 @@ PowerMode mode_get_current(void)
     return POWER_MODE_BALANCED;
 }
 
-int mode_set(PowerMode mode) 
-
-{
+int mode_set(PowerMode mode) {
     const char *profile_name = NULL;
     switch (mode) {
         case POWER_MODE_LOW: profile_name = "power-saver"; break;
@@ -85,9 +83,11 @@ int mode_set(PowerMode mode)
     }
     
     /* Try power-profiles-daemon */
-    char cmd[256];
-    snprintf(cmd, sizeof(cmd), "powerprofilesctl set %s 2>/dev/null", profile_name);
-    if (exec_command_status(cmd) == 0) return 1;
+    if (profile_name) {
+        char cmd[256];
+        snprintf(cmd, sizeof(cmd), "powerprofilesctl set %s 2>/dev/null", profile_name);
+        if (exec_command_status(cmd) == 0) return 1;
+    }
     
     /* Fallback: set scaling governor directly */
     const char *gov = NULL;
@@ -96,8 +96,12 @@ int mode_set(PowerMode mode)
         case POWER_MODE_BALANCED: gov = "ondemand"; break;
         case POWER_MODE_HIGH: gov = "performance"; break;
     }
-    snprintf(cmd, sizeof(cmd), "echo %s | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1", gov);
-    return (exec_command_status(cmd) == 0) ? 1 : 0;
+    if (gov) {
+        char cmd[256];
+        snprintf(cmd, sizeof(cmd), "echo %s | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1", gov);
+        return (exec_command_status(cmd) == 0) ? 1 : 0;
+    }
+    return 0;
 }
 
 /* GTK widget for mode selection */
