@@ -53,7 +53,7 @@ NETWORK_STATS_H = panel/network_stats.h
 IMAGE_VIEWER_SOURCES = tools/image-viewer/image-viewer.c
 IMAGE_VIEWER_TARGET = blackline-image-viewer
 
-# Settings tool sources with sound settings and wallpaper changer
+# Settings tool sources with sound settings, wallpaper changer, and power settings
 SETTINGS_SOURCES = tools/settings/settings.c \
                    tools/settings/display/display_settings.c \
                    tools/settings/display/orientation.c \
@@ -68,7 +68,10 @@ SETTINGS_SOURCES = tools/settings/settings.c \
                    tools/settings/sound/input/input_volume.c \
                    tools/settings/sound/input/show_input_device.c \
                    tools/settings/sound/sounds/volume_levels.c \
-                   tools/settings/sound/sounds/alern_sounds.c
+                   tools/settings/sound/sounds/alern_sounds.c \
+                   tools/settings/power/power_settings.c \
+                   tools/settings/power/batary.c \
+                   tools/settings/power/mode.c
 
 SETTINGS_HEADERS = tools/settings/display/displaySettings.h \
                    tools/settings/display/orientation.h \
@@ -79,7 +82,10 @@ SETTINGS_HEADERS = tools/settings/display/displaySettings.h \
                    tools/settings/sound/test_sound_tab.h \
                    tools/settings/sound/output/output.h \
                    tools/settings/sound/input/input.h \
-                   tools/settings/sound/sounds/sound.h
+                   tools/settings/sound/sounds/sound.h \
+                   tools/settings/power/p_settings.h \
+                   tools/settings/power/batary.h \
+                   tools/settings/power/mode.h
 
 SETTINGS_TARGET = blackline-settings
 
@@ -181,14 +187,15 @@ blackline-system-monitor: $(SYSMON_SOURCES) $(SYSMON_HEADERS)
 $(IMAGE_VIEWER_TARGET): $(IMAGE_VIEWER_SOURCES)
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $(IMAGE_VIEWER_SOURCES) $(GTK_LIBS)
 
-# Settings Tool 
+# Settings Tool with Display, Sound, and Power tabs
 $(SETTINGS_TARGET): $(SETTINGS_SOURCES) $(SETTINGS_HEADERS)
 	mkdir -p tools/settings/display
 	mkdir -p tools/settings/sound/output
 	mkdir -p tools/settings/sound/input
 	mkdir -p tools/settings/sound/sounds
+	mkdir -p tools/settings/power
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $(SETTINGS_SOURCES) $(GTK_LIBS) $(PULSE_LIBS) -lm -lasound
-	@echo "Built Settings tool with Display (Orientation, Refresh Rate, Resolution, Wallpaper) and Sound tabs"
+	@echo "Built Settings tool with Display, Sound, and Power tabs"
 
 # Terminal
 ifeq ($(HAVE_VTE),yes)
@@ -276,7 +283,7 @@ clean:
 	      tools/terminal/*.o launcher/*.o session/*.o tools/image-viewer/*.o \
 	      tools/settings/*.o tools/settings/display/*.o tools/settings/sound/*.o \
 	      tools/settings/sound/output/*.o tools/settings/sound/input/*.o \
-	      tools/settings/sound/sounds/*.o tools/file-manager/*.o
+	      tools/settings/sound/sounds/*.o tools/settings/power/*.o tools/file-manager/*.o
 	rm -f ~/.config/blackline/tools_view_mode.conf
 	@echo "Clean complete!"
 
@@ -285,7 +292,8 @@ distclean: clean
 	rm -f $(NETWORK_STATS_H)
 	rm -f panel/*.gch tools/*.gch tools/settings/*.gch tools/settings/display/*.gch \
 	      tools/settings/sound/*.gch tools/settings/sound/output/*.gch \
-	      tools/settings/sound/input/*.gch tools/settings/sound/sounds/*.gch
+	      tools/settings/sound/input/*.gch tools/settings/sound/sounds/*.gch \
+	      tools/settings/power/*.gch
 	@echo "Removed generated header files"
 
 # Install all binaries
