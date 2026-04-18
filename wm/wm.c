@@ -19,9 +19,8 @@
  * wm.c
  * 
  * Window manager implementation
-Core X11 event loop, client window management (add/remove), focus handling,
-wallpaper loading via Imlib2, desktop icon management, and context menu
-rendering. Implements EWMH-compliant maximize/unmaximize semantics.
+ * Core X11 event loop, client window management (add/remove), focus handling,
+ * wallpaper loading via Imlib2, desktop icon management.
  *
  * This module is part of the LIDE desktop environment system.
  * See the main window manager (wm/) and session management (session/)
@@ -93,21 +92,6 @@ typedef struct ClientWindow {
     struct ClientWindow *next;
 } ClientWindow;
 
-/**
- * Menu item structure for context menus.
- *
- * @label      Display text of the menu item.
- * @callback   Function to call when item is selected.
- * @data       User data passed to the callback.
- * @next       Pointer to next menu item.
- */
-typedef struct MenuItem {
-    char *label;
-    void (*callback)(Display *d, Window menu, void *data);
-    void *data;
-    struct MenuItem *next;
-} MenuItem;
-
 // Function prototypes
 static void add_window(Window id);
 static ClientWindow* find_window(Window id);
@@ -141,23 +125,7 @@ static int compare_icon_by_name(const void *a, const void *b);
 static int compare_icon_by_size(const void *a, const void *b);
 static int compare_icon_by_date(const void *a, const void *b);
 
-// Menu functions
-static void menu_new_folder(Display *d, Window menu, void *data);
-static void menu_paste(Display *d, Window menu, void *data);
-static void menu_open_terminal(Display *d, Window menu, void *data);
-static void menu_show_files(Display *d, Window menu, void *data);
-static void menu_arrange_name(Display *d, Window menu, void *data);
-static void menu_arrange_size(Display *d, Window menu, void *data);
-static void menu_arrange_date(Display *d, Window menu, void *data);
-static void menu_open(Display *d, Window menu, void *data);
-static void menu_cut(Display *d, Window menu, void *data);
-static void menu_copy(Display *d, Window menu, void *data);
-static void menu_delete(Display *d, Window menu, void *data);
-static void menu_properties(Display *d, Window menu, void *data);
-static Window create_menu_window(Display *d, int x, int y, MenuItem *items, int count);
-static void show_desktop_menu(Display *d, int x, int y);
-static void show_icon_menu(Display *d, int x, int y, DesktopIcon *icon);
-static void handle_menu_button(Display *d, XButtonEvent *ev);
+// Desktop button handling
 static void handle_desktop_button(Display *d, XButtonEvent *ev);
 
 static ClientWindow *window_list = NULL;
@@ -170,7 +138,6 @@ static Pixmap wallpaper_pixmap = None;
 static GC wallpaper_gc = None;
 // Track the current wallpaper path used by the WM
 static char wm_current_wallpaper[1024] = "";
-static Window active_menu = None;
 static DesktopIcon *selected_icon = NULL;
 static Window focused_window = None;
 
@@ -1010,281 +977,42 @@ static void desktop_arrange_icons(Display *d, const char *mode)
     draw_desktop(d);
 }
 
-// ==================== MENU FUNCTIONS ====================
-
-// Menu callback functions
-static void menu_new_folder(Display *d, Window menu, void *data)
-
-{
-    (void)menu;
-    (void)data;
-    desktop_new_folder(d);
-}
-
-static void menu_paste(Display *d, Window menu, void *data)
-
-{
-    (void)menu;
-    (void)data;
-    desktop_paste(d);
-}
-
-static void menu_open_terminal(Display *d, Window menu, void *data)
-
-{
-    (void)menu;
-    (void)data;
-    desktop_open_terminal();
-}
-
-static void menu_show_files(Display *d, Window menu, void *data)
-
-{
-    (void)menu;
-    (void)data;
-    desktop_show_files(d);
-}
-
-static void menu_arrange_name(Display *d, Window menu, void *data)
-
-{
-    (void)menu;
-    (void)data;
-    desktop_arrange_icons(d, "name");
-}
-
-static void menu_arrange_size(Display *d, Window menu, void *data)
-
-{
-    (void)menu;
-    (void)data;
-    desktop_arrange_icons(d, "size");
-}
-
-static void menu_arrange_date(Display *d, Window menu, void *data)
-
-{
-    (void)menu;
-    (void)data;
-    desktop_arrange_icons(d, "date");
-}
-
-// Icon menu callbacks
-static void menu_open(Display *d, Window menu, void *data)
-
-{
-    (void)menu;
-    DesktopIcon *icon = (DesktopIcon*)data;
-    if (!icon) return;
-    
-    // Launch with default application
-    pid_t pid = fork();
-    if (pid == 0) {
-        execlp("xdg-open", "xdg-open", icon->path, NULL);
-        exit(0);
-    }
-}
-
-static void menu_cut(Display *d, Window menu, void *data)
-
-{
-    (void)menu;
-    (void)d;
-    DesktopIcon *icon = (DesktopIcon*)data;
-    if (!icon) return;
-    
-    desktop_cut(icon);
-}
-
-static void menu_copy(Display *d, Window menu, void *data)
-
-{
-    (void)menu;
-    (void)d;
-    DesktopIcon *icon = (DesktopIcon*)data;
-    if (!icon) return;
-    
-    desktop_copy(icon);
-}
-
-static void menu_delete(Display *d, Window menu, void *data)
-
-{
-    (void)menu;
-    DesktopIcon *icon = (DesktopIcon*)data;
-    if (!icon) return;
-    
-    char cmd[2048];
-    snprintf(cmd, sizeof(cmd), "gio trash \"%s\"", icon->path);
-    system(cmd);
-    
-    load_desktop_icons(d);
-    draw_desktop(d);
-}
-
-static void menu_properties(Display *d, Window menu, void *data)
-
-{
-    (void)menu;
-    DesktopIcon *icon = (DesktopIcon*)data;
-    if (!icon) return;
-    
-    char msg[2048];
-    struct stat st;
-    stat(icon->path, &st);
-    
-    snprintf(msg, sizeof(msg), 
-             "Name: %s\nSize: %ld bytes\nModified: %s",
-             icon->name, (long)st.st_size, ctime(&st.st_mtime));
-    
-    // Show in terminal for now (would need a dialog window)
-    printf("Properties:\n%s\n", msg);
-}
+// ==================== DESKTOP BUTTON HANDLING ====================
 
 /**
- * Create a popup menu window.
- *
- * @param d     X11 display.
- * @param x,y   Screen coordinates for the menu.
- * @param items Array of MenuItem structures.
- * @param count Number of items.
- * @return X11 window ID of the created menu.
- *
- * Creates an override-redirect window with menu styling, draws text labels,
- * and stores the items in X properties for later lookup. The window is
- * mapped and raised immediately.
- */
-static Window create_menu_window(Display *d, int x, int y, MenuItem *items, int count)
-
-{
-    int screen = DefaultScreen(d);
-    Window root = RootWindow(d, screen);
-    
-    int menu_width = 200;
-    int menu_height = count * 25 + 10;
-    
-    XSetWindowAttributes attr;
-    attr.override_redirect = True;
-    attr.background_pixel = 0x2d2d2d;
-    attr.border_pixel = 0x00ff88;
-    attr.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask;
-    
-    Window menu = XCreateWindow(d, root, x, y, menu_width, menu_height, 1,
-                                CopyFromParent, InputOutput, CopyFromParent,
-                                CWOverrideRedirect | CWBackPixel | CWBorderPixel | CWEventMask,
-                                &attr);
-    
-    // Set window type to popup menu
-    XChangeProperty(d, menu, net_wm_window_type, XA_ATOM, 32,
-                   PropModeReplace, (unsigned char*)&net_wm_window_type_dock, 1);
-    
-    XStoreName(d, menu, "Popup Menu");
-    XMapWindow(d, menu);
-    XRaiseWindow(d, menu);
-    
-    // Draw menu items
-    GC gc = XCreateGC(d, menu, 0, NULL);
-    XSetForeground(d, gc, 0x00ff88);
-    
-    for (int i = 0; i < count; i++) {
-        int y_pos = 5 + i * 25;
-        XDrawString(d, menu, gc, 10, y_pos + 15, items[i].label, strlen(items[i].label));
-    }
-    
-    XFreeGC(d, gc);
-    
-    // Store items data for later use
-    for (int i = 0; i < count; i++) {
-        char atom_name[32];
-        snprintf(atom_name, sizeof(atom_name), "MENU_ITEM_%d", i);
-        Atom atom = XInternAtom(d, atom_name, False);
-        XChangeProperty(d, menu, atom, XA_STRING, 8,
-                       PropModeReplace, (unsigned char*)items[i].label, strlen(items[i].label));
-    }
-    
-    return menu;
-}
-
-/**
- * Show the desktop context menu at the specified coordinates.
- *
- * @param d   X11 display.
- * @param x,y Screen coordinates for the menu.
- *
- * Destroys any existing menu, creates a new one with desktop actions,
- * and stores it in active_menu.
- */
-static void show_desktop_menu(Display *d, int x, int y)
-
-{
-    // Close any existing menu
-    if (active_menu != None) {
-        XDestroyWindow(d, active_menu);
-        active_menu = None;
-    }
-    
-    MenuItem items[] = {
-        {"New Folder", menu_new_folder, NULL},
-        {"Paste", menu_paste, NULL},
-        {"Open Terminal", menu_open_terminal, NULL},
-        {"Show Files", menu_show_files, NULL},
-        {"Arrange by Name", menu_arrange_name, NULL},
-        {"Arrange by Size", menu_arrange_size, NULL},
-        {"Arrange by Date", menu_arrange_date, NULL}
-    };
-    
-    int count = sizeof(items) / sizeof(items[0]);
-    active_menu = create_menu_window(d, x, y, items, count);
-}
-
-/**
- * Show the icon context menu for a specific desktop icon.
- *
- * @param d    X11 display.
- * @param x,y  Screen coordinates for the menu.
- * @param icon DesktopIcon the menu applies to.
- */
-static void show_icon_menu(Display *d, int x, int y, DesktopIcon *icon)
-
-{
-    // Close any existing menu
-    if (active_menu != None) {
-        XDestroyWindow(d, active_menu);
-        active_menu = None;
-    }
-    
-    MenuItem items[] = {
-        {"Open", menu_open, icon},
-        {"Cut", menu_cut, icon},
-        {"Copy", menu_copy, icon},
-        {"Delete", menu_delete, icon},
-        {"Properties", menu_properties, icon}
-    };
-    
-    int count = sizeof(items) / sizeof(items[0]);
-    active_menu = create_menu_window(d, x, y, items, count);
-}
-
-/**
- * Handle button presses on the menu window.
+ * Handle button presses on the desktop window.
+ * Only left-click selection is handled; right-click context menus are removed.
  *
  * @param d  X11 display.
  * @param ev Button event structure.
  *
- * Left-click on a menu item closes the menu. In a full implementation,
- * this would dispatch to the appropriate callback based on click position.
+ * Left-click selects an icon if one is under the cursor; otherwise clears
+ * selection. Right-click does nothing (context menus removed).
  */
-static void handle_menu_button(Display *d, XButtonEvent *ev)
+static void handle_desktop_button(Display *d, XButtonEvent *ev)
 
 {
     if (ev->button == Button1) {
-        // Left click on menu - execute action
-        // For simplicity, just close the menu
-        if (active_menu != None) {
-            XDestroyWindow(d, active_menu);
-            active_menu = None;
+        // Left click - select icon
+        DesktopIcon *icon = find_icon_at(ev->x, ev->y);
+        
+        DesktopIcon *curr = desktop_icons;
+        while (curr) {
+            curr->is_selected = 0;
+            curr = curr->next;
         }
+        
+        if (icon) {
+            icon->is_selected = 1;
+            desktop_icon_selected = 1;
+            selected_icon = icon;
+        } else {
+            desktop_icon_selected = -1;
+            selected_icon = NULL;
+        }
+        draw_desktop(d);
     }
+    // Right-click (Button3) is intentionally ignored - no context menu
 }
 
 /**
@@ -1331,56 +1059,6 @@ static void create_desktop_window(Display *d, int screen, Window root)
     
     // Set the wallpaper
     set_wallpaper(d, desktop_window);
-}
-
-/**
- * Handle button presses on the desktop window.
- *
- * @param d  X11 display.
- * @param ev Button event structure.
- *
- * Left-click selects an icon if one is under the cursor; otherwise clears
- * selection. Right-click shows the appropriate context menu (desktop or icon).
- */
-static void handle_desktop_button(Display *d, XButtonEvent *ev)
-
-{
-    if (ev->button == Button1) {
-        // Left click - select icon
-        DesktopIcon *icon = find_icon_at(ev->x, ev->y);
-        
-        DesktopIcon *curr = desktop_icons;
-        while (curr) {
-            curr->is_selected = 0;
-            curr = curr->next;
-        }
-        
-        if (icon) {
-            icon->is_selected = 1;
-            desktop_icon_selected = 1;
-            selected_icon = icon;
-        } else {
-            desktop_icon_selected = -1;
-            selected_icon = NULL;
-        }
-        draw_desktop(d);
-        
-        // Close any open menu
-        if (active_menu != None) {
-            XDestroyWindow(d, active_menu);
-            active_menu = None;
-        }
-    } 
-    else if (ev->button == Button3) {
-        // Right click - show context menu
-        DesktopIcon *icon = find_icon_at(ev->x, ev->y);
-        
-        if (icon) {
-            show_icon_menu(d, ev->x_root, ev->y_root, icon);
-        } else {
-            show_desktop_menu(d, ev->x_root, ev->y_root);
-        }
-    }
 }
 
 // ==================== MAIN ====================
@@ -1586,8 +1264,6 @@ int main(void)
             case ButtonPress: {
                 if (ev.xbutton.window == desktop_window) {
                     handle_desktop_button(d, &ev.xbutton);
-                } else if (ev.xbutton.window == active_menu) {
-                    handle_menu_button(d, &ev.xbutton);
                 } else {
                     // Click on a client window - set focus
                     ClientWindow *w = find_window(ev.xbutton.window);
@@ -1602,8 +1278,6 @@ int main(void)
             case Expose: {
                 if (ev.xexpose.window == desktop_window) {
                     set_wallpaper(d, desktop_window);
-                } else if (ev.xexpose.window == active_menu) {
-                    // Redraw menu if needed
                 }
                 break;
             }
