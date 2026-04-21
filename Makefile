@@ -103,9 +103,9 @@ all: blackline-wm blackline-panel blackline-launcher blackline-tools blackline-b
      blackline-fm blackline-editor blackline-calculator blackline-system-monitor \
      voidfox firefox-wrapper blackline-terminal $(IMAGE_VIEWER_TARGET) $(SETTINGS_TARGET)
 
-# Window Manager with Imlib2 support
-blackline-wm: wm/wm.c
-	$(CC) $(CFLAGS) -o $@ $< $(X11_LIBS) $(IMLIB2_LIBS)
+# Window Manager with Imlib2 support and context menu (needs GTK for dialogs)
+blackline-wm: wm/wm.c controls/optionals/O_tab.c controls/optionals/FileChooser.c
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $^ $(X11_LIBS) $(IMLIB2_LIBS) $(GTK_LIBS)
 
 # Panel with all features - WiFi, network stats, clock, connection details, etc.
 PANEL_SOURCES = panel/panel.c \

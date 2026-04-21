@@ -13,6 +13,7 @@
 #include <pwd.h>
 #include <sys/select.h>
 #include <sys/time.h>
+#include "controls/optionals/Otab.h"
 
 
 /*
@@ -115,6 +116,7 @@ static void load_desktop_icons(Display *d);
 static DesktopIcon* find_icon_at(int x, int y);
 static void draw_desktop(Display *d);
 static void desktop_new_folder(Display *d);
+static void desktop_new_file(Display *d);
 static void desktop_paste(Display *d);
 static void desktop_cut(DesktopIcon *icon);
 static void desktop_copy(DesktopIcon *icon);
@@ -128,6 +130,16 @@ static int compare_icon_by_date(const void *a, const void *b);
 // Desktop button handling
 static void handle_desktop_button(Display *d, XButtonEvent *ev);
 
+// Context menu callback implementations
+static void context_new_folder(const char *path, const char *name);
+static void context_new_file(const char *path, const char *name);
+static void context_open_terminal(void);
+static void context_change_background(void);
+static void context_display_settings(void);
+static void context_show_files(void);
+static void context_open_file_manager(void);
+static char* context_get_desktop_path(void);
+
 static ClientWindow *window_list = NULL;
 static DesktopIcon *desktop_icons = NULL;
 static Window desktop_window = None;
@@ -140,6 +152,7 @@ static GC wallpaper_gc = None;
 static char wm_current_wallpaper[1024] = "";
 static DesktopIcon *selected_icon = NULL;
 static Window focused_window = None;
+static Display *global_display = NULL;
 
 /**
  * Add a window to the client list.
@@ -774,6 +787,34 @@ static void desktop_new_folder(Display *d)
 }
 
 /**
+ * Create a new empty file on the desktop.
+ *
+ * @param d X11 display.
+ */
+static void desktop_new_file(Display *d)
+
+{
+    char *desktop_path = get_desktop_path();
+    char file_path[1024];
+    int count = 1;
+    
+    while (1) {
+        snprintf(file_path, 1024, "%s/New File%d.txt", desktop_path, count);
+        struct stat st;
+        if (stat(file_path, &st) != 0) break;
+        count++;
+    }
+    
+    FILE *f = fopen(file_path, "w");
+    if (f) fclose(f);
+    free(desktop_path);
+    
+    // Reload icons
+    load_desktop_icons(d);
+    draw_desktop(d);
+}
+
+/**
  * Paste a file from clipboard to the desktop.
  *
  * @param d X11 display.
@@ -977,17 +1018,120 @@ static void desktop_arrange_icons(Display *d, const char *mode)
     draw_desktop(d);
 }
 
+// ==================== CONTEXT MENU CALLBACKS ====================
+
+/**
+ * Creates a new folder at the specified path.
+ */
+static void context_new_folder(const char *path, const char *name)
+{
+    char full_path[1024];
+    snprintf(full_path, sizeof(full_path), "%s/%s", path, name);
+    mkdir(full_path, 0755);
+    
+    /* Refresh desktop if the folder was created on desktop */
+    char *desktop_path = get_desktop_path();
+    if (strcmp(path, desktop_path) == 0) {
+        load_desktop_icons(global_display);
+        draw_desktop(global_display);
+    }
+    free(desktop_path);
+}
+
+/**
+ * Creates a new empty file at the specified path.
+ */
+static void context_new_file(const char *path, const char *name)
+{
+    char full_path[1024];
+    snprintf(full_path, sizeof(full_path), "%s/%s", path, name);
+    
+    FILE *f = fopen(full_path, "w");
+    if (f) fclose(f);
+    
+    /* Refresh desktop if the file was created on desktop */
+    char *desktop_path = get_desktop_path();
+    if (strcmp(path, desktop_path) == 0) {
+        load_desktop_icons(global_display);
+        draw_desktop(global_display);
+    }
+    free(desktop_path);
+}
+
+/**
+ * Opens a terminal window.
+ */
+static void context_open_terminal(void)
+{
+    pid_t pid = fork();
+    if (pid == 0) {
+        execl("./blackline-terminal", "blackline-terminal", NULL);
+        exit(0);
+    }
+}
+
+/**
+ * Opens the wallpaper/display settings.
+ */
+static void context_change_background(void)
+{
+    pid_t pid = fork();
+    if (pid == 0) {
+        execl("./blackline-settings", "blackline-settings", NULL);
+        exit(0);
+    }
+}
+
+/**
+ * Opens the display settings.
+ */
+static void context_display_settings(void)
+{
+    pid_t pid = fork();
+    if (pid == 0) {
+        execl("./blackline-settings", "blackline-settings", NULL);
+        exit(0);
+    }
+}
+
+/**
+ * Refreshes the desktop file listing.
+ */
+static void context_show_files(void)
+{
+    load_desktop_icons(global_display);
+    draw_desktop(global_display);
+}
+
+/**
+ * Opens the file manager.
+ */
+static void context_open_file_manager(void)
+{
+    pid_t pid = fork();
+    if (pid == 0) {
+        execl("./blackline-fm", "blackline-fm", NULL);
+        exit(0);
+    }
+}
+
+/**
+ * Returns the desktop path.
+ */
+static char* context_get_desktop_path(void)
+{
+    return get_desktop_path();
+}
+
 // ==================== DESKTOP BUTTON HANDLING ====================
 
 /**
  * Handle button presses on the desktop window.
- * Only left-click selection is handled; right-click context menus are removed.
  *
  * @param d  X11 display.
  * @param ev Button event structure.
  *
- * Left-click selects an icon if one is under the cursor; otherwise clears
- * selection. Right-click does nothing (context menus removed).
+ * Left-click selects an icon. Right-click shows context menu.
  */
 static void handle_desktop_button(Display *d, XButtonEvent *ev)
 
@@ -1011,8 +1155,16 @@ static void handle_desktop_button(Display *d, XButtonEvent *ev)
             selected_icon = NULL;
         }
         draw_desktop(d);
+        
+        // Close menu if open
+        if (is_menu_active()) {
+            context_menu_cleanup();
+        }
+    } 
+    else if (ev->button == Button3) {
+        // Right click - show context menu
+        show_context_menu(d, ev->x_root, ev->y_root);
     }
-    // Right-click (Button3) is intentionally ignored - no context menu
 }
 
 /**
@@ -1078,15 +1230,27 @@ static void create_desktop_window(Display *d, int screen, Window root)
 int main(void) 
 
 {
-    Display *d = XOpenDisplay(NULL);
-    if (!d) 
+    global_display = XOpenDisplay(NULL);
+    if (!global_display) 
     {
         fprintf(stderr, "Cannot open display\n");
         return 1;
     }
     
+    Display *d = global_display;
     int screen = DefaultScreen(d);
     Window root = RootWindow(d, screen);
+    
+   // Register context menu callbacks
+   register_context_menu_callbacks(
+        context_new_folder,
+        context_new_file,
+        context_open_terminal,
+        context_change_background,
+        context_display_settings,
+        context_show_files,
+        context_get_desktop_path
+    );
     
     // Get atoms for window states
     wm_state = XInternAtom(d, "WM_STATE", False);
@@ -1262,6 +1426,11 @@ int main(void)
             }
             
             case ButtonPress: {
+                // First check if click is on context menu
+                if (handle_menu_button(d, &ev.xbutton)) {
+                    break;  // Menu handled the event
+                }
+                
                 if (ev.xbutton.window == desktop_window) {
                     handle_desktop_button(d, &ev.xbutton);
                 } else {
@@ -1291,6 +1460,9 @@ int main(void)
             }
         }
     }
+    
+    // Cleanup context menu (unreachable, but here for completeness)
+    context_menu_cleanup();
     
     return 0;
 }
