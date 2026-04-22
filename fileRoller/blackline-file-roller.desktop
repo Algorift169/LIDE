@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=File Roller
+Comment=Universal file viewer for images, text, PDFs, video, audio and archives
+Exec=blackline-file-roller %F
+Icon=system-file-manager
+Categories=Utility;Viewer;
+MimeType=image/png;image/jpeg;image/jpg;image/bmp;image/gif;image/webp;image/tiff;image/x-tiff;image/svg+xml;text/plain;text/x-c;text/x-csrc;text/x-chdr;text/x-c++;text/x-c++src;text/x-c++hdr;text/x-python;text/x-python3;application/x-python;text/javascript;text/x-javascript;text/html;text/css;application/json;text/json;application/xml;text/xml;text/x-shellscript;application/x-shellscript;text/x-sh;text/x-log;application/pdf;video/mp4;video/x-msvideo;video/quicktime;video/x-matroska;video/webm;video/x-flv;video/x-ms-wmv;video/x-m4v;audio/mpeg;audio/mp3;audio/x-mp3;audio/wav;audio/x-wav;audio/flac;audio/x-flac;audio/aac;audio/x-aac;audio/x-m4a;audio/ogg;audio/x-vorbis+ogg;audio/x-ms-wma;application/zip;application/x-zip-compressed;application/x-tar;application/x-tar+gzip;application/gzip;application/x-7z-compressed;application/x-rar-compressed;application/x-xz;application/x-bzip2;application/x-bzip;text/x-markdown;text/markdown;application/x-object;application/x-executable;application/octet-stream;
+Terminal=false
+NoDisplay=false
+StartupNotify=true
+Keywords=image;text;viewer;archive;pdf;video;audio;

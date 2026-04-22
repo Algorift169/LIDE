@@ -53,6 +53,10 @@ NETWORK_STATS_H = panel/network_stats.h
 IMAGE_VIEWER_SOURCES = tools/image-viewer/image-viewer.c
 IMAGE_VIEWER_TARGET = blackline-image-viewer
 
+# File Roller source and target
+FILE_ROLLER_SOURCES = fileRoller/file-roller.c
+FILE_ROLLER_TARGET = blackline-file-roller
+
 SETTINGS_SOURCES = tools/settings/settings.c \
                    tools/settings/display/display_settings.c \
                    tools/settings/display/orientation.c \
@@ -101,7 +105,7 @@ TOOLS_HEADERS = tools/auto.h tools/minimized_container.h tools/window_resize.h
 # Base targets
 all: blackline-wm blackline-panel blackline-launcher blackline-tools blackline-background \
      blackline-fm blackline-editor blackline-calculator blackline-system-monitor \
-     voidfox firefox-wrapper blackline-terminal $(IMAGE_VIEWER_TARGET) $(SETTINGS_TARGET)
+     voidfox firefox-wrapper blackline-terminal $(IMAGE_VIEWER_TARGET) $(FILE_ROLLER_TARGET) $(SETTINGS_TARGET)
 
 # Window Manager with Imlib2 support and context menu (needs GTK for dialogs)
 blackline-wm: wm/wm.c controls/optionals/O_tab.c controls/optionals/FileChooser.c
@@ -191,6 +195,11 @@ blackline-system-monitor: $(SYSMON_SOURCES) $(SYSMON_HEADERS)
 # Image Viewer
 $(IMAGE_VIEWER_TARGET): $(IMAGE_VIEWER_SOURCES)
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $(IMAGE_VIEWER_SOURCES) $(GTK_LIBS)
+
+# File Roller - Universal file viewer for all file types
+$(FILE_ROLLER_TARGET): $(FILE_ROLLER_SOURCES)
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $(FILE_ROLLER_SOURCES) $(GTK_LIBS)
+	@echo "Built File Roller - Universal file viewer"
 
 # Settings Tool with Display, Sound, Power, and Network tabs
 $(SETTINGS_TARGET): $(SETTINGS_SOURCES) $(SETTINGS_HEADERS)
@@ -284,13 +293,13 @@ clean:
 	rm -f blackline-wm blackline-panel blackline-launcher blackline-tools blackline-background \
 	      blackline-fm blackline-editor blackline-calculator blackline-system-monitor \
 	      voidfox $(FIREFOX_WRAPPER) blackline-terminal blackline-session $(IMAGE_VIEWER_TARGET) \
-	      $(SETTINGS_TARGET)
+	      $(FILE_ROLLER_TARGET) $(SETTINGS_TARGET)
 	rm -f *.o tools/*.o panel/*.o tools/system-monitor/*.o tools/web-browser/*.o \
 	      tools/terminal/*.o launcher/*.o session/*.o tools/image-viewer/*.o \
 	      tools/settings/*.o tools/settings/display/*.o tools/settings/sound/*.o \
 	      tools/settings/sound/output/*.o tools/settings/sound/input/*.o \
 	      tools/settings/sound/sounds/*.o tools/settings/power/*.o tools/settings/network/*.o \
-	      tools/file-manager/*.o
+	      tools/file-manager/*.o fileRoller/*.o
 	rm -f ~/.config/blackline/tools_view_mode.conf
 	@echo "Clean complete!"
 
@@ -315,11 +324,15 @@ install: all
 	sudo cp blackline-calculator /usr/local/bin/
 	sudo cp blackline-system-monitor /usr/local/bin/
 	sudo cp $(IMAGE_VIEWER_TARGET) /usr/local/bin/
+	sudo cp $(FILE_ROLLER_TARGET) /usr/local/bin/
 	sudo cp $(SETTINGS_TARGET) /usr/local/bin/
 	sudo cp voidfox /usr/local/bin/
 	sudo cp $(FIREFOX_WRAPPER) /usr/local/bin/lide-firefox
 	-test -f blackline-terminal && sudo cp blackline-terminal /usr/local/bin/
 	-test -f blackline-session && sudo cp blackline-session /usr/local/bin/
+	mkdir -p ~/.local/share/applications
+	cp fileRoller/blackline-file-roller.desktop ~/.local/share/applications/
+	update-desktop-database ~/.local/share/applications/ 2>/dev/null || true
 	@echo "Installation complete!"
 
 # Uninstall all binaries
@@ -334,11 +347,13 @@ uninstall:
 	sudo rm -f /usr/local/bin/blackline-calculator
 	sudo rm -f /usr/local/bin/blackline-system-monitor
 	sudo rm -f /usr/local/bin/$(IMAGE_VIEWER_TARGET)
+	sudo rm -f /usr/local/bin/$(FILE_ROLLER_TARGET)
 	sudo rm -f /usr/local/bin/$(SETTINGS_TARGET)
 	sudo rm -f /usr/local/bin/voidfox
 	sudo rm -f /usr/local/bin/lide-firefox
 	sudo rm -f /usr/local/bin/blackline-terminal
 	sudo rm -f /usr/local/bin/blackline-session
+	rm -f ~/.local/share/applications/blackline-file-roller.desktop
 	rm -f ~/.config/blackline/tools_view_mode.conf
 	@echo "Uninstallation complete!"
 
@@ -378,6 +393,9 @@ run-fm: blackline-fm
 
 run-image-viewer: $(IMAGE_VIEWER_TARGET)
 	./$(IMAGE_VIEWER_TARGET) $(ARGS)
+
+run-file-roller: $(FILE_ROLLER_TARGET)
+	./$(FILE_ROLLER_TARGET) $(ARGS)
 
 run-settings: $(SETTINGS_TARGET)
 	./$(SETTINGS_TARGET)
@@ -462,5 +480,5 @@ check-all: check-webkit check-firefox check-vte check-imlib2 check-network check
 
 .PHONY: all clean distclean install uninstall run-editor run-wm run-calculator run-system-monitor \
         run-voidfox run-firefox run-terminal run-panel run-launcher run-tools run-fm run-image-viewer \
-        run-settings run-session check-webkit check-firefox check-vte check-imlib2 check-network \
+        run-file-roller run-settings run-session check-webkit check-firefox check-vte check-imlib2 check-network \
         check-pulseaudio check-all
