@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -O2 -g -I. -Iinclude -Itools -Ipanel
+CFLAGS = -Wall -O2 -g -I. -Iinclude -Itools -Ipanel -Icontrols/optionals
 GTK_CFLAGS = $(shell pkg-config --cflags gtk+-3.0)
 GTK_LIBS = $(shell pkg-config --libs gtk+-3.0)
 X11_LIBS = -lX11
@@ -54,7 +54,8 @@ IMAGE_VIEWER_SOURCES = tools/image-viewer/image-viewer.c
 IMAGE_VIEWER_TARGET = blackline-image-viewer
 
 # File Roller source and target
-FILE_ROLLER_SOURCES = fileRoller/file-roller.c
+FILE_ROLLER_SOURCES = fileRoller/file-roller.c controls/optionals/FileChooser.c
+FILE_ROLLER_HEADERS = fileRoller/file-roller.h controls/optionals/FileChooser.h
 FILE_ROLLER_TARGET = blackline-file-roller
 
 SETTINGS_SOURCES = tools/settings/settings.c \
@@ -153,15 +154,17 @@ blackline-tools: $(TOOLS_SOURCES) $(TOOLS_HEADERS)
 blackline-background: tools/background.c
 	$(CC) $(CFLAGS) $(shell pkg-config --cflags glib-2.0) -o $@ $< $(shell pkg-config --libs glib-2.0)
 
-# File Manager - includes window_resize.c and recycle_bin for trash functionality
+# File Manager - includes window_resize.c, recycle_bin for trash, and file-roller-launcher for file handling
 FM_SOURCES = tools/file-manager/fm.c \
              tools/file-manager/browser.c \
              tools/file-manager/recycle_bin.c \
              tools/image-viewer/image-viewer-launcher.c \
+             fileRoller/file-roller-launcher.c \
              tools/window_resize.c
 FM_HEADERS = tools/file-manager/fm.h \
              tools/file-manager/recycle_bin.h \
              tools/image-viewer/image-viewer.h \
+             fileRoller/file-roller.h \
              tools/window_resize.h
 
 blackline-fm: $(FM_SOURCES) $(FM_HEADERS)
@@ -196,10 +199,10 @@ blackline-system-monitor: $(SYSMON_SOURCES) $(SYSMON_HEADERS)
 $(IMAGE_VIEWER_TARGET): $(IMAGE_VIEWER_SOURCES)
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $(IMAGE_VIEWER_SOURCES) $(GTK_LIBS)
 
-# File Roller - Universal file viewer for all file types
-$(FILE_ROLLER_TARGET): $(FILE_ROLLER_SOURCES)
+# File Roller - Universal file viewer for all file types with custom FileChooser
+$(FILE_ROLLER_TARGET): $(FILE_ROLLER_SOURCES) $(FILE_ROLLER_HEADERS)
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $(FILE_ROLLER_SOURCES) $(GTK_LIBS)
-	@echo "Built File Roller - Universal file viewer"
+	@echo "Built File Roller - Universal file viewer with custom file chooser"
 
 # Settings Tool with Display, Sound, Power, and Network tabs
 $(SETTINGS_TARGET): $(SETTINGS_SOURCES) $(SETTINGS_HEADERS)
@@ -299,7 +302,7 @@ clean:
 	      tools/settings/*.o tools/settings/display/*.o tools/settings/sound/*.o \
 	      tools/settings/sound/output/*.o tools/settings/sound/input/*.o \
 	      tools/settings/sound/sounds/*.o tools/settings/power/*.o tools/settings/network/*.o \
-	      tools/file-manager/*.o fileRoller/*.o
+	      tools/file-manager/*.o fileRoller/*.o controls/optionals/*.o
 	rm -f ~/.config/blackline/tools_view_mode.conf
 	@echo "Clean complete!"
 
@@ -309,7 +312,8 @@ distclean: clean
 	rm -f panel/*.gch tools/*.gch tools/settings/*.gch tools/settings/display/*.gch \
 	      tools/settings/sound/*.gch tools/settings/sound/output/*.gch \
 	      tools/settings/sound/input/*.gch tools/settings/sound/sounds/*.gch \
-	      tools/settings/power/*.gch tools/settings/network/*.gch
+	      tools/settings/power/*.gch tools/settings/network/*.gch \
+	      controls/optionals/*.gch
 	@echo "Removed generated header files"
 
 # Install all binaries
@@ -331,7 +335,7 @@ install: all
 	-test -f blackline-terminal && sudo cp blackline-terminal /usr/local/bin/
 	-test -f blackline-session && sudo cp blackline-session /usr/local/bin/
 	mkdir -p ~/.local/share/applications
-	cp fileRoller/blackline-file-roller.desktop ~/.local/share/applications/
+	cp fileRoller/blackline-file-roller.desktop ~/.local/share/applications/ 2>/dev/null || true
 	update-desktop-database ~/.local/share/applications/ 2>/dev/null || true
 	@echo "Installation complete!"
 

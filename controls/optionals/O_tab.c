@@ -63,6 +63,21 @@ void register_context_menu_callbacks(
 }
 
 /**
+ * Gets the user's desktop directory path.
+ */
+static char* get_user_desktop_path(void)
+{
+    if (external_get_desktop_path) {
+        return external_get_desktop_path();
+    }
+    const char *home = getenv("HOME");
+    if (!home) home = "/root";
+    char *path = malloc(1024);
+    snprintf(path, 1024, "%s/Desktop", home);
+    return path;
+}
+
+/**
  * Runs file chooser dialog in a separate process.
  * Spawns the dialog without blocking the window manager.
  */
@@ -70,38 +85,42 @@ static void run_file_chooser(const char *title, const char *default_name)
 {
     pid_t pid = fork();
     if (pid == 0) {
-        // Child process - run custom file chooser dialog
-
-        // Set up display before gtk_init
-        Display *d = XOpenDisplay(NULL);
-        if (!d) {
-            exit(1);
-        }
-
+        /* Child process - run custom file chooser dialog */
+        
+        /* Get initial path (desktop directory) */
+        char *initial_path = get_user_desktop_path();
+        
         int argc = 0;
         char **argv = NULL;
         gtk_init(&argc, &argv);
-
+        
         FileChooserMode mode = CHOOSER_FILE;
+        FileChooserAction action = CHOOSER_ACTION_CREATE;
+        
         if (strcmp(title, "Create New Folder") == 0) {
             mode = CHOOSER_FOLDER;
+            action = CHOOSER_ACTION_CREATE;
+        } else if (strcmp(title, "Create New File") == 0) {
+            mode = CHOOSER_FILE;
+            action = CHOOSER_ACTION_CREATE;
         }
-
-        FileChooser *chooser = file_chooser_new(mode, NULL);
+        
+        /* Create file chooser with 3 arguments: mode, action, initial_path */
+        FileChooser *chooser = file_chooser_new(mode, action, initial_path);
         if (!chooser) {
-            XCloseDisplay(d);
+            free(initial_path);
             exit(1);
         }
-
+        
         /* Set default filename */
         gtk_entry_set_text(GTK_ENTRY(chooser->filename_entry), default_name);
-
+        
         char *selected_path = file_chooser_show(chooser);
-
+        
         if (selected_path) {
             char *dir_path = g_path_get_dirname(selected_path);
             char *base_name = g_path_get_basename(selected_path);
-
+            
             if (strcmp(title, "Create New Folder") == 0) {
                 if (external_new_folder) {
                     external_new_folder(dir_path, base_name);
@@ -111,22 +130,22 @@ static void run_file_chooser(const char *title, const char *default_name)
                     external_new_file(dir_path, base_name);
                 }
             }
-
+            
             g_free(dir_path);
             g_free(base_name);
             g_free(selected_path);
-
-            // Refresh desktop
+            
+            /* Refresh desktop */
             if (external_show_files) {
                 external_show_files();
             }
         }
-
+        
         file_chooser_destroy(chooser);
-        XCloseDisplay(d);
+        free(initial_path);
         exit(0);
     }
-    // Parent continues immediately without waiting - child runs independently
+    /* Parent continues immediately without waiting - child runs independently */
 }
 
 /* Menu action implementations */
@@ -315,8 +334,8 @@ int handle_menu_button(Display *d, XButtonEvent *ev)
         menu_active = 0;
         XDestroyWindow(d, menu_window);
         menu_window = None;
-        XFlush(d);  /* Ensure X11 processes the destroy immediately */
-        XSync(d, False);  /* Synchronize with X server */
+        XFlush(d);
+        XSync(d, False);
         return 1;
     }
 

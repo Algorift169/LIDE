@@ -7,6 +7,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/**
+ * Forward declaration for file roller launcher.
+ * Launches the custom BlackLine file roller for handling various file types.
+ * 
+ * @param filename Path to the file to open with the file roller.
+ */
+extern void launch_file_roller(const char *filename);
+
 /* Helper functions for formatting */
 
 /**
@@ -49,19 +57,20 @@ static gchar *format_time(GDateTime *dt)
 }
 
 /**
- * Checks if a file is an image based on its extension.
- * Supports common image formats including JPEG, PNG, GIF, BMP, WebP, TIFF, and RAW formats.
+ * Checks if a file is supported by the file roller.
+ * Supports images, text, PDFs, videos, audio, and archive formats.
  *
  * @param filename File name to check.
- * @return TRUE if file has image extension, FALSE otherwise.
+ * @return TRUE if file is supported by file roller, FALSE otherwise.
  */
-static gboolean is_image_file(const gchar *filename) 
+static gboolean is_file_roller_supported(const gchar *filename) 
 {
     const gchar *ext = strrchr(filename, '.');
     if (!ext) return FALSE;
     
-    /* Common image file extensions */
-    const gchar *image_extensions[] = {
+    /* Supported file extensions for the file roller */
+    const gchar *supported_extensions[] = {
+        /* Images */
         ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp",
         ".tiff", ".tif", ".ico", ".svg", ".svgz",
         ".psd", ".xcf", ".jp2", ".j2k", ".jpf", ".jpx",
@@ -70,32 +79,8 @@ static gboolean is_image_file(const gchar *filename)
         ".raf", ".rw2", ".orf", ".dcs", ".dcr",
         ".arw", ".mos", ".ptx", ".pef", ".exif",
         ".jfif", ".ppm", ".pgm", ".pbm", ".pnm",
-        ".qoi", ".pcx", ".cur", ".ani", NULL
-    };
-    
-    for (int i = 0; image_extensions[i] != NULL; i++) {
-        if (g_str_has_suffix(filename, image_extensions[i])) {
-            return TRUE;
-        }
-    }
-    
-    return FALSE;
-}
-
-/**
- * Checks if a file is a text file based on its extension.
- * Supports source code files, configuration files, markup languages, and common text formats.
- *
- * @param filename File name to check.
- * @return TRUE if file has text extension, FALSE otherwise.
- */
-static gboolean is_text_file(const gchar *filename) 
-{
-    const gchar *ext = strrchr(filename, '.');
-    if (!ext) return FALSE;
-    
-    /* Common text file extensions */
-    const gchar *text_extensions[] = {
+        ".qoi", ".pcx", ".cur", ".ani",
+        /* Text */
         ".txt", ".c", ".h", ".cpp", ".hpp", ".cc", ".cxx",
         ".py", ".pl", ".rb", ".sh", ".bash", ".zsh",
         ".js", ".html", ".htm", ".css", ".xml", ".json",
@@ -115,11 +100,20 @@ static gboolean is_text_file(const gchar *filename)
         ".jsx", ".tsx", ".dart", ".groovy", ".gradle",
         ".properties", ".plist", ".xib", ".storyboard",
         ".strings", ".po", ".mo", ".json5", ".jsonc",
-        ".proto", ".thrift", ".capnp", ".fbs", NULL
+        ".proto", ".thrift", ".capnp", ".fbs",
+        /* PDF */
+        ".pdf",
+        /* Video */
+        ".mp4", ".webm", ".mkv", ".avi", ".mov", ".flv", ".wmv", ".m4v",
+        /* Audio */
+        ".mp3", ".wav", ".flac", ".aac", ".ogg", ".m4a", ".wma",
+        /* Archives */
+        ".zip", ".tar", ".gz", ".7z", ".rar", ".xz", ".bz2",
+        NULL
     };
     
-    for (int i = 0; text_extensions[i] != NULL; i++) {
-        if (g_str_has_suffix(filename, text_extensions[i])) {
+    for (int i = 0; supported_extensions[i] != NULL; i++) {
+        if (g_str_has_suffix(filename, supported_extensions[i])) {
             return TRUE;
         }
     }
@@ -129,9 +123,9 @@ static gboolean is_text_file(const gchar *filename)
 
 /**
  * Opens a file with the appropriate application.
- * Images: launches image viewer.
- * Text files: launches BlackLine editor.
- * Others: uses xdg-open with default application.
+ * Routes all supported file types through the custom BlackLine file roller,
+ * which intelligently handles images, text, PDFs, videos, audio, and archives.
+ * Falls back to xdg-open for unsupported formats.
  *
  * @param parent Parent window for dialogs (unused).
  * @param path   Full path to the file to open.
@@ -142,20 +136,33 @@ static void open_file_with_app(GtkWindow *parent, const gchar *path)
 {
     (void)parent; /* Unused parameter */
     
-    /* Check if it's an image file */
-    if (is_image_file(path)) {
-        /* Use image viewer for image files */
-        launch_image_viewer(path);
-    } else if (is_text_file(path)) {
-        /* Use BlackLine editor for text files - launch in background */
-        gchar *command = g_strdup_printf("blackline-editor \"%s\" &", path);
-        system(command);
-        g_free(command);
+    /* Check if the file is supported by the custom file roller */
+    if (is_file_roller_supported(path)) {
+        /* Use the custom BlackLine file roller for all supported file types */
+        launch_file_roller(path);
     } else {
-        /* For other files, use xdg-open */
-        gchar *command = g_strdup_printf("xdg-open \"%s\" &", path);
-        system(command);
-        g_free(command);
+        /* For unsupported file types, fall back to xdg-open */
+        gchar *argv[] = {
+            (gchar *)"xdg-open",
+            (gchar *)path,
+            NULL
+        };
+        
+        GError *error = NULL;
+        g_spawn_async(
+            NULL,
+            argv,
+            NULL,
+            G_SPAWN_SEARCH_PATH,
+            NULL,
+            NULL,
+            NULL,
+            &error
+        );
+        
+        if (error) {
+            g_error_free(error);
+        }
     }
 }
 

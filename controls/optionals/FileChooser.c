@@ -20,7 +20,7 @@
  * - Search/filter text field for quick file finding
  * - Filename input field for specifying custom names
  * - Centered window positioning
- * - Modal dialog with Create/Cancel buttons
+ * - Modal dialog with Create/Save or Cancel buttons based on mode
  *
  * ============================================================================
  */
@@ -160,6 +160,44 @@ static const char* get_icon_name(int is_dir)
     return is_dir ? "folder" : "document";
 }
 
+/**
+ * check_file_exists() - Check if a file already exists at the given path.
+ *
+ * @param full_path  Full filesystem path to check
+ * @return           1 if file exists, 0 otherwise
+ */
+static int check_file_exists(const char *full_path)
+{
+    return (access(full_path, F_OK) == 0);
+}
+
+/**
+ * show_overwrite_warning() - Show warning dialog when file already exists.
+ *
+ * @param parent     Parent window for the dialog
+ * @param filename   Name of the file that already exists
+ * @return           1 if user confirms overwrite, 0 otherwise
+ */
+static int show_overwrite_warning(GtkWindow *parent, const char *filename)
+{
+    GtkWidget *dialog = gtk_message_dialog_new(
+        parent,
+        GTK_DIALOG_MODAL,
+        GTK_MESSAGE_WARNING,
+        GTK_BUTTONS_YES_NO,
+        "File already exists");
+    
+    gtk_message_dialog_format_secondary_text(
+        GTK_MESSAGE_DIALOG(dialog),
+        "'%s' already exists. Do you want to replace it?",
+        filename);
+    
+    int result = gtk_dialog_run(GTK_DIALOG(dialog));
+    gtk_widget_destroy(dialog);
+    
+    return (result == GTK_RESPONSE_YES);
+}
+
 /* ============================================================================
  * DIRECTORY LOADING & FILE LISTING
  * ============================================================================ */
@@ -197,7 +235,7 @@ static void file_chooser_load_directory(FileChooser *chooser)
     /**
      * Read all files in directory.
      * Collect metadata first, then add to tree store.
-     * Limit to 1024 files in a single directory (reasonable limit).
+     * Limit to 1024 files in a directory (reasonable limit).
      */
     struct dirent *entry;
     int count = 0;
@@ -280,7 +318,7 @@ static void file_chooser_load_directory(FileChooser *chooser)
  */
 static void on_up_clicked(GtkButton *button, gpointer user_data)
 {
-    (void)button; /* Suppress unused parameter warning */
+    (void)button;
     FileChooser *chooser = (FileChooser*)user_data;
 
     char *last_slash = strrchr(chooser->current_path, '/');
@@ -307,7 +345,7 @@ static void on_up_clicked(GtkButton *button, gpointer user_data)
  */
 static void on_home_clicked(GtkButton *button, gpointer user_data)
 {
-    (void)button; /* Suppress unused parameter warning */
+    (void)button;
     FileChooser *chooser = (FileChooser*)user_data;
 
     const char *home = getenv("HOME");
@@ -331,7 +369,7 @@ static void on_home_clicked(GtkButton *button, gpointer user_data)
  *
  * Double-click behavior depends on file type:
  *   - FOLDER: Navigate into the folder (change current_path and reload listing)
- *   - FILE: Select the file and close dialog (only in CHOOSER_FILE mode)
+ *   - FILE: In SAVE mode, set filename in entry; in CREATE mode, select and close
  *
  * Extracts file metadata from TreeView row and performs appropriate action.
  *
@@ -345,7 +383,7 @@ static void on_home_clicked(GtkButton *button, gpointer user_data)
 static void on_row_activated(GtkTreeView *tree, GtkTreePath *path,
                             GtkTreeViewColumn *column, gpointer user_data)
 {
-    (void)column; /* Suppress unused parameter warning */
+    (void)column;
     FileChooser *chooser = (FileChooser*)user_data;
     GtkTreeIter iter;
     GtkTreeModel *model = gtk_tree_view_get_model(tree);
@@ -372,12 +410,19 @@ static void on_row_activated(GtkTreeView *tree, GtkTreePath *path,
         file_chooser_load_directory(chooser);
     } else if (chooser->mode == CHOOSER_FILE) {
         /**
-         * FILE SELECTED: Record selection and close dialog
-         * Only applicable when in CHOOSER_FILE mode
+         * FILE SELECTED: In CREATE mode, select and close.
+         * In SAVE mode, just set the filename in the entry field.
          */
-        strncpy(chooser->selected_path, fullpath, sizeof(chooser->selected_path) - 1);
-        chooser->completed = 1;
-        gtk_widget_hide(chooser->dialog);
+        if (chooser->action == CHOOSER_ACTION_CREATE) {
+            strncpy(chooser->selected_path, fullpath, sizeof(chooser->selected_path) - 1);
+            chooser->completed = 1;
+            gtk_widget_hide(chooser->dialog);
+        } else {
+            /* SAVE mode - just set the filename */
+            char *filename = g_path_get_basename(fullpath);
+            gtk_entry_set_text(GTK_ENTRY(chooser->filename_entry), filename);
+            g_free(filename);
+        }
     }
 
     g_free(type_str);
@@ -387,11 +432,6 @@ static void on_row_activated(GtkTreeView *tree, GtkTreePath *path,
  * on_search_changed() - Handle search text input changes.
  *
  * Called whenever user types in the search entry field.
- * For now, performs simple directory reload (basic implementation).
- *
- * TODO: Implement proper GtkTreeModelFilter for live filtering without
- *       reloading directory contents. This would provide better UX for
- *       large directories.
  *
  * @param search   GtkSearchEntry widget
  * @param user_data Pointer to FileChooser instance
@@ -400,7 +440,7 @@ static void on_row_activated(GtkTreeView *tree, GtkTreePath *path,
  */
 static void on_search_changed(GtkSearchEntry *search, gpointer user_data)
 {
-    (void)search; /* Suppress unused parameter warning */
+    (void)search;
     FileChooser *chooser = (FileChooser*)user_data;
 
     /* Basic implementation: reload directory on search change */
@@ -408,23 +448,21 @@ static void on_search_changed(GtkSearchEntry *search, gpointer user_data)
 }
 
 /**
- * on_create_clicked() - Handle Create button click.
+ * on_action_clicked() - Handle Create/Save button click.
  *
  * Validates the filename entry and if non-empty, constructs the full path
- * by combining current_path with the entered filename. Sets dialog as
- * completed so file_chooser_show() can return the selected path.
+ * by combining current_path with the entered filename.
  *
- * VALIDATION: If filename is empty or whitespace-only, logs warning and
- *             leaves dialog open for user to correct.
+ * For SAVE mode, checks if file already exists and prompts for overwrite confirmation.
  *
  * @param button   GtkButton that was clicked (unused)
  * @param user_data Pointer to FileChooser instance
  *
- * SIGNAL: Connected to "clicked" signal of Create button
+ * SIGNAL: Connected to "clicked" signal of action button
  */
-static void on_create_clicked(GtkButton *button, gpointer user_data)
+static void on_action_clicked(GtkButton *button, gpointer user_data)
 {
-    (void)button; /* Suppress unused parameter warning */
+    (void)button;
     FileChooser *chooser = (FileChooser*)user_data;
     const char *filename = gtk_entry_get_text(GTK_ENTRY(chooser->filename_entry));
 
@@ -436,6 +474,13 @@ static void on_create_clicked(GtkButton *button, gpointer user_data)
     /* Construct full path from current directory + entered name */
     char full_path[1024];
     snprintf(full_path, sizeof(full_path), "%s/%s", chooser->current_path, filename);
+
+    /* For SAVE mode, check if file exists and ask for overwrite confirmation */
+    if (chooser->action == CHOOSER_ACTION_SAVE && check_file_exists(full_path)) {
+        if (!show_overwrite_warning(GTK_WINDOW(chooser->dialog), filename)) {
+            return;  /* User cancelled overwrite */
+        }
+    }
 
     strncpy(chooser->selected_path, full_path, sizeof(chooser->selected_path) - 1);
     chooser->completed = 1;
@@ -455,7 +500,7 @@ static void on_create_clicked(GtkButton *button, gpointer user_data)
  */
 static void on_cancel_clicked(GtkButton *button, gpointer user_data)
 {
-    (void)button; /* Suppress unused parameter warning */
+    (void)button;
     FileChooser *chooser = (FileChooser*)user_data;
     chooser->selected_path[0] = '\0';  /* Clear selection to indicate cancellation */
     chooser->completed = 1;
@@ -469,18 +514,13 @@ static void on_cancel_clicked(GtkButton *button, gpointer user_data)
 /**
  * on_dialog_motion_notify() - Handle mouse movement for window dragging.
  *
- * Implements window drag-to-move behavior. When user holds mouse button while
- * dragging in titlebar area, window follows mouse movement.
- *
- * CALCULATION:
- *   new_x = drag_start_x + (current_mouse_x - drag_offset_x)
- *   new_y = drag_start_y + (current_mouse_y - drag_offset_y)
+ * Implements window drag-to-move behavior.
  *
  * @param widget   Event source widget
  * @param event    GdkEventMotion with current mouse position
  * @param user_data Pointer to FileChooser instance
  *
- * @return TRUE if event was handled (prevents further processing)
+ * @return TRUE if event was handled
  *
  * SIGNAL: Connected to "motion-notify-event" signal
  */
@@ -490,7 +530,6 @@ static gboolean on_dialog_motion_notify(GtkWidget *widget, GdkEventMotion *event
     FileChooser *chooser = (FileChooser*)user_data;
 
     if (drag_state.is_dragging && GTK_IS_WINDOW(chooser->dialog)) {
-        /* Calculate new window position based on mouse movement */
         int new_x = drag_state.drag_start_x + (int)event->x_root - drag_state.drag_offset_x;
         int new_y = drag_state.drag_start_y + (int)event->y_root - drag_state.drag_offset_y;
 
@@ -504,8 +543,7 @@ static gboolean on_dialog_motion_notify(GtkWidget *widget, GdkEventMotion *event
 /**
  * on_titlebar_button_press() - Handle mouse button press on titlebar.
  *
- * Detects clicks in titlebar area (top ~30 pixels) to initiate window dragging.
- * Records starting position and current mouse offset for drag calculation.
+ * Detects clicks in titlebar area to initiate window dragging.
  *
  * @param widget   GtkEventBox (titlebar area)
  * @param event    GdkEventButton with click position and button number
@@ -520,10 +558,9 @@ static gboolean on_titlebar_button_press(GtkWidget *widget, GdkEventButton *even
 {
     FileChooser *chooser = (FileChooser*)user_data;
 
-    if (event->button == 1) {  /* Left mouse button */
+    if (event->button == 1) {
         drag_state.is_dragging = 1;
 
-        /* Get current window position */
         gint win_x, win_y;
         gtk_window_get_position(GTK_WINDOW(chooser->dialog), &win_x, &win_y);
 
@@ -541,7 +578,7 @@ static gboolean on_titlebar_button_press(GtkWidget *widget, GdkEventButton *even
 /**
  * on_titlebar_button_release() - Handle mouse button release.
  *
- * Ends the window dragging operation started by on_titlebar_button_press().
+ * Ends the window dragging operation.
  *
  * @param widget   GtkEventBox (titlebar area)
  * @param event    GdkEventButton with button number
@@ -557,7 +594,7 @@ static gboolean on_titlebar_button_release(GtkWidget *widget, GdkEventButton *ev
     (void)widget;
     (void)user_data;
 
-    if (event->button == 1) {  /* Left mouse button */
+    if (event->button == 1) {
         drag_state.is_dragging = 0;
         return TRUE;
     }
@@ -573,52 +610,31 @@ static gboolean on_titlebar_button_release(GtkWidget *widget, GdkEventButton *ev
  * file_chooser_new() - Create and initialize a new file chooser dialog.
  *
  * Allocates and sets up all GTK widgets including:
- *   - Main dialog window (600x500, centered, modal)
+ *   - Main dialog window (700x500, centered, modal)
  *   - Navigation bar (Home, Up buttons, location entry)
  *   - Search text entry field
  *   - Main file list tree view with columns
  *   - Bottom filename entry field
- *   - Create/Cancel action buttons
- *
- * LAYOUT:
- *   [===== DIALOG WINDOW =====]
- *   | [Home] [Up] [Location..] |  <- Navigation bar
- *   | [Search field........] |  <- Search/filter
- *   |                        |
- *   |  Icon | Name | Size |  |  <- File list columns
- *   |  [Folder]  My Folder|4.0|
- *   |  [File] doc.txt     |2.3|
- *   |                        |
- *   | Name: [text field...] |
- *   | [Create] [Cancel]     |
- *   [======================]
- *
- * WINDOW PROPERTIES:
- *   - Decorated: Yes (window manager provides titlebar for dragging)
- *   - Modal: Yes (blocks interaction with other windows)
- *   - Resizable: Yes
- *   - Default size: 600x500 pixels
- *   - Centered on screen
+ *   - Action (Create/Save) and Cancel buttons
  *
  * @param mode           CHOOSER_FILE or CHOOSER_FOLDER selection mode
+ * @param action         CHOOSER_ACTION_CREATE (for new items) or CHOOSER_ACTION_SAVE (for saving)
  * @param initial_path   Starting directory (NULL = user's home directory)
  *
  * @return  Newly allocated FileChooser structure, or NULL on error
  *
  * MEMORY: Caller must free with file_chooser_destroy() when done
- *
- * ERRORS: Returns NULL if memory allocation fails or GTK initialization fails
  */
-FileChooser* file_chooser_new(FileChooserMode mode, const char *initial_path)
+FileChooser* file_chooser_new(FileChooserMode mode, FileChooserAction action, const char *initial_path)
 {
     FileChooser *chooser = g_new0(FileChooser, 1);
     chooser->mode = mode;
+    chooser->action = action;
 
     /* Set initial browsing path */
     if (initial_path) {
         strncpy(chooser->current_path, initial_path, sizeof(chooser->current_path) - 1);
     } else {
-        /* Default to user's home directory */
         const char *home = getenv("HOME");
         if (!home) {
             struct passwd *pw = getpwuid(getuid());
@@ -632,8 +648,16 @@ FileChooser* file_chooser_new(FileChooserMode mode, const char *initial_path)
      * ================================================ */
 
     chooser->dialog = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title(GTK_WINDOW(chooser->dialog),
-                        mode == CHOOSER_FOLDER ? "Create New Item" : "Select File");
+    
+    /* Set title based on mode and action */
+    if (mode == CHOOSER_FOLDER) {
+        gtk_window_set_title(GTK_WINDOW(chooser->dialog), "Create New Folder");
+    } else if (action == CHOOSER_ACTION_SAVE) {
+        gtk_window_set_title(GTK_WINDOW(chooser->dialog), "Save File");
+    } else {
+        gtk_window_set_title(GTK_WINDOW(chooser->dialog), "Select File");
+    }
+    
     gtk_window_set_default_size(GTK_WINDOW(chooser->dialog), 700, 500);
     gtk_window_set_type_hint(GTK_WINDOW(chooser->dialog), GDK_WINDOW_TYPE_HINT_NORMAL);
     gtk_window_set_modal(GTK_WINDOW(chooser->dialog), TRUE);
@@ -651,8 +675,16 @@ FileChooser* file_chooser_new(FileChooserMode mode, const char *initial_path)
     gtk_widget_set_size_request(titlebar, -1, 35);
     gtk_widget_set_app_paintable(titlebar, TRUE);
 
-    GtkWidget *title_label = gtk_label_new(
-        mode == CHOOSER_FOLDER ? "Create New Item" : "Select File");
+    const char *title_text;
+    if (mode == CHOOSER_FOLDER) {
+        title_text = "Create New Folder";
+    } else if (action == CHOOSER_ACTION_SAVE) {
+        title_text = "Save File";
+    } else {
+        title_text = "Select File";
+    }
+    
+    GtkWidget *title_label = gtk_label_new(title_text);
     gtk_widget_set_margin_start(title_label, 15);
     gtk_widget_set_margin_top(title_label, 8);
 
@@ -700,12 +732,12 @@ FileChooser* file_chooser_new(FileChooserMode mode, const char *initial_path)
 
     /* File list tree view with columns */
     chooser->file_store = gtk_list_store_new(NUM_COLS,
-                                            G_TYPE_STRING,  /* Icon name */
-                                            G_TYPE_STRING,  /* Filename */
-                                            G_TYPE_STRING,  /* File size */
-                                            G_TYPE_STRING,  /* File type */
-                                            G_TYPE_STRING,  /* Modified time */
-                                            G_TYPE_STRING); /* Full path (hidden) */
+                                            G_TYPE_STRING,
+                                            G_TYPE_STRING,
+                                            G_TYPE_STRING,
+                                            G_TYPE_STRING,
+                                            G_TYPE_STRING,
+                                            G_TYPE_STRING);
 
     chooser->file_list = gtk_tree_view_new_with_model(GTK_TREE_MODEL(chooser->file_store));
 
@@ -713,13 +745,13 @@ FileChooser* file_chooser_new(FileChooserMode mode, const char *initial_path)
     GtkCellRenderer *renderer;
     GtkTreeViewColumn *column;
 
-    /* Icon column (narrow, icon only) */
+    /* Icon column */
     renderer = gtk_cell_renderer_text_new();
     column = gtk_tree_view_column_new_with_attributes("", renderer, "text", COL_ICON, NULL);
     gtk_tree_view_column_set_fixed_width(column, 30);
     gtk_tree_view_append_column(GTK_TREE_VIEW(chooser->file_list), column);
 
-    /* Name column (wide, main display) */
+    /* Name column */
     renderer = gtk_cell_renderer_text_new();
     column = gtk_tree_view_column_new_with_attributes("Name", renderer, "text", COL_NAME, NULL);
     gtk_tree_view_column_set_expand(column, TRUE);
@@ -727,21 +759,21 @@ FileChooser* file_chooser_new(FileChooserMode mode, const char *initial_path)
     gtk_tree_view_column_set_min_width(column, 200);
     gtk_tree_view_append_column(GTK_TREE_VIEW(chooser->file_list), column);
 
-    /* Size column (numeric, right-aligned) */
+    /* Size column */
     renderer = gtk_cell_renderer_text_new();
     column = gtk_tree_view_column_new_with_attributes("Size", renderer, "text", COL_SIZE, NULL);
     gtk_tree_view_column_set_resizable(column, TRUE);
     gtk_tree_view_column_set_fixed_width(column, 80);
     gtk_tree_view_append_column(GTK_TREE_VIEW(chooser->file_list), column);
 
-    /* Type column (File/Folder) */
+    /* Type column */
     renderer = gtk_cell_renderer_text_new();
     column = gtk_tree_view_column_new_with_attributes("Type", renderer, "text", COL_TYPE, NULL);
     gtk_tree_view_column_set_resizable(column, TRUE);
     gtk_tree_view_column_set_fixed_width(column, 70);
     gtk_tree_view_append_column(GTK_TREE_VIEW(chooser->file_list), column);
 
-    /* Modified column (date/time) */
+    /* Modified column */
     renderer = gtk_cell_renderer_text_new();
     column = gtk_tree_view_column_new_with_attributes("Modified", renderer, "text", COL_MODIFIED, NULL);
     gtk_tree_view_column_set_resizable(column, TRUE);
@@ -757,7 +789,7 @@ FileChooser* file_chooser_new(FileChooserMode mode, const char *initial_path)
     gtk_widget_set_vexpand(scrolled, TRUE);
     gtk_box_pack_start(GTK_BOX(content_vbox), scrolled, TRUE, TRUE, 0);
 
-    /* Filename entry field (for selecting/creating new file) */
+    /* Filename entry field */
     GtkWidget *filename_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     GtkWidget *filename_label = gtk_label_new("Name:");
     chooser->filename_entry = gtk_entry_new();
@@ -775,9 +807,19 @@ FileChooser* file_chooser_new(FileChooserMode mode, const char *initial_path)
     gtk_widget_set_halign(button_box, GTK_ALIGN_END);
 
     GtkWidget *cancel_button = gtk_button_new_with_label("Cancel");
-    GtkWidget *create_button = gtk_button_new_with_label("Create");
+    
+    const char *action_button_label;
+    if (mode == CHOOSER_FOLDER) {
+        action_button_label = "Create Folder";
+    } else if (action == CHOOSER_ACTION_SAVE) {
+        action_button_label = "Save";
+    } else {
+        action_button_label = "Create";
+    }
+    
+    GtkWidget *action_button = gtk_button_new_with_label(action_button_label);
 
-    gtk_box_pack_end(GTK_BOX(button_box), create_button, FALSE, FALSE, 0);
+    gtk_box_pack_end(GTK_BOX(button_box), action_button, FALSE, FALSE, 0);
     gtk_box_pack_end(GTK_BOX(button_box), cancel_button, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(content_vbox), button_box, FALSE, FALSE, 0);
 
@@ -785,27 +827,14 @@ FileChooser* file_chooser_new(FileChooserMode mode, const char *initial_path)
      * CONNECT SIGNAL HANDLERS
      * ================================================ */
 
-    /* Navigation signals */
-    g_signal_connect(chooser->home_button, "clicked",
-                    G_CALLBACK(on_home_clicked), chooser);
-    g_signal_connect(chooser->up_button, "clicked",
-                    G_CALLBACK(on_up_clicked), chooser);
+    g_signal_connect(chooser->home_button, "clicked", G_CALLBACK(on_home_clicked), chooser);
+    g_signal_connect(chooser->up_button, "clicked", G_CALLBACK(on_up_clicked), chooser);
+    g_signal_connect(chooser->file_list, "row-activated", G_CALLBACK(on_row_activated), chooser);
+    g_signal_connect(chooser->search_entry, "search-changed", G_CALLBACK(on_search_changed), chooser);
+    g_signal_connect(action_button, "clicked", G_CALLBACK(on_action_clicked), chooser);
+    g_signal_connect(cancel_button, "clicked", G_CALLBACK(on_cancel_clicked), chooser);
 
-    /* File list interaction */
-    g_signal_connect(chooser->file_list, "row-activated",
-                    G_CALLBACK(on_row_activated), chooser);
-
-    /* Search field */
-    g_signal_connect(chooser->search_entry, "search-changed",
-                    G_CALLBACK(on_search_changed), chooser);
-
-    /* Action buttons */
-    g_signal_connect(create_button, "clicked",
-                    G_CALLBACK(on_create_clicked), chooser);
-    g_signal_connect(cancel_button, "clicked",
-                    G_CALLBACK(on_cancel_clicked), chooser);
-
-    /* Enable dragging (motion events must be enabled for move detection) */
+    /* Enable dragging */
     gtk_widget_add_events(chooser->dialog, GDK_POINTER_MOTION_MASK);
 
     /* Show all widgets */
@@ -824,17 +853,6 @@ FileChooser* file_chooser_new(FileChooserMode mode, const char *initial_path)
  * - Returns path if user selects a file/folder or creates a new item
  * - Returns NULL if user clicks Cancel
  *
- * FLOW:
- * 1. Reset completion flag and selection
- * 2. Show dialog window
- * 3. Process GTK events until user clicks Create or Cancel
- * 4. Hide dialog
- * 5. Return selected path (or NULL if cancelled)
- *
- * NOTE: This is NOT a blocking modal in the GTK sense because the calling
- *       process is the only one using the dialog. Real blocking would require
- *       gtk_dialog_run() but we manage completion manually for better control.
- *
  * @param chooser  FileChooser instance from file_chooser_new()
  *
  * @return  Allocated string with selected file path, or NULL if cancelled
@@ -849,18 +867,16 @@ char* file_chooser_show(FileChooser *chooser)
 
     gtk_widget_show(chooser->dialog);
 
-    /* Process GTK events until dialog is completed */
     while (!chooser->completed) {
         if (gtk_events_pending()) {
             gtk_main_iteration();
         } else {
-            g_usleep(10000);  /* Sleep 10ms to prevent busy-wait */
+            g_usleep(10000);
         }
     }
 
     gtk_widget_hide(chooser->dialog);
 
-    /* Return selected path (allocated string) or NULL if cancelled */
     if (chooser->selected_path[0] != '\0') {
         return g_strdup(chooser->selected_path);
     }
@@ -871,7 +887,6 @@ char* file_chooser_show(FileChooser *chooser)
  * file_chooser_destroy() - Clean up file chooser and free all resources.
  *
  * Destroys GTK widgets and deallocates the FileChooser structure.
- * Should be called when dialog is no longer needed to prevent memory leaks.
  *
  * @param chooser  FileChooser instance (nullpointer safe)
  */
