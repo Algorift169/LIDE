@@ -1302,10 +1302,29 @@ static void apply_panel_css(GtkWidget *window)
 {
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
-        "window { background-color: #0b0f14; color: #a92d5a; border-bottom: 1px solid #a92d5a; }"
-        "button { background-color: #1e2429; color: #a92d5a; border: 1px solid #a92d5a; padding: 2px 8px; margin: 2px; border-radius: 3px; }"
-        "button:hover { background-color: #2a323a; border: 1px solid #a92d5a; }"
-        "label { color: #a92d5a; padding: 0 4px; font-size: 11px; }"
+        "window { "
+        "   background: transparent; "
+        "   color: #00ff88; "
+        "   border-bottom: 1px solid rgba(0, 255, 136, 0.3); "
+        "}"
+        "button { "
+        "   background-color: rgba(30, 36, 41, 0.7); "
+        "   color: #00ff88; "
+        "   border: 1px solid #00ff88; "
+        "   padding: 2px 8px; "
+        "   margin: 2px; "
+        "   border-radius: 3px; "
+        "}"
+        "button:hover { "
+        "   background-color: rgba(42, 50, 58, 0.9); "
+        "   border: 1px solid #00ff88; "
+        "}"
+        "label { "
+        "   color: #00ff88; "
+        "   padding: 0 4px; "
+        "   font-size: 11px; "
+        "   text-shadow: 0 0 2px rgba(0, 0, 0, 0.5); "
+        "}"
         "#stats-box { margin-right: 8px; }"
         "#stats-box label { font-family: monospace; }",
         -1, NULL);
@@ -1317,6 +1336,19 @@ static void apply_panel_css(GtkWidget *window)
         GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
     
     g_object_unref(provider);
+    
+    /* Make the window background fully transparent */
+    GdkScreen *screen = gdk_screen_get_default();
+    GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
+    
+    if (visual && gdk_screen_is_composited(screen)) {
+        gtk_widget_set_visual(window, visual);
+        gtk_widget_set_app_paintable(window, TRUE);
+        
+        /* Set window background to transparent */
+        GdkRGBA transparent = {0.0, 0.0, 0.0, 0.0};
+        gtk_widget_override_background_color(window, GTK_STATE_FLAG_NORMAL, &transparent);
+    }
 }
 
 /**
