@@ -11,6 +11,7 @@
 #include "power/p_settings.h"
 #include "network/network.h"
 #include "mouse/mouse.h"
+#include "privacy/privacy.h"
 
 /*
  * settings.c
@@ -210,13 +211,7 @@ static GtkWidget *power_tab_new(void)
 static GtkWidget *privacy_tab_new(void)
 
 {
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-    gtk_container_set_border_width(GTK_CONTAINER(box), 20);
-    
-    GtkWidget *label = gtk_label_new("Privacy & Security not implemented yet.");
-    gtk_box_pack_start(GTK_BOX(box), label, TRUE, TRUE, 0);
-    
-    return box;
+    return privacy_settings_tab_new();
 }
 
 static GtkWidget *search_tab_new(void)
