@@ -77,10 +77,19 @@ SETTINGS_SOURCES = tools/settings/settings.c \
                    tools/settings/power/batary.c \
                    tools/settings/power/mode.c \
                    tools/settings/network/network.c \
+                   tools/settings/mouse/mouse.c \
+                   tools/settings/mouse/mouse_style.c \
                    panel/internet_settings.c \
                    panel/wifi_list.c \
                    panel/wifi_connect.c \
-                   panel/connection_details.c
+                   panel/connection_details.c \
+                   tools/settings/privacy/privacy.c \
+                   tools/settings/privacy/system/system.c \
+                   tools/settings/privacy/system/cache/cache.c \
+                   tools/settings/privacy/system/file_history/history.c \
+                   tools/settings/privacy/system/location/location.c \
+                   tools/settings/privacy/system/screen_lock/screen_lock.c \
+                   tools/settings/privacy/devices/device_privacy.c
 
 SETTINGS_HEADERS = tools/settings/display/displaySettings.h \
                    tools/settings/display/orientation.h \
@@ -95,7 +104,16 @@ SETTINGS_HEADERS = tools/settings/display/displaySettings.h \
                    tools/settings/power/p_settings.h \
                    tools/settings/power/batary.h \
                    tools/settings/power/mode.h \
-                   tools/settings/network/network.h
+                   tools/settings/network/network.h \
+                   tools/settings/mouse/mouse.h \
+                   tools/settings/mouse/mouse_style.h \
+                   tools/settings/privacy/privacy.h \
+                   tools/settings/privacy/system/system.h \
+                   tools/settings/privacy/system/cache/cache.h \
+                   tools/settings/privacy/system/file_history/history.h \
+                   tools/settings/privacy/system/location/location.h \
+                   tools/settings/privacy/system/screen_lock/screen_lock.h \
+                   tools/settings/privacy/devices/device_privacy.h
 
 SETTINGS_TARGET = blackline-settings
 
@@ -220,7 +238,6 @@ $(FILE_ROLLER_TARGET): $(FILE_ROLLER_SOURCES) $(FILE_ROLLER_HEADERS)
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -o $@ $(FILE_ROLLER_SOURCES) $(GTK_LIBS)
 	@echo "Built File Roller - Universal file viewer with integrated video player"
 
-# Settings Tool with Display, Sound, Power, and Network tabs
 $(SETTINGS_TARGET): $(SETTINGS_SOURCES) $(SETTINGS_HEADERS)
 	mkdir -p tools/settings/display
 	mkdir -p tools/settings/sound/output
@@ -228,9 +245,15 @@ $(SETTINGS_TARGET): $(SETTINGS_SOURCES) $(SETTINGS_HEADERS)
 	mkdir -p tools/settings/sound/sounds
 	mkdir -p tools/settings/power
 	mkdir -p tools/settings/network
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -Ipanel -o $@ $(SETTINGS_SOURCES) $(GTK_LIBS) $(PULSE_LIBS) -lm -lasound
-	@echo "Built Settings tool with Display, Sound, Power, and Network tabs"
-
+	mkdir -p tools/settings/mouse
+	mkdir -p tools/settings/privacy/system/cache
+	mkdir -p tools/settings/privacy/system/file_history
+	mkdir -p tools/settings/privacy/system/location
+	mkdir -p tools/settings/privacy/system/screen_lock
+	mkdir -p tools/settings/privacy/devices
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -Ipanel -o $@ $(SETTINGS_SOURCES) $(GTK_LIBS) $(PULSE_LIBS) -lm -lasound -lX11
+	@echo "Built Settings tool with Display, Sound, Power, Network, Mouse, and Privacy tabs"
+	
 # Terminal
 ifeq ($(HAVE_VTE),yes)
 TERMINAL_SOURCES = tools/terminal/terminal.c tools/window_resize.c

@@ -10,10 +10,22 @@
 /**
  * Forward declaration for file roller launcher.
  * Launches the custom BlackLine file roller for handling various file types.
- * 
+ *
  * @param filename Path to the file to open with the file roller.
  */
 extern void launch_file_roller(const char *filename);
+
+/**
+ * Stub for fm_open_location when fm.c is not linked.
+ * Used by the window manager's integrated browser.
+ */
+__attribute__((weak))
+void fm_open_location(FileManager *fm, const gchar *path)
+{
+    /* Stub: This is overridden by fm.c when the file manager is fully linked */
+    (void)fm;
+    (void)path;
+}
 
 /* Helper functions for formatting */
 
