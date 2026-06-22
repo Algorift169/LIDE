@@ -155,3 +155,20 @@ entry:focus {
 .fade-scale-in {
     animation: fadeInScale 250ms ease-out;
 }
+
+/* White text buttons */
+#blackline-btn {
+    color: #ffffff;
+}
+
+#tools-btn {
+    color: #ffffff;
+}
+
+#minimize-btn {
+    color: #ffffff;
+}
+
+#gear-btn {
+    color: #ffffff;
+}

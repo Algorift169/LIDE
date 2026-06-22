@@ -1250,8 +1250,8 @@ static gboolean update_system_stats(gpointer user_data)
     char upload_text[64];
     char download_text[64];
 
-    snprintf(upload_text, sizeof(upload_text), "↑ %s", format_speed(upload_speed));
-    snprintf(download_text, sizeof(download_text), "↓ %s", format_speed(download_speed));
+    snprintf(upload_text, sizeof(upload_text), "Up %s", format_speed(upload_speed));
+    snprintf(download_text, sizeof(download_text), "Down %s", format_speed(download_speed));
 
     gtk_label_set_text(GTK_LABEL(upload_label), upload_text);
     gtk_label_set_text(GTK_LABEL(download_label), download_text);
@@ -1264,15 +1264,9 @@ static gboolean update_system_stats(gpointer user_data)
         
         char battery_text[64];
         if (battery_percent >= 0) {
-            const char *icon = "🔋";
-            if (battery_charging) {
-                icon = "🔌";
-            } else if (battery_percent <= 15) {
-                icon = "🪫";
-            }
-            snprintf(battery_text, sizeof(battery_text), "%s %d%%", icon, battery_percent);
+            snprintf(battery_text, sizeof(battery_text), "Battery %d%%", battery_percent);
         } else {
-            snprintf(battery_text, sizeof(battery_text), "🔋 N/A");
+            snprintf(battery_text, sizeof(battery_text), "Battery N/A");
         }
         gtk_button_set_label(GTK_BUTTON(battery_label), battery_text);
     }
@@ -1314,21 +1308,29 @@ static void apply_panel_css(GtkWidget *window)
         "   border-bottom: 1px solid rgba(0, 255, 136, 0.3); "
         "}"
         "button { "
-        "   background-color: rgba(30, 36, 41, 0.7); "
+        "   background-color: transparent; "
         "   color: #00ff88; "
-        "   border: 1px solid #00ff88; "
-        "   padding: 2px 8px; "
-        "   margin: 2px; "
-        "   border-radius: 3px; "
+        "   border: none; "
+        "   padding: 0px 2px; "
+        "   margin: 0px; "
+        "   min-height: 10px; "
+        "   height: 10px; "
+        "   min-width: 0; "
+        "   line-height: 10px; "
+        "   border-radius: 0px; "
+        "   font-size: 8px; "
         "}"
         "button:hover { "
-        "   background-color: rgba(42, 50, 58, 0.9); "
-        "   border: 1px solid #00ff88; "
+        "   background-color: rgba(0, 255, 136, 0.1); "
+        "   border: none; "
         "}"
         "label { "
         "   color: #00ff88; "
-        "   padding: 0 4px; "
-        "   font-size: 11px; "
+        "   padding: 0 1px; "
+        "   margin: 0; "
+        "   min-height: 8px; "
+        "   font-size: 8px; "
+        "   line-height: 8px; "
         "   text-shadow: 0 0 2px rgba(0, 0, 0, 0.5); "
         "}"
         "#stats-box { margin-right: 8px; }"
@@ -1379,7 +1381,6 @@ static void activate(GtkApplication *app, gpointer user_data)
     
     GtkWidget *window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(window), "BlackLine Panel");
-    gtk_window_set_default_size(GTK_WINDOW(window), -1, 35);
     gtk_window_set_decorated(GTK_WINDOW(window), FALSE);
     gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
     gtk_window_set_type_hint(GTK_WINDOW(window), GDK_WINDOW_TYPE_HINT_DOCK);
@@ -1387,44 +1388,75 @@ static void activate(GtkApplication *app, gpointer user_data)
     /* Apply CSS only to the panel window */
     apply_panel_css(window);
     
-    /* Full width */
+    /* Full width and fixed logical height. Reduce height for QEMU/HiDPI
+     * contexts and lock the panel size so it remains compact. */
     GdkDisplay *gdisplay = gdk_display_get_default();
     GdkMonitor *monitor = gdk_display_get_primary_monitor(gdisplay);
-    GdkRectangle geom;
-    gdk_monitor_get_geometry(monitor, &geom);
-    gtk_window_set_default_size(GTK_WINDOW(window), geom.width, 35);
+    GdkRectangle geom = {0, 0, 0, 0};
+    int panel_height = 10;
+
+    if (monitor) {
+        gdk_monitor_get_geometry(monitor, &geom);
+        if (gdk_monitor_get_scale_factor(monitor) > 1) {
+            geom.width /= gdk_monitor_get_scale_factor(monitor);
+        }
+    }
+
+    gtk_window_set_default_size(GTK_WINDOW(window), geom.width, panel_height);
+    gtk_widget_set_size_request(window, -1, panel_height);
+    gtk_window_set_resizable(GTK_WINDOW(window), FALSE);
+
+    GdkGeometry hints = {0};
+    hints.min_width = geom.width;
+    hints.max_width = geom.width;
+    hints.min_height = panel_height;
+    hints.max_height = panel_height;
+    gtk_window_set_geometry_hints(GTK_WINDOW(window), window, &hints,
+                                  GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE);
     gtk_window_move(GTK_WINDOW(window), 0, 0);
-    
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
-    gtk_container_set_border_width(GTK_CONTAINER(box), 2);
+
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_widget_set_name(box, "panel-box");
+    gtk_container_set_border_width(GTK_CONTAINER(box), 0);
+    gtk_widget_set_size_request(box, geom.width, panel_height);
     gtk_container_add(GTK_CONTAINER(window), box);
     
     /* Left section with buttons */
-    GtkWidget *left_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+    GtkWidget *left_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_widget_set_name(left_box, "panel-left-box");
+    gtk_widget_set_size_request(left_box, -1, panel_height);
     gtk_box_pack_start(GTK_BOX(box), left_box, FALSE, FALSE, 0);
     
     /* BlackLine button opens the command palette */
     GtkWidget *btn1 = gtk_button_new_with_label("BlackLine");
+    gtk_widget_set_name(btn1, "blackline-btn");
+    gtk_button_set_relief(GTK_BUTTON(btn1), GTK_RELIEF_NONE);
     g_signal_connect(btn1, "clicked", G_CALLBACK(launch_command_palette), NULL);
-    gtk_box_pack_start(GTK_BOX(left_box), btn1, FALSE, FALSE, 2);
+    gtk_widget_set_size_request(btn1, -1, panel_height);
+    gtk_box_pack_start(GTK_BOX(left_box), btn1, FALSE, FALSE, 1);
     
     /* Tools button */
     GtkWidget *btn2 = gtk_button_new_with_label("Tools");
+    gtk_widget_set_name(btn2, "tools-btn");
+    gtk_button_set_relief(GTK_BUTTON(btn2), GTK_RELIEF_NONE);
     g_signal_connect(btn2, "clicked", G_CALLBACK(launch_tools), NULL);
-    gtk_box_pack_start(GTK_BOX(left_box), btn2, FALSE, FALSE, 2);
+    gtk_widget_set_size_request(btn2, -1, panel_height);
+    gtk_box_pack_start(GTK_BOX(left_box), btn2, FALSE, FALSE, 1);
     
-    /* Minimized Apps button (📌) */
+    /* Minimized Apps button */
     GtkWidget *min_btn = minimized_container_get_toggle_button();
-    gtk_box_pack_start(GTK_BOX(left_box), min_btn, FALSE, FALSE, 2);
+    gtk_widget_set_size_request(min_btn, -1, panel_height);
+    gtk_box_pack_start(GTK_BOX(left_box), min_btn, FALSE, FALSE, 0);
     
     /* Center spacer */
     GtkWidget *spacer = gtk_label_new(NULL);
     gtk_box_pack_start(GTK_BOX(box), spacer, TRUE, TRUE, 0);
     
     /* System stats container (right side) */
-    GtkWidget *stats_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+    GtkWidget *stats_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     gtk_widget_set_name(stats_box, "stats-box");
-    gtk_box_pack_end(GTK_BOX(box), stats_box, FALSE, FALSE, 4);
+    gtk_widget_set_size_request(stats_box, -1, panel_height);
+    gtk_box_pack_end(GTK_BOX(box), stats_box, FALSE, FALSE, 0);
     
     /* CPU Label */
     GtkWidget *cpu_label = gtk_label_new("CPU: 0.0%");
@@ -1439,31 +1471,33 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_box_pack_start(GTK_BOX(stats_box), sep1, FALSE, FALSE, 2);
     
     /* Upload Label */
-    GtkWidget *upload_label = gtk_label_new("↑ 0 KB/s");
-    gtk_box_pack_start(GTK_BOX(stats_box), upload_label, FALSE, FALSE, 2);
+    GtkWidget *upload_label = gtk_label_new("Up 0 KB/s");
+    gtk_box_pack_start(GTK_BOX(stats_box), upload_label, FALSE, FALSE, 1);
     
     /* Download Label */
-    GtkWidget *download_label = gtk_label_new("↓ 0 KB/s");
-    gtk_box_pack_start(GTK_BOX(stats_box), download_label, FALSE, FALSE, 2);
+    GtkWidget *download_label = gtk_label_new("Down 0 KB/s");
+    gtk_box_pack_start(GTK_BOX(stats_box), download_label, FALSE, FALSE, 1);
     
     /* Separator */
     GtkWidget *sep2 = gtk_label_new("|");
     gtk_box_pack_start(GTK_BOX(stats_box), sep2, FALSE, FALSE, 2);
     
     /* Battery Label Button */
-    GtkWidget *battery_label = gtk_button_new_with_label("🔋 0%");
+    GtkWidget *battery_label = gtk_button_new_with_label("Battery");
+    gtk_widget_set_name(battery_label, "battery-btn");
     gtk_button_set_relief(GTK_BUTTON(battery_label), GTK_RELIEF_NONE);
-    gtk_box_pack_start(GTK_BOX(stats_box), battery_label, FALSE, FALSE, 2);
+    gtk_box_pack_start(GTK_BOX(stats_box), battery_label, FALSE, FALSE, 1);
     
     /* Separator */
     GtkWidget *sep3 = gtk_label_new("|");
     gtk_box_pack_start(GTK_BOX(stats_box), sep3, FALSE, FALSE, 2);
         
-    /* Network Status Button with Gear icon */
-    GtkWidget *network_btn = gtk_button_new_with_label("⚙️ Gear");
+    /* Network Status Button */
+    GtkWidget *network_btn = gtk_button_new_with_label("Gear");
+    gtk_widget_set_name(network_btn, "gear-btn");
     gtk_button_set_relief(GTK_BUTTON(network_btn), GTK_RELIEF_NONE);
     g_signal_connect(network_btn, "clicked", G_CALLBACK(launch_network_tab), NULL);
-    gtk_box_pack_start(GTK_BOX(stats_box), network_btn, FALSE, FALSE, 2);
+    gtk_box_pack_start(GTK_BOX(stats_box), network_btn, FALSE, FALSE, 1);
 
     /* Separator */
     GtkWidget *sep4 = gtk_label_new("|");

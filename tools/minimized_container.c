@@ -295,7 +295,7 @@ static void add_minimized_window(Window xid)
     gtk_container_add(GTK_CONTAINER(row), hbox);
     
     // Add icon
-    GtkWidget *icon = gtk_label_new("📌");
+    GtkWidget *icon = gtk_label_new("m-");
     gtk_box_pack_start(GTK_BOX(hbox), icon, FALSE, FALSE, 5);
     
     // Add title
@@ -653,7 +653,9 @@ void minimized_container_initialize(void)
 GtkWidget* minimized_container_get_toggle_button(void) 
 
 {
-    GtkWidget *btn = gtk_button_new_with_label("📌");
+    GtkWidget *btn = gtk_button_new_with_label("m-");
+    gtk_widget_set_name(btn, "minimize-btn");
+    gtk_button_set_relief(GTK_BUTTON(btn), GTK_RELIEF_NONE);
     gtk_widget_set_tooltip_text(btn, "Minimized Apps");
     g_signal_connect(btn, "clicked", G_CALLBACK(show_minimized_container), NULL);
     return btn;
