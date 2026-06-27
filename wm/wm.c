@@ -1,7 +1,8 @@
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 #include <X11/Xutil.h>
-#include <X11/cursorfont.h>  
+#include <X11/cursorfont.h>
+#include <X11/Xcursor/Xcursor.h>
 #include <Imlib2.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -103,6 +104,28 @@ static void maximize_window(Display *d, Window win);
 static void unmaximize_window(Display *d, Window win);
 static void handle_maximize_request(Display *d, Window win, long action);
 static void set_focus(Display *d, Window win);
+
+static void install_system_cursor(Display *d, Window target_window)
+{
+    const char *cursor_name = "left_ptr";
+    Cursor cursor = XcursorLibraryLoadCursor(d, cursor_name);
+
+    if (cursor == None) {
+        fprintf(stderr, "[WM] Xcursor theme loading failed, falling back to font cursor\n");
+        cursor = XCreateFontCursor(d, XC_left_ptr);
+    } else {
+        fprintf(stderr, "[WM] Xcursor theme loaded successfully\n");
+    }
+
+    if (cursor != None) {
+        XDefineCursor(d, target_window, cursor);
+        XFlush(d);
+        fprintf(stderr, "[WM] Cursor set on root window\n");
+        XFreeCursor(d, cursor);
+    } else {
+        fprintf(stderr, "[WM] WARNING: Failed to create cursor\n");
+    }
+}
 
 // Wallpaper functions
 static Pixmap load_wallpaper_imlib2(Display *d, int screen, Window root, const char *filename);
@@ -1288,8 +1311,10 @@ int main(void)
     load_desktop_icons(d);
     
     // Create cursor
-    Cursor cursor = XCreateFontCursor(d, XC_left_ptr);  
-    XDefineCursor(d, root, cursor);
+    install_system_cursor(d, root);
+    if (desktop_window != None) {
+        install_system_cursor(d, desktop_window);
+    }
     
     // Select events on root
     XSelectInput(d, root, SubstructureNotifyMask | SubstructureRedirectMask | 

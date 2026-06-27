@@ -1,6 +1,7 @@
 #include "mouse_style.h"
 #include <X11/Xlib.h>
 #include <X11/cursorfont.h>
+#include <X11/Xcursor/Xcursor.h>
 #include <gdk/gdkx.h>
 #include <gtk/gtk.h>
 #include <stdio.h>
@@ -172,8 +173,27 @@ static void apply_cursor_style(unsigned int shape)
     Display *dpy = XOpenDisplay(NULL);
     if (!dpy) return;
     
+    const char *cursor_name = "left_ptr";
+    switch(shape) {
+        case XC_left_ptr: cursor_name = "left_ptr"; break;
+        case XC_hand2: cursor_name = "hand2"; break;
+        case XC_xterm: cursor_name = "xterm"; break;
+        case XC_crosshair: cursor_name = "crosshair"; break;
+        case XC_watch: cursor_name = "watch"; break;
+        case XC_fleur: cursor_name = "fleur"; break;
+        case XC_sizing: cursor_name = "sizing"; break;
+        case XC_sb_v_double_arrow: cursor_name = "sb_v_double_arrow"; break;
+        case XC_sb_h_double_arrow: cursor_name = "sb_h_double_arrow"; break;
+        case XC_question_arrow: cursor_name = "question_arrow"; break;
+        case XC_pencil: cursor_name = "pencil"; break;
+        default: cursor_name = "left_ptr"; break;
+    }
+
     /* Create the cursor */
-    Cursor cursor = XCreateFontCursor(dpy, shape);
+    Cursor cursor = XcursorLibraryLoadCursor(dpy, cursor_name);
+    if (cursor == None) {
+        cursor = XCreateFontCursor(dpy, shape);
+    }
     
     /* Set cursor on root window */
     XDefineCursor(dpy, DefaultRootWindow(dpy), cursor);
@@ -194,24 +214,6 @@ static void apply_cursor_style(unsigned int shape)
     
     /* Use xsetroot as fallback */
     char cmd[256];
-    const char *cursor_name = "left_ptr";
-    
-    /* Map shape to cursor name */
-    switch(shape) {
-        case XC_left_ptr: cursor_name = "left_ptr"; break;
-        case XC_hand2: cursor_name = "hand2"; break;
-        case XC_xterm: cursor_name = "xterm"; break;
-        case XC_crosshair: cursor_name = "crosshair"; break;
-        case XC_watch: cursor_name = "watch"; break;
-        case XC_fleur: cursor_name = "fleur"; break;
-        case XC_sizing: cursor_name = "sizing"; break;
-        case XC_sb_v_double_arrow: cursor_name = "sb_v_double_arrow"; break;
-        case XC_sb_h_double_arrow: cursor_name = "sb_h_double_arrow"; break;
-        case XC_question_arrow: cursor_name = "question_arrow"; break;
-        case XC_pencil: cursor_name = "pencil"; break;
-        default: cursor_name = "left_ptr"; break;
-    }
-    
     snprintf(cmd, sizeof(cmd), "xsetroot -cursor_name %s 2>/dev/null", cursor_name);
     system(cmd);
     

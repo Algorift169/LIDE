@@ -52,6 +52,9 @@ BINARIES=(
     "/usr/bin/udevadm"
     "/bin/kmod"
     "/usr/bin/xterm"
+    # X11 utilities
+    "/usr/bin/xsetroot"
+    "/usr/bin/xrdb"
     # XKB utilities (required for Xorg keyboard initialization)
     "/usr/bin/xkbcomp"
     "/usr/bin/setxkbmap"
@@ -158,6 +161,13 @@ fi
 mkdir -p "$RFS_DIR/usr/share/X11"
 cp -a /usr/share/xkeyboard-config-2 "$RFS_DIR/usr/share/X11/xkb" || cp -a /usr/share/X11/xkb "$RFS_DIR/usr/share/X11/xkb"
 
+# Copy Xorg xorg.conf.d snippets (especially 40-libinput.conf for input device support)
+if [ -d /usr/share/X11/xorg.conf.d ]; then
+    echo "Copying Xorg xorg.conf.d input configuration..."
+    mkdir -p "$RFS_DIR/usr/share/X11/xorg.conf.d"
+    cp -a /usr/share/X11/xorg.conf.d/* "$RFS_DIR/usr/share/X11/xorg.conf.d/"
+fi
+
 # Copy Glib schemas for settings stability
 mkdir -p "$RFS_DIR/usr/share/glib-2.0"
 cp -a /usr/share/glib-2.0/schemas "$RFS_DIR/usr/share/glib-2.0/"
@@ -229,14 +239,44 @@ echo "=== Step 6: Configuring rootfs scripts and files ==="
     mkdir -p "$RFS_DIR/home/live/.config/blackline"
     mkdir -p "$RFS_DIR/etc/X11"
 
-    # Xorg configuration with explicit font paths (essential for cursor font)
+    # Xorg configuration with explicit font paths and input device support
     cat <<XORGCONF > "$RFS_DIR/etc/X11/xorg.conf"
+Section "ServerFlags"
+    Option "AutoAddDevices" "true"
+    Option "AllowMouseOpenFail" "true"
+EndSection
+
 Section "Files"
     FontPath "/usr/share/fonts/X11/misc"
     FontPath "/usr/share/fonts/X11/Type1"
     FontPath "/usr/share/fonts/truetype/dejavu"
     FontPath "/usr/share/fonts/truetype/liberation"
     FontPath "/usr/share/fonts/truetype/noto"
+EndSection
+
+Section "Device"
+    Identifier "Card0"
+    Driver "modesetting"
+EndSection
+
+Section "Monitor"
+    Identifier "Monitor0"
+EndSection
+
+Section "Screen"
+    Identifier "Screen0"
+    Device "Card0"
+    Monitor "Monitor0"
+    DefaultDepth 24
+    SubSection "Display"
+        Depth 24
+        Modes "1280x720" "1024x768" "800x600"
+    EndSubSection
+EndSection
+
+Section "ServerLayout"
+    Identifier "Default"
+    Screen "Screen0" 0 0
 EndSection
 XORGCONF
 
@@ -307,6 +347,7 @@ export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 export HOME=/home/live
 export XCURSOR_THEME=Adwaita
 export XCURSOR_SIZE=24
+export XCURSOR_PATH=/usr/share/icons:/usr/share/pixmaps
 
 # Mount system filesystems
 mount -t proc proc /proc 2>/dev/null || true
@@ -322,7 +363,16 @@ udevadm settle
 
 # Load GPU and input drivers explicitly
 modprobe virtio-gpu 2>/dev/null || true
+modprobe virtio_input 2>/dev/null || true
+modprobe xhci-pci 2>/dev/null || true
+modprobe ohci-pci 2>/dev/null || true
+modprobe ehci-pci 2>/dev/null || true
+modprobe uhci-hcd 2>/dev/null || true
 modprobe evdev 2>/dev/null || true
+modprobe psmouse 2>/dev/null || true
+modprobe usbhid 2>/dev/null || true
+modprobe hid 2>/dev/null || true
+modprobe hid_generic 2>/dev/null || true
 
 # Wait for /dev/dri/card0 to appear (up to 10 seconds)
 echo "Waiting for GPU device..."
@@ -336,6 +386,18 @@ done
 if [ ! -e /dev/dri/card0 ]; then
     echo "WARNING: /dev/dri/card0 not found, Xorg may fail"
 fi
+
+# Wait for input devices to be ready
+echo "Waiting for input devices..."
+for i in $(seq 1 20); do
+    if [ -e /dev/input/mice ] || [ -e /dev/input/event0 ]; then
+        echo "Input devices ready"
+        break
+    fi
+    sleep 0.5
+done
+chmod 666 /dev/input/mice 2>/dev/null || true
+chmod 666 /dev/input/event* 2>/dev/null || true
 
 # Start D-Bus
 dbus-uuidgen --ensure
@@ -359,12 +421,10 @@ fc-cache -f 2>/dev/null || true
 # Force desktop size and run X
 echo "Starting BlackLine session..."
 cd /usr/local/bin
-if ! xinit ./blackline-session -- /usr/bin/Xorg -nolisten tcp vt1 >/tmp/session.log 2>&1; then
+if ! xinit ./blackline-session -- /usr/bin/Xorg -nolisten tcp vt1 >/dev/console 2>&1; then
     echo "ERROR: Xorg or session manager failed to start!" >/dev/console
     echo "=== Xorg log ===" >/dev/console
     cat /var/log/Xorg.0.log 2>/dev/null >/dev/console
-    echo "=== Session log ===" >/dev/console
-    cat /tmp/session.log >/dev/console
     echo "Starting emergency shell..." >/dev/console
     exec /bin/bash </dev/console >/dev/console 2>&1
 fi
@@ -468,7 +528,10 @@ fi
 /bin/busybox mount -t squashfs -o loop,ro /mnt/iso/live/filesystem.squashfs /mnt/squashfs
 /bin/busybox mount -t tmpfs tmpfs /mnt/overlaydir
 /bin/busybox mkdir -p /mnt/overlaydir/upper /mnt/overlaydir/work
-/bin/busybox mount -t overlay overlay -o lowerdir=/mnt/squashfs,upperdir=/mnt/overlaydir/upper,workdir=/mnt/overlaydir/work /mnt/newroot
+if ! /bin/busybox mount -t overlay overlay -o lowerdir=/mnt/squashfs,upperdir=/mnt/overlaydir/upper,workdir=/mnt/overlaydir/work /mnt/newroot; then
+    echo "ERROR: Failed to mount overlay root filesystem"
+    exec /bin/busybox sh
+fi
 
 # Move virtual filesystems to the new root
 /bin/busybox mkdir -p /mnt/newroot/mnt/iso

@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -O2 -g -I. -Iinclude -Itools -Itools/file-manager -Ipanel -Icontrols/optionals -Icontrols/copy -Icontrols/paste -IfileRoller
 GTK_CFLAGS = $(shell pkg-config --cflags gtk+-3.0)
 GTK_LIBS = $(shell pkg-config --libs gtk+-3.0)
-X11_LIBS = -lX11
+X11_LIBS = -lX11 -lXcursor
 MATH_LIBS = -lm
 IMLIB2_LIBS = -lImlib2
 PULSE_LIBS = -lpulse -lpulse-mainloop-glib
@@ -280,7 +280,7 @@ $(SETTINGS_TARGET): $(SETTINGS_SOURCES) $(SETTINGS_HEADERS)
 	mkdir -p tools/settings/privacy/system/location
 	mkdir -p tools/settings/privacy/system/screen_lock
 	mkdir -p tools/settings/privacy/devices
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -Ipanel -o $@ $(SETTINGS_SOURCES) $(GTK_LIBS) $(PULSE_LIBS) -lm -lasound -lX11
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -Ipanel -o $@ $(SETTINGS_SOURCES) $(GTK_LIBS) $(PULSE_LIBS) $(X11_LIBS) -lm -lasound
 	@echo "Built Settings tool with Display, Sound, Power, Network, Mouse, Bluetooth, and Privacy tabs"
 
 # Terminal
