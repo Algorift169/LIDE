@@ -42,6 +42,10 @@ BINARIES=(
     "/usr/bin/busybox"
     "/usr/bin/sudo"
     "/bin/su"
+    "/usr/bin/nano"
+    "/usr/bin/curl"
+    "/usr/bin/htop"
+    "/usr/bin/tree"
     "/usr/bin/Xorg"
     "/usr/lib/xorg/Xorg"
     "/usr/lib/xorg/Xorg.wrap"
@@ -116,8 +120,46 @@ for bin in "${BINARIES[@]}"; do
     fi
 done
 
+echo "Copying VoidFox browser homepage assets..."
+cp -L "$WORKSPACE/tools/web-browser/homePage.html" "$RFS_DIR/usr/local/bin/"
+cp -L "$WORKSPACE/tools/web-browser/homePage.css" "$RFS_DIR/usr/local/bin/"
+cp -L "$WORKSPACE/tools/web-browser/homePage.js" "$RFS_DIR/usr/local/bin/"
+
+
 echo "Installing BusyBox symlinks into rootfs..."
-busybox --install -s "$RFS_DIR/usr/bin"
+if [ -f "$RFS_DIR/usr/bin/busybox" ]; then
+    for path in $("$RFS_DIR/usr/bin/busybox" --list-full); do
+        target_path="$RFS_DIR/$path"
+        mkdir -p "$(dirname "$target_path")"
+        if [ ! -e "$target_path" ] && [ ! -L "$target_path" ]; then
+            ln -sf /usr/bin/busybox "$target_path"
+        fi
+    done
+else
+    echo "ERROR: busybox not found in rootfs"
+    exit 1
+fi
+
+echo "Configuring sudo policies and plugins..."
+mkdir -p "$RFS_DIR/usr/libexec/sudo"
+cp -a /usr/libexec/sudo/* "$RFS_DIR/usr/libexec/sudo/"
+mkdir -p "$RFS_DIR/etc"
+cp -p /etc/sudo.conf "$RFS_DIR/etc/" 2>/dev/null || true
+cat << 'EOF' > "$RFS_DIR/etc/sudoers"
+defaults        env_reset
+defaults        mail_badpass
+defaults        secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+root    ALL=(ALL:ALL) ALL
+%admin  ALL=(ALL) ALL
+%sudo   ALL=(ALL:ALL) ALL
+
+# Allow live user to run all commands without password
+live    ALL=(ALL:ALL) NOPASSWD: ALL
+EOF
+chmod 0440 "$RFS_DIR/etc/sudoers"
+chmod 4755 "$RFS_DIR/usr/bin/sudo"
+chmod 4755 "$RFS_DIR/usr/bin/su" 2>/dev/null || true
 
 echo "=== Step 4: Copying Xorg Modules & configuration ==="
 # Xorg modules
@@ -434,9 +476,19 @@ EOF
 cat <<EOF > "$RFS_DIR/home/live/.config/blackline/current_wallpaper.conf"
 /usr/share/lide/images/walpapers/wal1.png
 EOF
+
+# Set custom terminal prompt
+cat <<EOF > "$RFS_DIR/home/live/.bashrc"
+PS1="blackline @ \W # "
+EOF
+cat <<EOF > "$RFS_DIR/etc/bash.bashrc"
+PS1="blackline @ \W # "
+EOF
+
 chown -R 1000:1000 "$RFS_DIR/home/live" 2>/dev/null || true
 
 # Write rootfs init (this acts as PID 1 inside the running OS)
+rm -f "$RFS_DIR/sbin/init"
 cat <<'EOF' > "$RFS_DIR/sbin/init"
 #!/bin/bash
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
@@ -658,7 +710,7 @@ find . -print0 | cpio --null -ov --format=newc | gzip -9 > "$BUILD_DIR/boot/init
 cd "$WORKSPACE"
 
 echo "=== Step 8: Creating SquashFS ==="
-mksquashfs "$RFS_DIR" "$BUILD_DIR/live/filesystem.squashfs" -noappend -comp xz
+mksquashfs "$RFS_DIR" "$BUILD_DIR/live/filesystem.squashfs" -noappend -comp xz -all-root
 
 echo "=== Step 9: Creating ISO Image ==="
 cp "$VMLINUZ" "$BUILD_DIR/boot/vmlinuz"

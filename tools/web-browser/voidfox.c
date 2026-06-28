@@ -35,9 +35,12 @@ static void activate(GtkApplication *app, gpointer user_data) {
  *             environment variables to work around DRI3/EGL issues.
  */
 int main(int argc, char **argv) {
-    /* Set environment variables to help with DRI3/EGL issues */
+    /* Set environment variables to help with DRI3/EGL issues and sandboxing */
     setenv("WEBKIT_DISABLE_COMPOSITING_MODE", "1", 1);
     setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1); /* Force software rendering */
+    setenv("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1", 1); /* Disable bubblewrap sandbox */
+    setenv("WEBKIT_FORCE_SANDBOX", "0", 1);
+    setenv("WEBKIT_EXEC_PATH", "/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1", 1); /* Force path to helpers */
     
     GtkApplication *app = gtk_application_new("org.lide.voidfox", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);

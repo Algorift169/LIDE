@@ -338,7 +338,16 @@ static void new_terminal_tab(const char *initial_directory, Terminal *term)
     const char *shell = vte_get_user_shell();
     if (!shell || *shell == '\0') shell = "/bin/bash";
 
-    char *argv[] = { (char*)shell, NULL };
+    /* Create a custom bashrc to force the prompt to match Ubuntu's color style */
+    FILE *rc = fopen("/tmp/.blackline_bashrc", "w");
+    if (rc) {
+        fprintf(rc, "if [ -f /etc/bash.bashrc ]; then . /etc/bash.bashrc; fi\n");
+        fprintf(rc, "if [ -f ~/.bashrc ]; then . ~/.bashrc; fi\n");
+        fprintf(rc, "export PS1='\\[\\e[1;32m\\]blackline\\[\\e[0m\\] \\[\\e[1;37m\\]@\\[\\e[0m\\] \\[\\e[1;34m\\]\\W\\[\\e[0m\\] \\[\\e[1;37m\\]#\\[\\e[0m\\] '\n");
+        fclose(rc);
+    }
+
+    char *argv[] = { (char*)shell, "--rcfile", "/tmp/.blackline_bashrc", NULL };
 
     vte_terminal_spawn_async(VTE_TERMINAL(vte),
         VTE_PTY_DEFAULT,
