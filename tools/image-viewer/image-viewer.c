@@ -1189,19 +1189,19 @@ static void activate(GtkApplication *app, gpointer user_data) {
     /* Apply dark theme CSS */
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
-        "window { background-color: #0b0f14; color: #ffffff; }"
-        "button { background-color: #1e2429; color: #00ff88; border: 1px solid #00ff88; }"
-        "button:hover { background-color: #2a323a; }"
+        "window { background: #0b0f14; color: #ffffff; }"
+        "button { background-image: none; background: #1e2429; color: #00ff88; border: 1px solid #00ff88; }"
+        "button:hover { background: #2a323a; }"
         "label { color: #ffffff; }"
-        "menubar { background-color: #0b0f14; color: #ffffff; }"
-        "menuitem { background-color: #0b0f14; color: #ffffff; }"
-        "menuitem:hover { background-color: #2a323a; }"
-        "statusbar { background-color: #0b0f14; color: #00ff88; }"
-        "dialog { background-color: #0b0f14; color: #ffffff; }"
-        "list { background-color: #1a1a1a; color: #ffffff; }"
-        "listboxrow { background-color: #1a1a1a; color: #ffffff; }"
-        "listboxrow:hover { background-color: #333333; }"
-        "entry { background-color: #000000; color: #ffffff; border: 1px solid #00ff88; }",
+        "menubar { background: #0b0f14; color: #ffffff; }"
+        "menuitem { background: #0b0f14; color: #ffffff; }"
+        "menuitem:hover { background: #2a323a; }"
+        "statusbar { background: #0b0f14; color: #00ff88; }"
+        "dialog { background: #0b0f14; color: #ffffff; }"
+        "list { background: #1a1a1a; color: #ffffff; }"
+        "listboxrow { background: #1a1a1a; color: #ffffff; }"
+        "listboxrow:hover { background: #333333; }"
+        "entry { background: #000000; color: #ffffff; border: 1px solid #00ff88; }",
         -1, NULL);
         
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),

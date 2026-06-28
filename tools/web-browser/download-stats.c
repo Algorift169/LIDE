@@ -341,12 +341,12 @@ void show_download_stats_window(BrowserWindow *browser)
     /* CSS styling - dark theme with green accent */
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
-        "window { background-color: #0b0f14; color: #ffffff; }\n"
-        "button { background-color: #1e2429; color: #00ff88; border: none; }\n"
-        "button:hover { background-color: #2a323a; }\n"
-        "#title-bar { background-color: #0b0f14; border-bottom: 2px solid #00ff88; }\n"
-        "listboxrow { background-color: #1a1a1a; color: #ffffff; }\n"
-        "progressbar { background-color: #00ff88; }\n",
+        "window { background: #0b0f14; color: #ffffff; }\n"
+        "button { background-image: none; background: #1e2429; color: #00ff88; border: none; }\n"
+        "button:hover { background: #2a323a; }\n"
+        "#title-bar { background: #0b0f14; border-bottom: 2px solid #00ff88; }\n"
+        "listboxrow { background: #1a1a1a; color: #ffffff; }\n"
+        "progressbar { background: #00ff88; }\n",
         -1, NULL);
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
         GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);

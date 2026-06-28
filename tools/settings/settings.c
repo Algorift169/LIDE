@@ -363,27 +363,27 @@ static void activate(GtkApplication *app, gpointer user_data)
     // CSS
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
-        "window { background-color: #0b0f14; color: #ffffff; }"
-        "#custom-titlebar { background-color: #1a1e24; color: #ffffff; padding: 2px; }"
-        "#custom-titlebar button { background-color: #2a323a; color: #00ff88; border: none; min-height: 20px; min-width: 25px; }"
-        "#custom-titlebar button:hover { background-color: #3a424a; }"
-        "#custom-titlebar button:active { background-color: #00ff88; color: #0b0f14; }"
-        "button { background-color: #1e2429; color: #00ff88; border: 1px solid #00ff88; }"
-        "button:hover { background-color: #2a323a; }"
+        "window { background: #0b0f14; color: #ffffff; }"
+        "#custom-titlebar { background: #1a1e24; color: #ffffff; padding: 2px; }"
+        "#custom-titlebar button { background: #2a323a; color: #00ff88; border: none; min-height: 20px; min-width: 25px; }"
+        "#custom-titlebar button:hover { background: #3a424a; }"
+        "#custom-titlebar button:active { background: #00ff88; color: #0b0f14; }"
+        "button { background-image: none; background: #1e2429; color: #00ff88; border: 1px solid #00ff88; }"
+        "button:hover { background: #2a323a; }"
         "label { color: #ffffff; }"
-        "entry { background-color: #1e2429; color: #ffffff; border: 1px solid #00ff88; }"
+        "entry { background: #1e2429; color: #ffffff; border: 1px solid #00ff88; }"
         "entry:focus { border-color: #44ffaa; }"
-        "notebook { background-color: #0b0f14; }"
-        "notebook tab { background-color: #1a1e24; color: #ffffff; }"
-        "notebook tab:checked { background-color: #00ff88; color: #0b0f14; }"
-        "statusbar { background-color: #0b0f14; color: #00ff88; }"
+        "notebook, notebook > header, notebook > stack { background-image: none;  background: #0b0f14; }"
+        "notebook tab { background: #1a1e24; color: #ffffff; }"
+        "notebook tab:checked { background: #00ff88; color: #0b0f14; }"
+        "statusbar { background: #0b0f14; color: #00ff88; }"
         "frame { border-color: #2a323a; }"
-        "scrolledwindow { border: none; background-color: #0b0f14; }"
-        "scrollbar { background-color: #1e2429; }"
-        "scrollbar slider { background-color: #62316b; border-radius: 4px; min-width: 8px; min-height: 8px; }"
-        "scrollbar slider:hover { background-color: #7a3b8b; }"
-        "scrollbar slider:active { background-color: #9a4bab; }"
-        "scrollbar trough { background-color: #2a323a; border-radius: 4px; }",
+        "scrolledwindow { border: none; background: #0b0f14; }"
+        "scrollbar { background: #1e2429; }"
+        "scrollbar slider { background: #62316b; border-radius: 4px; min-width: 8px; min-height: 8px; }"
+        "scrollbar slider:hover { background: #7a3b8b; }"
+        "scrollbar slider:active { background: #9a4bab; }"
+        "scrollbar trough { background: #2a323a; border-radius: 4px; }",
         -1, NULL);
         
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),

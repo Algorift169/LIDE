@@ -759,21 +759,21 @@ static void activate(GtkApplication *app, gpointer user_data)
     // CSS for styling
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
-        "window { background-color: #0b0f14; color: #ffffff; border: 1px solid #62316b; }"
-        "button { background-color: #1e2429; color: #62316b; border: none; }"
-        "button:hover { background-color: #2a323a; }"
-        "button:active { background-color: #2a323a; }"
-        "#tool-item { background-color: transparent; border: none; }"
-        "#tool-item:hover { background-color: rgba(30, 36, 41, 0.6); border-radius: 8px; }"
+        "window { background: #0b0f14; color: #ffffff; border: 1px solid #62316b; }"
+        "button { background-image: none; background: #1e2429; color: #62316b; border: none; }"
+        "button:hover { background: #2a323a; }"
+        "button:active { background: #2a323a; }"
+        "#tool-item { background: transparent; border: none; }"
+        "#tool-item:hover { background: rgba(30, 36, 41, 0.6); border-radius: 8px; }"
         "label { color: #ffffff; }"
-        "scrolledwindow { border: none; background-color: #0b0f14; }"
-        "scrollbar { background-color: #1e2429; }"
-        "scrollbar slider { background-color: #62316b; border-radius: 4px; min-width: 8px; min-height: 8px; }"
-        "scrollbar slider:hover { background-color: #7a3b8b; }"
-        "scrollbar slider:active { background-color: #9a4bab; }"
-        "scrollbar trough { background-color: #2a323a; border-radius: 4px; }"
-        "flowbox { background-color: #0b0f14; }"
-        "flowboxchild { background-color: transparent; }",
+        "scrolledwindow { border: none; background: #0b0f14; }"
+        "scrollbar { background: #1e2429; }"
+        "scrollbar slider { background: #62316b; border-radius: 4px; min-width: 8px; min-height: 8px; }"
+        "scrollbar slider:hover { background: #7a3b8b; }"
+        "scrollbar slider:active { background: #9a4bab; }"
+        "scrollbar trough { background: #2a323a; border-radius: 4px; }"
+        "flowbox { background: #0b0f14; }"
+        "flowboxchild { background: transparent; }",
         -1, NULL);
         
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),

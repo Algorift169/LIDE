@@ -153,7 +153,7 @@ static void update_volume_meter(int volume) {
     
     if (test_running) {
         char *css = g_strdup_printf(
-            "#volume-meter { background-color: #00ff88; background-image: linear-gradient(to right, #00ff88 %d%%, #2a323a %d%%); border-radius: 4px; }",
+            "#volume-meter { background: #00ff88; background-image: linear-gradient(to right, #00ff88 %d%%, #2a323a %d%%); border-radius: 4px; }",
             volume, volume
         );
         
@@ -166,7 +166,7 @@ static void update_volume_meter(int volume) {
     } else {
         GtkCssProvider *provider = gtk_css_provider_new();
         gtk_css_provider_load_from_data(provider,
-            "#volume-meter { background-color: #2a323a; border-radius: 4px; }",
+            "#volume-meter { background: #2a323a; border-radius: 4px; }",
             -1, NULL);
         gtk_style_context_add_provider(context, GTK_STYLE_PROVIDER(provider),
                                        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);

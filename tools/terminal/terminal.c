@@ -249,20 +249,20 @@ static void on_close_clicked(GtkButton *button, gpointer window)
 static void apply_css(void) {
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
-        "window { background-color: #0b0f14; color: #ffffff; "
+        "window { background: #0b0f14; color: #ffffff; "
         "         border: 2px solid #00ff88; }"  /* Visible border around window */
-        "notebook { background-color: #0b0f14; }\n"
-        "notebook tab { background-color: #1e2429; color: #ffffff; padding: 2px 5px; }\n"
-        "notebook tab:checked { background-color: #00ff88; color: #0b0f14; }\n"
+        "notebook, notebook > header, notebook > stack { background-image: none;  background: #0b0f14; }\n"
+        "notebook tab { background: #1e2429; color: #ffffff; padding: 2px 5px; }\n"
+        "notebook tab:checked { background: #00ff88; color: #0b0f14; }\n"
         "notebook tab button { padding: 0; min-width: 20px; min-height: 20px; }\n"
-        "#title-bar { background-color: #0b0f14; border-bottom: 2px solid #00ff88; }\n"
-        "button { background-color: #1e2429; color: #00ff88; border: none; }\n"
-        "button:hover { background-color: #2a323a; }\n"
-        "scrollbar { background-color: #1e2429; }\n"
-        "scrollbar slider { background-color: #00ff88; border-radius: 4px; min-width: 8px; min-height: 8px; }\n"
-        "scrollbar slider:hover { background-color: #33ffaa; }\n"
-        "scrollbar slider:active { background-color: #00cc66; }\n"
-        "scrollbar trough { background-color: #2a323a; border-radius: 4px; }",
+        "#title-bar { background: #0b0f14; border-bottom: 2px solid #00ff88; }\n"
+        "button { background-image: none; background: #1e2429; color: #00ff88; border: none; }\n"
+        "button:hover { background: #2a323a; }\n"
+        "scrollbar { background: #1e2429; }\n"
+        "scrollbar slider { background: #00ff88; border-radius: 4px; min-width: 8px; min-height: 8px; }\n"
+        "scrollbar slider:hover { background: #33ffaa; }\n"
+        "scrollbar slider:active { background: #00cc66; }\n"
+        "scrollbar trough { background: #2a323a; border-radius: 4px; }",
         -1, NULL);
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
         GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
@@ -477,7 +477,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_box_pack_start(GTK_BOX(vbox), notebook, TRUE, TRUE, 0);
 
     /* Create first tab */
-    new_terminal_tab(NULL, term);
+    new_terminal_tab("/home/live/Desktop", term);
 
     gtk_window_set_resizable(GTK_WINDOW(main_window), TRUE);
     gtk_widget_show_all(main_window);

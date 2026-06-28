@@ -842,23 +842,23 @@ void settings_updated(BrowserWindow *browser) {
     GtkCssProvider *provider = gtk_css_provider_new();
     if (settings.dark_mode) {
         gtk_css_provider_load_from_data(provider,
-            "window { background-color: #0b0f14; color: #ffffff; }\n"
-            "entry { background-color: #1e2429; color: #ffffff; border: 1px solid #00ff88; }\n"
-            "button { background-color: #1e2429; color: #00ff88; border: none; }\n"
-            "button:hover { background-color: #2a323a; }\n"
-            "notebook { background-color: #0b0f14; }\n"
-            "#title-bar { background-color: #0b0f14; border-bottom: 2px solid #00ff88; }\n"
-            "#bookmarks-bar { background-color: #1e2429; padding: 2px; }\n",
+            "window { background: #0b0f14; color: #ffffff; }\n"
+            "entry { background: #1e2429; color: #ffffff; border: 1px solid #00ff88; }\n"
+            "button { background-image: none; background: #1e2429; color: #00ff88; border: none; }\n"
+            "button:hover { background: #2a323a; }\n"
+            "notebook, notebook > header, notebook > stack { background-image: none;  background: #0b0f14; }\n"
+            "#title-bar { background: #0b0f14; border-bottom: 2px solid #00ff88; }\n"
+            "#bookmarks-bar { background: #1e2429; padding: 2px; }\n",
             -1, NULL);
     } else {
         gtk_css_provider_load_from_data(provider,
-            "window { background-color: #f0f0f0; color: #000000; }\n"
-            "entry { background-color: #ffffff; color: #000000; border: 1px solid #888888; }\n"
-            "button { background-color: #e0e0e0; color: #000000; border: none; }\n"
-            "button:hover { background-color: #d0d0d0; }\n"
-            "notebook { background-color: #f0f0f0; }\n"
-            "#title-bar { background-color: #e0e0e0; border-bottom: 2px solid #888888; }\n"
-            "#bookmarks-bar { background-color: #d0d0d0; padding: 2px; }\n",
+            "window { background: #f0f0f0; color: #000000; }\n"
+            "entry { background: #ffffff; color: #000000; border: 1px solid #888888; }\n"
+            "button { background-image: none; background: #e0e0e0; color: #000000; border: none; }\n"
+            "button:hover { background: #d0d0d0; }\n"
+            "notebook, notebook > header, notebook > stack { background-image: none;  background: #f0f0f0; }\n"
+            "#title-bar { background: #e0e0e0; border-bottom: 2px solid #888888; }\n"
+            "#bookmarks-bar { background: #d0d0d0; padding: 2px; }\n",
             -1, NULL);
     }
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
@@ -1092,23 +1092,23 @@ void voidfox_activate(GtkApplication *app, gpointer user_data) {
     GtkCssProvider *provider = gtk_css_provider_new();
     if (settings.dark_mode) {
         gtk_css_provider_load_from_data(provider,
-            "window { background-color: #0b0f14; color: #ffffff; }\n"
-            "entry { background-color: #1e2429; color: #ffffff; border: 1px solid #00ff88; }\n"
-            "button { background-color: #1e2429; color: #00ff88; border: none; }\n"
-            "button:hover { background-color: #2a323a; }\n"
-            "notebook { background-color: #0b0f14; }\n"
-            "#title-bar { background-color: #0b0f14; border-bottom: 2px solid #00ff88; }\n"
-            "#bookmarks-bar { background-color: #1e2429; padding: 2px; }\n",
+            "window { background: #0b0f14; color: #ffffff; }\n"
+            "entry { background: #1e2429; color: #ffffff; border: 1px solid #00ff88; }\n"
+            "button { background-image: none; background: #1e2429; color: #00ff88; border: none; }\n"
+            "button:hover { background: #2a323a; }\n"
+            "notebook, notebook > header, notebook > stack { background-image: none;  background: #0b0f14; }\n"
+            "#title-bar { background: #0b0f14; border-bottom: 2px solid #00ff88; }\n"
+            "#bookmarks-bar { background: #1e2429; padding: 2px; }\n",
             -1, NULL);
     } else {
         gtk_css_provider_load_from_data(provider,
-            "window { background-color: #f0f0f0; color: #000000; }\n"
-            "entry { background-color: #ffffff; color: #000000; border: 1px solid #888888; }\n"
-            "button { background-color: #e0e0e0; color: #000000; border: none; }\n"
-            "button:hover { background-color: #d0d0d0; }\n"
-            "notebook { background-color: #f0f0f0; }\n"
-            "#title-bar { background-color: #e0e0e0; border-bottom: 2px solid #888888; }\n"
-            "#bookmarks-bar { background-color: #d0d0d0; padding: 2px; }\n",
+            "window { background: #f0f0f0; color: #000000; }\n"
+            "entry { background: #ffffff; color: #000000; border: 1px solid #888888; }\n"
+            "button { background-image: none; background: #e0e0e0; color: #000000; border: none; }\n"
+            "button:hover { background: #d0d0d0; }\n"
+            "notebook, notebook > header, notebook > stack { background-image: none;  background: #f0f0f0; }\n"
+            "#title-bar { background: #e0e0e0; border-bottom: 2px solid #888888; }\n"
+            "#bookmarks-bar { background: #d0d0d0; padding: 2px; }\n",
             -1, NULL);
     }
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),

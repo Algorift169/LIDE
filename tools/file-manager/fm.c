@@ -1131,16 +1131,16 @@ static void activate(GtkApplication *app, gpointer user_data)
     /* CSS */
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
-        "window { background-color: #1e1e1e; color: #e0e0e0; }\n"
-        "treeview { background-color: #252525; color: #e0e0e0; }\n"
-        "treeview:selected { background-color: #0d6efd; color: #ffffff; }\n"
-        "treeview:selected:focus { background-color: #0b5ed7; }\n"
-        "entry { background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #404040; }\n"
+        "window { background: #1e1e1e; color: #e0e0e0; }\n"
+        "treeview { background: #252525; color: #e0e0e0; }\n"
+        "treeview:selected { background: #0d6efd; color: #ffffff; }\n"
+        "treeview:selected:focus { background: #0b5ed7; }\n"
+        "entry { background: #2d2d2d; color: #e0e0e0; border: 1px solid #404040; }\n"
         "entry:focus { border-color: #0d6efd; }\n"
-        "button { background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #404040; }\n"
-        "button:hover { background-color: #3d3d3d; border-color: #0d6efd; }\n"
-        "button:active { background-color: #1e1e1e; }\n"
-        "statusbar { background-color: #1a1a1a; color: #e0e0e0; border-top: 1px solid #404040; }\n"
+        "button { background-image: none; background: #2d2d2d; color: #e0e0e0; border: 1px solid #404040; }\n"
+        "button:hover { background: #3d3d3d; border-color: #0d6efd; }\n"
+        "button:active { background: #1e1e1e; }\n"
+        "statusbar { background: #1a1a1a; color: #e0e0e0; border-top: 1px solid #404040; }\n"
         "scrolledwindow { border: 1px solid #404040; }\n",
         -1, NULL);
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),

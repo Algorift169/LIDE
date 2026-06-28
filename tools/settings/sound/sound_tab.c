@@ -63,7 +63,7 @@ static char* exec_command(const char *cmd) {
  * Gets current output volume percentage from amixer.
  */
 static int get_current_volume(void) {
-    char *output = exec_command("amixer get Master 2>/dev/null | grep -oP '\\d+%' | head -1 | tr -d '%'");
+    char *output = exec_command("amixer get Master 2>/dev/null | grep -o '[0-9]*%' | head -1 | tr -d '%'");
     if (!output || strlen(output) == 0) {
         free(output);
         return 50;
@@ -124,7 +124,7 @@ static void on_volume_changed(GtkRange *range, gpointer data) {
  * Gets current input volume percentage from amixer.
  */
 static int get_current_input_volume(void) {
-    char *output = exec_command("amixer get Capture 2>/dev/null | grep -oP '\\d+%' | head -1 | tr -d '%'");
+    char *output = exec_command("amixer get Capture 2>/dev/null | grep -o '[0-9]*%' | head -1 | tr -d '%'");
     if (!output || strlen(output) == 0) {
         free(output);
         return 50;

@@ -40,6 +40,8 @@ BINARIES=(
     # Core utilities
     "/bin/bash"
     "/usr/bin/busybox"
+    "/usr/bin/sudo"
+    "/bin/su"
     "/usr/bin/Xorg"
     "/usr/lib/xorg/Xorg"
     "/usr/lib/xorg/Xorg.wrap"
@@ -145,6 +147,46 @@ find "$RFS_DIR/usr/lib/x86_64-linux-gnu/dri/" "$RFS_DIR/usr/lib/x86_64-linux-gnu
     copy_deps "$mod" "$RFS_DIR"
 done
 
+# Set GTK3 Default Theme to Adwaita-dark
+echo "Configuring GTK3 default theme (Adwaita-dark)..."
+mkdir -p "$RFS_DIR/etc/gtk-3.0"
+cat <<GTK_SETTINGS > "$RFS_DIR/etc/gtk-3.0/settings.ini"
+[Settings]
+gtk-theme-name=Adwaita
+gtk-icon-theme-name=Adwaita
+gtk-cursor-theme-name=Adwaita
+gtk-font-name=Sans 10
+gtk-application-prefer-dark-theme=1
+GTK_SETTINGS
+
+# Also put it in user home to ensure it is read
+mkdir -p "$RFS_DIR/home/live/.config/gtk-3.0"
+cp "$RFS_DIR/etc/gtk-3.0/settings.ini" "$RFS_DIR/home/live/.config/gtk-3.0/settings.ini"
+
+
+# WebKit2GTK helper processes (essential for spawning web views)
+echo "Copying WebKit2GTK helper processes..."
+if [ -d /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1 ]; then
+    mkdir -p "$RFS_DIR/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1"
+    cp -a /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/* "$RFS_DIR/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/"
+    find "$RFS_DIR/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/" -type f -executable -o -name "*.so" 2>/dev/null | while read -r helper; do
+        copy_deps "$helper" "$RFS_DIR" 2>/dev/null || true
+    done
+fi
+
+# Firefox ESR Installation
+echo "Copying Firefox ESR..."
+if [ -d /usr/lib/firefox-esr ]; then
+    mkdir -p "$RFS_DIR/usr/lib/firefox-esr"
+    cp -a /usr/lib/firefox-esr/* "$RFS_DIR/usr/lib/firefox-esr/"
+    mkdir -p "$RFS_DIR/usr/bin"
+    ln -sf /usr/lib/firefox-esr/firefox-esr "$RFS_DIR/usr/bin/firefox-esr"
+    ln -sf /usr/lib/firefox-esr/firefox-esr "$RFS_DIR/usr/bin/firefox"
+    find "$RFS_DIR/usr/lib/firefox-esr/" -name "*.so" 2>/dev/null | while read -r mod; do
+        copy_deps "$mod" "$RFS_DIR" 2>/dev/null || true
+    done
+fi
+
 # Imlib2 loader plugins (loaded via dlopen at runtime, NOT found by ldd)
 # These are essential for the WM to load PNG/JPEG wallpapers via imlib_load_image()
 echo "Copying Imlib2 loader and filter plugins..."
@@ -220,6 +262,60 @@ if [ -d /usr/share/icons/Adwaita ]; then
     echo "Copying Adwaita cursor theme..."
     mkdir -p "$RFS_DIR/usr/share/icons/Adwaita"
     cp -a /usr/share/icons/Adwaita/* "$RFS_DIR/usr/share/icons/Adwaita/"
+fi
+
+# Copy hicolor icon theme
+if [ -d /usr/share/icons/hicolor ]; then
+    echo "Copying hicolor icon theme..."
+    mkdir -p "$RFS_DIR/usr/share/icons/hicolor"
+    cp -a /usr/share/icons/hicolor/* "$RFS_DIR/usr/share/icons/hicolor/"
+fi
+
+# Copy mime database
+if [ -d /usr/share/mime ]; then
+    echo "Copying mime database..."
+    mkdir -p "$RFS_DIR/usr/share/mime"
+    cp -a /usr/share/mime/* "$RFS_DIR/usr/share/mime/"
+fi
+
+# Copy Fontconfig configuration
+if [ -d /etc/fonts ]; then
+    echo "Copying Fontconfig configuration..."
+    mkdir -p "$RFS_DIR/etc/fonts"
+    cp -a /etc/fonts/* "$RFS_DIR/etc/fonts/"
+fi
+if [ -d /usr/share/fontconfig ]; then
+    echo "Copying Fontconfig shared configuration..."
+    mkdir -p "$RFS_DIR/usr/share/fontconfig"
+    cp -a /usr/share/fontconfig/* "$RFS_DIR/usr/share/fontconfig/"
+fi
+
+# Copy glycin configuration and loaders
+echo "Copying glycin configuration and loaders..."
+if [ -d /usr/share/glycin-loaders ]; then
+    mkdir -p "$RFS_DIR/usr/share/glycin-loaders"
+    cp -a /usr/share/glycin-loaders/* "$RFS_DIR/usr/share/glycin-loaders/"
+fi
+if [ -d /usr/libexec/glycin-loaders ]; then
+    mkdir -p "$RFS_DIR/usr/libexec/glycin-loaders"
+    cp -a /usr/libexec/glycin-loaders/* "$RFS_DIR/usr/libexec/glycin-loaders/"
+    # Gather dependencies for glycin helpers too
+    find "$RFS_DIR/usr/libexec/glycin-loaders/" -type f -executable | while read -r helper; do
+        copy_deps "$helper" "$RFS_DIR"
+    done
+fi
+
+# Copy bubblewrap (bwrap) for sandboxing
+if command -v bwrap >/dev/null 2>&1; then
+    cp "$(which bwrap)" "$RFS_DIR/usr/bin/bwrap"
+    copy_deps "$(which bwrap)" "$RFS_DIR"
+fi
+
+# Copy gdk-pixbuf-query-loaders
+if [ -f /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders ]; then
+    mkdir -p "$RFS_DIR/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0"
+    cp /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders "$RFS_DIR/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/"
+    copy_deps "/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders" "$RFS_DIR"
 fi
 # Set default cursor theme
 mkdir -p "$RFS_DIR/usr/share/icons/default"
@@ -345,6 +441,7 @@ cat <<'EOF' > "$RFS_DIR/sbin/init"
 #!/bin/bash
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 export HOME=/home/live
+export GTK_THEME=Adwaita:dark
 export XCURSOR_THEME=Adwaita
 export XCURSOR_SIZE=24
 export XCURSOR_PATH=/usr/share/icons:/usr/share/pixmaps
@@ -352,6 +449,9 @@ export XCURSOR_PATH=/usr/share/icons:/usr/share/pixmaps
 # Mount system filesystems
 mount -t proc proc /proc 2>/dev/null || true
 mount -t sysfs sysfs /sys 2>/dev/null || true
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts 2>/dev/null || true
 mount -t tmpfs tmpfs /tmp 2>/dev/null || true
 mount -t tmpfs tmpfs /run 2>/dev/null || true
 mkdir -p /run/dbus
@@ -407,6 +507,12 @@ dbus-daemon --system --fork
 mkdir -p /home/live/Desktop/LIDE
 ln -sf /usr/share/lide/images /home/live/Desktop/LIDE/images
 chown -R 1000:1000 /home/live
+
+# Regenerate gdk-pixbuf loaders cache
+if [ -f /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders ]; then
+    mkdir -p /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0
+    /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders > /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders.cache 2>/dev/null || true
+fi
 
 # Build X11 font indexes so Xorg can find the cursor font
 if command -v mkfontdir >/dev/null 2>&1; then

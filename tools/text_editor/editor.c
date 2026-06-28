@@ -1008,21 +1008,21 @@ static void activate(GtkApplication *app, gpointer user_data)
     /* CSS styling */
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
-        "window { background-color: #000000; color: #ffffff; }\n"
-        "textview { background-color: #1a1a1a; color: #ffffff; }\n"
-        "textview text { background-color: #1a1a1a; color: #ffffff; }\n"
-        "button { background-color: #1a1a1a; color: #293c33; border: 1px solid #1e2723; }\n"
-        "button:hover { background-color: #333333; }\n"
-        "#title-bar { background-color: #000000; border-bottom: 2px solid #1e2723; }\n"
-        "dialog { background-color: #1a1a1a; color: #ffffff; }\n"
-        "list { background-color: #1a1a1a; color: #ffffff; }\n"
-        "listboxrow { background-color: #1a1a1a; color: #ffffff; }\n"
-        "listboxrow:hover { background-color: #333333; }\n"
-        "entry { background-color: #000000; color: #ffffff; border: 1px solid #1e2723; }\n"
+        "window { background: #000000; color: #ffffff; }\n"
+        "textview { background: #1a1a1a; color: #ffffff; }\n"
+        "textview text { background: #1a1a1a; color: #ffffff; }\n"
+        "button { background-image: none; background: #1a1a1a; color: #293c33; border: 1px solid #1e2723; }\n"
+        "button:hover { background: #333333; }\n"
+        "#title-bar { background: #000000; border-bottom: 2px solid #1e2723; }\n"
+        "dialog { background: #1a1a1a; color: #ffffff; }\n"
+        "list { background: #1a1a1a; color: #ffffff; }\n"
+        "listboxrow { background: #1a1a1a; color: #ffffff; }\n"
+        "listboxrow:hover { background: #333333; }\n"
+        "entry { background: #000000; color: #ffffff; border: 1px solid #1e2723; }\n"
         "label { color: #ffffff; }\n"
-        "menu { background-color: #1a1a1a; color: #ffffff; }\n"
-        "menuitem { background-color: #1a1a1a; color: #ffffff; }\n"
-        "menuitem:hover { background-color: #333333; }\n",
+        "menu { background: #1a1a1a; color: #ffffff; }\n"
+        "menuitem { background: #1a1a1a; color: #ffffff; }\n"
+        "menuitem:hover { background: #333333; }\n",
         -1, NULL);
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
         GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);

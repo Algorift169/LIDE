@@ -364,11 +364,11 @@ void firefox_activate(GtkApplication *app, gpointer user_data)
     /* Firefox theme with orange accent */
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(provider,
-        "window { background-color: #0b0f14; color: #ffffff; }\n"
-        "entry { background-color: #1e2429; color: #ffffff; border: 1px solid #ff6600; border-radius: 3px; }\n"
-        "button { background-color: #1e2429; color: #ff6600; border: 1px solid #ff6600; }\n"
-        "button:hover { background-color: #2a323a; }\n"
-        "#title-bar { background-color: #0b0f14; border-bottom: 2px solid #ff6600; }\n",
+        "window { background: #0b0f14; color: #ffffff; }\n"
+        "entry { background: #1e2429; color: #ffffff; border: 1px solid #ff6600; border-radius: 3px; }\n"
+        "button { background-image: none; background: #1e2429; color: #ff6600; border: 1px solid #ff6600; }\n"
+        "button:hover { background: #2a323a; }\n"
+        "#title-bar { background: #0b0f14; border-bottom: 2px solid #ff6600; }\n",
         -1, NULL);
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
         GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);

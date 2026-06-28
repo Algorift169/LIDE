@@ -211,11 +211,11 @@ void battery_widget_update(GtkWidget *widget)
     GtkCssProvider *provider = gtk_css_provider_new();
     char css[128];
     if (info.percentage < 15)
-        snprintf(css, sizeof(css), "progressbar trough progress { background-color: #ff4444; }");
+        snprintf(css, sizeof(css), "progressbar trough progress { background: #ff4444; }");
     else if (info.percentage < 30)
-        snprintf(css, sizeof(css), "progressbar trough progress { background-color: #ffaa44; }");
+        snprintf(css, sizeof(css), "progressbar trough progress { background: #ffaa44; }");
     else
-        snprintf(css, sizeof(css), "progressbar trough progress { background-color: #44ff44; }");
+        snprintf(css, sizeof(css), "progressbar trough progress { background: #44ff44; }");
     gtk_css_provider_load_from_data(provider, css, -1, NULL);
     GtkStyleContext *context = gtk_widget_get_style_context(progress);
     gtk_style_context_add_provider(context, GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);

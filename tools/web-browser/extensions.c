@@ -225,13 +225,13 @@ void apply_theme(BrowserWindow *browser, const BrowserTheme *theme) {
     GtkCssProvider *provider = gtk_css_provider_new();
 
     gchar *css = g_strdup_printf(
-        "window { background-color: %s; color: %s; }\n"
-        "entry { background-color: %s; color: %s; border: 1px solid %s; }\n"
-        "button { background-color: %s; color: %s; border: none; }\n"
-        "button:hover { background-color: %s; }\n"
-        "notebook { background-color: %s; }\n"
-        "#title-bar { background-color: %s; border-bottom: 2px solid %s; }\n"
-        "#bookmarks-bar { background-color: %s; padding: 2px; }\n",
+        "window { background: %s; color: %s; }\n"
+        "entry { background: %s; color: %s; border: 1px solid %s; }\n"
+        "button { background-image: none; background: %s; color: %s; border: none; }\n"
+        "button:hover { background: %s; }\n"
+        "notebook, notebook > header, notebook > stack { background-image: none;  background: %s; }\n"
+        "#title-bar { background: %s; border-bottom: 2px solid %s; }\n"
+        "#bookmarks-bar { background: %s; padding: 2px; }\n",
         theme->bg_color,
         theme->text_color,
         theme->entry_bg,
@@ -308,7 +308,7 @@ void show_themes_tab(BrowserWindow *browser) {
         gtk_widget_set_size_request(color_preview, 40, 40);
         GtkCssProvider *preview_provider = gtk_css_provider_new();
         gchar *preview_css = g_strdup_printf(
-            "box { background-color: %s; border: 2px solid %s; }",
+            "box { background: %s; border: 2px solid %s; }",
             themes[i].bg_color,
             themes[i].entry_border
         );
